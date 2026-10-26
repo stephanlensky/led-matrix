@@ -6,7 +6,7 @@ namespace settings {
 
 namespace {
 
-constexpr uint8_t defaultBrightness = 128;
+constexpr uint8_t defaultBrightness = 64;
 Preferences preferences;
 
 }  // namespace
