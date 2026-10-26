@@ -1,5 +1,5 @@
-import { type Clip, type ClipLibrary, getClipFrames } from "@led-matrix/core";
-import { getClip, getClipFrames as getClipFrameData } from "./api.ts";
+import { type Clip, type ClipLibrary, createClip } from "@led-matrix/core";
+import { getClip, getClipFrames } from "./api.ts";
 
 const clips = new Map<string, Clip | "loading" | "failed">();
 const listeners = new Set<() => void>();
@@ -12,11 +12,8 @@ function notify() {
 
 async function load(id: string) {
   try {
-    const [info, frames] = await Promise.all([getClip(id), getClipFrameData(id)]);
-    clips.set(id, {
-      frames: getClipFrames(frames, info.durations.length),
-      durations: info.durations,
-    });
+    const [info, frames] = await Promise.all([getClip(id), getClipFrames(id)]);
+    clips.set(id, createClip(frames, info.durations));
   } catch {
     clips.set(id, "failed");
   }

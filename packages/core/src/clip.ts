@@ -1,7 +1,12 @@
+import { deflateSync, inflateSync } from "fflate";
 import { z } from "zod";
 import { HEIGHT, RGBA_CHANNELS, WIDTH, type RgbaImage, createRgbaImage } from "./frame.ts";
 
 export const CLIP_FRAME_BYTES = WIDTH * HEIGHT * RGBA_CHANNELS;
+
+const CLIP_GROUP_FRAMES = 8;
+const CLIP_HEADER_BYTES = 8;
+const UINT32_BYTES = 4;
 
 export const clipSources = ["image", "gif", "svg", "video", "sequence"] as const;
 
@@ -38,8 +43,8 @@ export type ResampleMode = (typeof resampleModes)[number];
 export type ClipInfo = z.infer<typeof clipInfoSchema>;
 
 export type Clip = {
-  frames: readonly RgbaImage[];
   durations: readonly number[];
+  getFrame(index: number): RgbaImage | undefined;
 };
 
 export type ClipLibrary = {
@@ -63,16 +68,65 @@ export function getClipDuration(clip: Pick<Clip, "durations">): number {
   return clip.durations.reduce((total, duration) => total + duration, 0);
 }
 
-export function getClipFrames(data: Uint8Array, frameCount: number): RgbaImage[] {
-  return Array.from(
-    { length: frameCount },
-    (_, index) =>
-      new Uint8ClampedArray(
-        data.buffer,
-        data.byteOffset + index * CLIP_FRAME_BYTES,
-        CLIP_FRAME_BYTES,
+export function encodeClipFrames(frames: Uint8Array): Uint8Array {
+  const frameCount = Math.floor(frames.length / CLIP_FRAME_BYTES);
+  const groupCount = Math.ceil(frameCount / CLIP_GROUP_FRAMES);
+  const groups = Array.from({ length: groupCount }, (_, group) =>
+    deflateSync(
+      frames.subarray(
+        group * CLIP_GROUP_FRAMES * CLIP_FRAME_BYTES,
+        Math.min(frameCount, (group + 1) * CLIP_GROUP_FRAMES) * CLIP_FRAME_BYTES,
       ),
+      { level: 9 },
+    ),
   );
+  const dataStart = CLIP_HEADER_BYTES + (groupCount + 1) * UINT32_BYTES;
+  const output = new Uint8Array(
+    dataStart + groups.reduce((total, group) => total + group.length, 0),
+  );
+  const view = new DataView(output.buffer);
+  view.setUint32(0, frameCount, true);
+  view.setUint32(UINT32_BYTES, CLIP_GROUP_FRAMES, true);
+  let offset = dataStart;
+  for (const [index, group] of groups.entries()) {
+    view.setUint32(CLIP_HEADER_BYTES + index * UINT32_BYTES, offset, true);
+    output.set(group, offset);
+    offset += group.length;
+  }
+  view.setUint32(CLIP_HEADER_BYTES + groupCount * UINT32_BYTES, offset, true);
+  return output;
+}
+
+export function getEncodedFrameCount(data: Uint8Array): number {
+  return new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(0, true);
+}
+
+export function createClip(data: Uint8Array, durations: readonly number[]): Clip {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const frameCount = view.getUint32(0, true);
+  const groupFrames = view.getUint32(UINT32_BYTES, true);
+  let cached: { group: number; frames: Uint8Array } | undefined;
+
+  function getGroup(group: number): Uint8Array {
+    if (cached?.group !== group) {
+      const start = view.getUint32(CLIP_HEADER_BYTES + group * UINT32_BYTES, true);
+      const end = view.getUint32(CLIP_HEADER_BYTES + (group + 1) * UINT32_BYTES, true);
+      cached = { group, frames: inflateSync(data.subarray(start, end)) };
+    }
+    return cached.frames;
+  }
+
+  return {
+    durations,
+    getFrame(index) {
+      if (index < 0 || index >= frameCount) {
+        return undefined;
+      }
+      const frames = getGroup(Math.floor(index / groupFrames));
+      const offset = (index % groupFrames) * CLIP_FRAME_BYTES;
+      return new Uint8ClampedArray(frames.buffer, frames.byteOffset + offset, CLIP_FRAME_BYTES);
+    },
+  };
 }
 
 export function getClipFrameIndex(clip: Pick<Clip, "durations">, position: number): number {

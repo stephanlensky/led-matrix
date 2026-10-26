@@ -1,9 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { inflateSync } from "node:zlib";
 import { join } from "node:path";
-import { CLIP_FRAME_BYTES, type ClipInfo, getRgbaPixel } from "@led-matrix/core";
+import {
+  CLIP_FRAME_BYTES,
+  type ClipInfo,
+  createClip,
+  getEncodedFrameCount,
+  getRgbaPixel,
+} from "@led-matrix/core";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
@@ -60,8 +65,13 @@ function createGif(colors: readonly (readonly [number, number, number])[], delay
 async function getFrames(id: string): Promise<Uint8ClampedArray> {
   const response = await app.inject({ method: "GET", url: `/api/clips/${id}/frames` });
   expect(response.headers["content-type"]).toBe("application/octet-stream");
-  expect(response.headers["content-encoding"]).toBe("deflate");
-  return new Uint8ClampedArray(inflateSync(response.rawPayload));
+  const data = new Uint8Array(response.rawPayload);
+  const clip = createClip(data, []);
+  const frames = new Uint8ClampedArray(getEncodedFrameCount(data) * CLIP_FRAME_BYTES);
+  for (let index = 0; index < getEncodedFrameCount(data); index++) {
+    frames.set(clip.getFrame(index) ?? [], index * CLIP_FRAME_BYTES);
+  }
+  return frames;
 }
 
 describe("clips", () => {

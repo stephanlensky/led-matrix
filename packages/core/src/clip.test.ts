@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { animationSchema } from "./animation.ts";
-import { type Clip, fitImage, getClipFrameIndex } from "./clip.ts";
+import {
+  CLIP_FRAME_BYTES,
+  type Clip,
+  createClip,
+  encodeClipFrames,
+  fitImage,
+  getClipFrameIndex,
+  getEncodedFrameCount,
+} from "./clip.ts";
 import { getParamFields } from "./params.ts";
 import { clip } from "./effects/clip.ts";
 import { type Color, fillRgbaImage, createRgbaImage, getPixel, getRgbaPixel } from "./frame.ts";
@@ -46,6 +54,22 @@ describe("fitImage", () => {
   });
 });
 
+describe("encodeClipFrames", () => {
+  it("round-trips frames across compression groups", () => {
+    const frameCount = 11;
+    const frames = new Uint8Array(frameCount * CLIP_FRAME_BYTES);
+    for (let index = 0; index < frameCount; index++) {
+      frames.fill(index * 20, index * CLIP_FRAME_BYTES, (index + 1) * CLIP_FRAME_BYTES);
+    }
+    const encoded = encodeClipFrames(frames);
+    const decoded = createClip(encoded, []);
+    expect(getEncodedFrameCount(encoded)).toBe(frameCount);
+    expect(decoded.getFrame(10)?.[0]).toBe(200);
+    expect(decoded.getFrame(3)?.[CLIP_FRAME_BYTES - 1]).toBe(60);
+    expect(decoded.getFrame(frameCount)).toBeUndefined();
+  });
+});
+
 describe("getClipFrameIndex", () => {
   it("weights frames by duration", () => {
     const durations = [100, 300];
@@ -63,13 +87,15 @@ const colors: readonly Color[] = [
   [255, 255, 0],
 ];
 
+const testFrames = colors.map((color) => {
+  const image = createRgbaImage();
+  fillRgbaImage(image, color);
+  return image;
+});
+
 const testClip: Clip = {
-  frames: colors.map((color) => {
-    const image = createRgbaImage();
-    fillRgbaImage(image, color);
-    return image;
-  }),
   durations: [100, 100, 100, 100],
+  getFrame: (index) => testFrames[index],
 };
 
 function renderClip(

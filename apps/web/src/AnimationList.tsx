@@ -14,7 +14,7 @@ function getCountLabel(count: number, unit: string): string {
 
 function getModeLabel({ mode }: StoredAnimation): string {
   if (mode.type === "duration") {
-    return `${mode.ms / 1000}s`;
+    return `${Math.round(mode.ms / 1000)}s`;
   }
   return "beats" in mode ? getCountLabel(mode.beats, "beat") : getCountLabel(mode.frames, "frame");
 }

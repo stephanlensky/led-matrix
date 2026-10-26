@@ -1,7 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { deflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
+import { encodeClipFrames } from "@led-matrix/core";
 import { z } from "zod";
 
 const IN_MEMORY_PATH = ":memory:";
@@ -15,6 +16,14 @@ function compressClipFrames(connection: DatabaseSync) {
   for (const row of connection.prepare("SELECT id, frames FROM clips").all()) {
     const { id, frames } = clipFramesRowSchema.parse(row);
     update.run(deflateSync(frames), id);
+  }
+}
+
+function encodeClipFrameGroups(connection: DatabaseSync) {
+  const update = connection.prepare("UPDATE clips SET frames = ? WHERE id = ?");
+  for (const row of connection.prepare("SELECT id, frames FROM clips").all()) {
+    const { id, frames } = clipFramesRowSchema.parse(row);
+    update.run(encodeClipFrames(inflateSync(frames)), id);
   }
 }
 
@@ -36,6 +45,7 @@ const migrations: readonly Migration[] = [
   ) STRICT;
   `,
   compressClipFrames,
+  encodeClipFrameGroups,
 ];
 
 export type Database = {

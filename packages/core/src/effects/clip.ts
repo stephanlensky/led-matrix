@@ -38,17 +38,16 @@ export const clip = defineEffect({
         ? (time * params.speed) / (getClipDuration(source) * passes)
         : progress * params.cycles,
     );
-    const frame =
-      source.frames[
-        getClipFrameIndex(
-          source,
-          params.direction === "reverse"
-            ? 1 - position
-            : params.direction === "pingpong"
-              ? 1 - Math.abs(1 - position * 2)
-              : position,
-        )
-      ];
+    const frame = source.getFrame(
+      getClipFrameIndex(
+        source,
+        params.direction === "reverse"
+          ? 1 - position
+          : params.direction === "pingpong"
+            ? 1 - Math.abs(1 - position * 2)
+            : position,
+      ),
+    );
     if (!frame) {
       return;
     }

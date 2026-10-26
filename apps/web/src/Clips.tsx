@@ -86,7 +86,7 @@ function getClipPathname(id: string | undefined): string {
 }
 
 function getDurationLabel(clip: ClipInfo): string {
-  return `${(getClipDuration(clip) / 1000).toFixed(1)}s`;
+  return `${Math.round(getClipDuration(clip) / 1000)}s`;
 }
 
 function getFrameCountLabel(clip: ClipInfo): string {
