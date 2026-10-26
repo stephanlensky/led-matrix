@@ -25,4 +25,23 @@ describe("getParticles", () => {
       atEnd.map((particle) => particle.x),
     );
   });
+
+  it("holds particles at their spawn point before they start moving", () => {
+    const spawnTimes: number[] = [];
+    const held = getParticles(
+      {
+        ...emitter,
+        hold: 500,
+        spawn: (random: () => number, spawnTime: number) => {
+          spawnTimes.push(spawnTime);
+          return emitter.spawn(random);
+        },
+      },
+      2000,
+    );
+    expect(held.map((particle) => particle.isHeld)).toEqual([false, false, true, true]);
+    expect(held[1]?.y).toBe(0);
+    expect(held[0]?.y).toBeCloseTo(0.5 * 10 * 0.25 ** 2);
+    expect(spawnTimes).toEqual([1250, 1500, 1750, 2000]);
+  });
 });

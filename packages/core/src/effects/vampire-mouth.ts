@@ -14,7 +14,10 @@ import {
 
 const POSE_COUNT = 3;
 const DRIP_SEED = 0x7a3;
-const DRIP_ATTACHED_LIFE = 0.35;
+const DRIP_HOLD = 1500;
+const DRIP_HANG_WIDTHS = 3;
+const DRIP_STRETCH = 0.25;
+const DRIP_TOP = 30;
 
 const upperLipPoses = [
   "M10 33 C16 28 18 24 24 24 C28 24 30 27 32 27 C34 27 36 24 40 24 C46 24 48 28 54 33 C46 33 38 33 32 33 C26 33 18 33 10 33 Z",
@@ -81,16 +84,15 @@ export const vampireMouth = defineEffect({
     snap: z.boolean().default(true),
   }),
   render(context, { params, beat, time, bpm }) {
-    const pose = Math.min(params.pose + params.chatter * (1 - (beat % 1)) ** 2, POSE_COUNT - 1);
+    const getPose = (atBeat: number) =>
+      Math.min(params.pose + params.chatter * (1 - (((atBeat % 1) + 1) % 1)) ** 2, POSE_COUNT - 1);
+    const pose = getPose(beat);
     const round = (value: number) => (params.snap ? Math.round(value) : value);
     const scaleX = (x: number) => round(WIDTH / 2 + (x - WIDTH / 2) * params.scale);
     const scaleY = (y: number) => round(HEIGHT / 2 + (y - HEIGHT / 2) * params.scale);
     const getShape = (poses: readonly PathCommand[][]) =>
       transformPath(getPosePath(poses, pose), (x, y) => [scaleX(x), scaleY(y)]);
     const upperLip = getShape(upperLipPoses);
-    const lipBottom = getPoseValue(lipBottoms, pose);
-    const fangPath = getPosePath(fangPoses, pose);
-    const fangTips = FANG_TIP_INDEXES.map((index) => fangPath[index]?.values ?? [0, 0]);
 
     context.lineJoin = "round";
     context.strokeStyle = params.outlineColor;
@@ -125,20 +127,26 @@ export const vampireMouth = defineEffect({
       context.stroke();
     }
 
+    const fallDistance = HEIGHT - DRIP_TOP;
     const particles = getParticles(
       {
         seed: DRIP_SEED,
         rate: params.drips,
-        lifetime: (HEIGHT / params.dripSpeed) * 1000,
+        hold: DRIP_HOLD,
+        lifetime: DRIP_HOLD + Math.sqrt((2 * fallDistance) / params.dripSpeed) * 1000,
         gravity: params.dripSpeed,
         period: (60_000 / bpm) * 64,
-        spawn: (random) => {
+        spawn: (random, spawnTime) => {
+          const anchorPose = getPose((Math.min(time, spawnTime + DRIP_HOLD) * bpm) / 60_000);
           const isFromFang =
             params.dripFrom === "fangs" || (params.dripFrom === "both" && random() < 0.5);
           if (isFromFang) {
-            const [x = 0, y = 0] = fangTips[random() < 0.5 ? 0 : 1] ?? [];
+            const fangPath = getPosePath(fangPoses, anchorPose);
+            const tipIndex = FANG_TIP_INDEXES[random() < 0.5 ? 0 : 1] ?? 0;
+            const [x = 0, y = 0] = fangPath[tipIndex]?.values ?? [];
             return { x, y: y - 1, vx: 0, vy: 0 };
           }
+          const lipBottom = getPoseValue(lipBottoms, anchorPose);
           const x = getRandomBetween(random, 22, 42);
           return { x, y: lipBottom - 1 - ((x - 32) / 16) ** 2 * 3, vx: 0, vy: 0 };
         },
@@ -148,16 +156,12 @@ export const vampireMouth = defineEffect({
     context.fillStyle = params.bloodColor;
     for (const particle of particles) {
       const width = round(getRandomBetween(particle.random, 1, 2.5) * params.scale);
-      const isAttached = particle.life < DRIP_ATTACHED_LIFE;
-      const growth = isAttached ? particle.life / DRIP_ATTACHED_LIFE : 1;
-      const tail = isAttached
-        ? scaleY(particle.spawnY)
-        : scaleY(particle.y) - round(width * 3 + particle.vy * 0.25);
-      const head = isAttached
-        ? scaleY(particle.spawnY) + round(growth * width * 3)
-        : scaleY(particle.y);
-      const left = round(scaleX(particle.x) - width / 2);
-      context.fillRect(left, tail, width, head - tail);
+      const hang = round(
+        width * DRIP_HANG_WIDTHS * (particle.isHeld ? particle.age / DRIP_HOLD : 1),
+      );
+      const top = scaleY(particle.y);
+      const length = Math.max(hang, 1) + round(particle.vy * DRIP_STRETCH);
+      context.fillRect(round(scaleX(particle.x) - width / 2), top, width, length);
     }
   },
 });

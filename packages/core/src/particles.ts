@@ -13,7 +13,8 @@ export type ParticleEmitter = {
   lifetime: number;
   period?: number;
   gravity?: number;
-  spawn(random: Random): ParticleSpawn;
+  hold?: number;
+  spawn(random: Random, spawnTime: number): ParticleSpawn;
 };
 
 export type Particle = ParticleSpawn & {
@@ -21,6 +22,7 @@ export type Particle = ParticleSpawn & {
   spawnY: number;
   age: number;
   life: number;
+  isHeld: boolean;
   random: Random;
 };
 
@@ -37,6 +39,7 @@ export function getParticles(emitter: ParticleEmitter, time: number): Particle[]
       ? 1000 / emitter.rate
       : emitter.period / periodCount;
   const gravity = emitter.gravity ?? 0;
+  const hold = emitter.hold ?? 0;
   const particles: Particle[] = [];
   const first = Math.floor((time - emitter.lifetime) / interval) + 1;
   for (let index = first; index * interval <= time; index++) {
@@ -44,8 +47,8 @@ export function getParticles(emitter: ParticleEmitter, time: number): Particle[]
     const seedIndex =
       periodCount === undefined ? index : ((index % periodCount) + periodCount) % periodCount;
     const random = createRandom(hashSeed(emitter.seed, seedIndex));
-    const spawn = emitter.spawn(random);
-    const seconds = age / 1000;
+    const spawn = emitter.spawn(random, index * interval);
+    const seconds = Math.max(0, age - hold) / 1000;
     particles.push({
       spawnX: spawn.x,
       spawnY: spawn.y,
@@ -55,6 +58,7 @@ export function getParticles(emitter: ParticleEmitter, time: number): Particle[]
       vy: spawn.vy + gravity * seconds,
       age,
       life: age / emitter.lifetime,
+      isHeld: age < hold,
       random,
     });
   }
