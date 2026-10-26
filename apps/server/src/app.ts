@@ -48,7 +48,7 @@ export type AppOptions = {
   webRoot?: string;
 };
 
-const bpmSchema = z.number().min(20).max(300);
+const bpmSchema = z.number().positive();
 const beatSchema = z.number().min(0);
 const playSchema = z.object({
   id: animationIdSchema,

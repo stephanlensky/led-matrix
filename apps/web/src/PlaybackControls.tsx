@@ -1,6 +1,6 @@
 import type { Output, PlaybackState, StoredAnimation } from "@led-matrix/core";
 import { SearchIcon, SquareIcon } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AnimationList } from "./AnimationList.tsx";
 import { play, setBpm, stop } from "./api.ts";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+
+const BPM_DEBOUNCE_MS = 300;
+
+function getValidBpm(value: string): number | undefined {
+  const bpm = Number(value);
+  return value.trim() !== "" && Number.isFinite(bpm) && bpm > 0 ? bpm : undefined;
+}
 
 type PlaybackControlsProps = {
   output: Output;
@@ -31,11 +38,25 @@ export function PlaybackControls({
 }: PlaybackControlsProps) {
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string>();
+  const [bpmDraft, setBpmDraft] = useState<string>();
+  const bpmTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   function run(action: () => Promise<unknown>) {
     action()
       .then(() => setError(undefined))
       .catch((cause: unknown) => setError(String(cause)));
+  }
+
+  function commitBpm(value: string) {
+    const bpm = getValidBpm(value);
+    if (bpm !== undefined && bpm !== state?.bpm) {
+      run(() => setBpm(output, bpm));
+    }
+  }
+
+  function scheduleBpm(value: string) {
+    clearTimeout(bpmTimeout.current);
+    bpmTimeout.current = setTimeout(() => commitBpm(value), BPM_DEBOUNCE_MS);
   }
 
   return (
@@ -44,22 +65,23 @@ export function PlaybackControls({
         <Label htmlFor={`${output}-bpm`}>BPM</Label>
         <Input
           id={`${output}-bpm`}
-          key={state?.bpm}
           className="w-24"
           type="number"
-          min={20}
-          max={300}
-          defaultValue={state?.bpm ?? 120}
+          min={0}
+          value={bpmDraft ?? String(state?.bpm ?? 120)}
+          onChange={(event) => {
+            setBpmDraft(event.target.value);
+            scheduleBpm(event.target.value);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.currentTarget.blur();
             }
           }}
           onBlur={(event) => {
-            const bpm = Number(event.currentTarget.value);
-            if (bpm !== state?.bpm) {
-              run(() => setBpm(output, bpm));
-            }
+            clearTimeout(bpmTimeout.current);
+            commitBpm(event.currentTarget.value);
+            setBpmDraft(undefined);
           }}
         />
       </div>

@@ -206,13 +206,13 @@ describe("playback", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/bpm",
-      body: { bpm: 128 },
+      body: { bpm: 1000 },
     });
-    expect(response.json<{ bpm: number }>().bpm).toBe(128);
+    expect(response.json<{ bpm: number }>().bpm).toBe(1000);
     const invalid = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/bpm",
-      body: { bpm: 1000 },
+      body: { bpm: 0 },
     });
     expect(invalid.statusCode).toBe(400);
   });
