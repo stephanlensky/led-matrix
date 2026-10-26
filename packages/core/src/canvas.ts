@@ -62,7 +62,11 @@ export type CanvasContext = {
   clip(): void;
   fillText(text: string, x: number, y: number, maxWidth?: number): void;
   strokeText(text: string, x: number, y: number, maxWidth?: number): void;
-  measureText(text: string): { width: number };
+  measureText(text: string): {
+    width: number;
+    actualBoundingBoxAscent: number;
+    actualBoundingBoxDescent: number;
+  };
   createLinearGradient(x0: number, y0: number, x1: number, y1: number): CanvasGradientLike;
   createRadialGradient(
     x0: number,

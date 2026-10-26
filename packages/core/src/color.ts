@@ -1,7 +1,10 @@
 import { z } from "zod";
 import type { Color } from "./frame.ts";
 
-export const colorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, "Expected a #rrggbb color");
+export const colorSchema = z
+  .string()
+  .regex(/^#[0-9a-f]{6}$/i, "Expected a #rrggbb color")
+  .meta({ format: "color" });
 
 export function parseColor(hex: string): Color {
   const value = Number.parseInt(hex.slice(1), 16);

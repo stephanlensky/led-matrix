@@ -1,6 +1,7 @@
 export * from "./animation.ts";
 export * from "./blend.ts";
 export * from "./canvas.ts";
+export * from "./canvas-fonts.ts";
 export * from "./color.ts";
 export * from "./effect.ts";
 export * from "./effects/index.ts";
@@ -8,4 +9,5 @@ export * from "./fonts/index.ts";
 export * from "./frame.ts";
 export * from "./keyframes.ts";
 export * from "./renderer.ts";
+export * from "./params.ts";
 export * from "./playback.ts";

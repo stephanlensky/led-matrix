@@ -13,7 +13,7 @@ export const scrollingText = defineEffect({
     font: z.enum(fontNames).default("spleen-8x16"),
     color: colorSchema.default("#ffffff"),
     cycles: z.number().int().min(1).max(32).default(1),
-    y: z.number().int().min(-16).max(HEIGHT).optional(),
+    y: z.number().int().min(-HEIGHT).max(HEIGHT).optional(),
   }),
   render(image, { params, progress }) {
     const font = fonts[params.font];
