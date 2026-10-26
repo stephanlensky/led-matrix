@@ -5,6 +5,7 @@ import {
   HEIGHT,
   WIDTH,
   type DeviceState,
+  type Frame,
   type Output,
   type PlaybackState,
   type StoredAnimation,
@@ -46,8 +47,14 @@ export type AppOptions = {
 };
 
 const bpmSchema = z.number().min(20).max(300);
-const playSchema = z.object({ id: animationIdSchema });
+const beatSchema = z.number().min(0);
+const playSchema = z.object({
+  id: animationIdSchema,
+  beat: beatSchema.optional(),
+  bpm: bpmSchema.optional(),
+});
 const setBpmSchema = z.object({ bpm: bpmSchema });
+const setBeatSchema = z.object({ beat: beatSchema });
 const setBrightnessSchema = z.object({ brightness: z.int().min(0).max(255) });
 const createAnimationSchema = animationSchema.extend({ id: animationIdSchema.optional() });
 const idParamsSchema = z.object({ id: z.string() });
@@ -83,14 +90,15 @@ export function createApp({
   const clips = createClipStore(database.connection);
   const engines: Readonly<Record<Output, PlaybackEngine>> = {
     simulator: createEngine("simulator"),
-    device: createEngine("device"),
+    device: createEngine("device", () => device?.getLatency() ?? 0),
   };
 
-  function createEngine(output: Output): PlaybackEngine {
+  function createEngine(output: Output, getLatency?: () => number): PlaybackEngine {
     return createPlaybackEngine({
       renderer: createRenderer({ fps, canvas: nodeCanvas, clips: clips.library }),
       fps,
       bpm,
+      getLatency,
       onError: (error) => app.log.error(error, `Failed to render animation on ${output}`),
     });
   }
@@ -291,7 +299,26 @@ export function createApp({
       return reply.code(404).send({ error: "Animation not found" });
     }
     const { id, ...rest } = animation;
-    engine.play(id, rest);
+    if (result.data.bpm !== undefined) {
+      engine.setBpm(result.data.bpm);
+    }
+    engine.play(id, rest, result.data.beat);
+    return engine.getState();
+  });
+
+  app.post("/api/outputs/:output/beat", async (request, reply) => {
+    const engine = getEngine(request.params);
+    if (!engine) {
+      return reply.code(404).send({ error: "Output not found" });
+    }
+    const result = setBeatSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send(getValidationError("Invalid beat", result.error));
+    }
+    if (engine.getState().animationId === null) {
+      return reply.code(409).send({ error: "Nothing is playing" });
+    }
+    engine.setBeat(result.data.beat);
     return engine.getState();
   });
 
@@ -345,11 +372,20 @@ export function createApp({
       const sendMessage = (message: StreamMessage) => socket.send(JSON.stringify(message));
       const sendState = (state: PlaybackState) => sendMessage({ type: "state", state });
       const sendDevice = (state: DeviceState) => sendMessage({ type: "device", device: state });
+      const sendFrame = (frame: Frame) => {
+        if (socket.readyState === socket.OPEN && socket.bufferedAmount < frame.length * 4) {
+          socket.send(frame);
+        }
+      };
+      const getLatency = () => (output === "device" ? (device?.getLatency() ?? 0) : 0);
       const unsubscribers = [
         engine.subscribe({
           setFrame: (frame) => {
-            if (socket.bufferedAmount < frame.length * 4) {
-              socket.send(frame);
+            const latency = getLatency();
+            if (latency > 0) {
+              setTimeout(() => sendFrame(frame), latency);
+            } else {
+              sendFrame(frame);
             }
           },
           setState: sendState,

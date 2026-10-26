@@ -35,6 +35,7 @@ const socket = createSocket("udp4");
 let brightness = Number(options.brightness);
 let frame = createFrame();
 let lastFrameAt: number | undefined;
+let shownSequence = 0;
 let framesShown = 0;
 let framesShownAtLastStatus = 0;
 let fps = 0;
@@ -59,6 +60,8 @@ function sendStatus(): void {
     uptimeMs: performance.now() - startedAt,
     framesShown,
     framesDropped: assembler.getFramesDropped(),
+    shownSequence,
+    shownAgeMs: lastFrameAt === undefined ? 0 : Math.round(performance.now() - lastFrameAt),
   });
   socket.send(status, Number(options["server-port"]), options.server);
 }
@@ -106,6 +109,7 @@ socket.on("message", (data) => {
     if (assembled) {
       frame = assembled;
       lastFrameAt = performance.now();
+      shownSequence = message.sequence;
       framesShown += 1;
       isDirty = true;
     }

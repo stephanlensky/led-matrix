@@ -82,6 +82,8 @@ std::array<uint8_t, statusSize> encodeStatus(const Status& status) {
   writeUint32(&bytes[12], status.uptimeMs);
   writeUint32(&bytes[16], status.framesShown);
   writeUint32(&bytes[20], status.framesDropped);
+  writeUint32(&bytes[24], status.shownSequence);
+  writeUint16(&bytes[28], status.shownAgeMs);
   return bytes;
 }
 

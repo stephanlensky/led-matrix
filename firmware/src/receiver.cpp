@@ -25,6 +25,7 @@ constexpr size_t targetDepth = 3;
 uint8_t packet[protocol::maxPacketSize + 1];
 uint8_t assembled[protocol::frameSize];
 uint8_t* queue = nullptr;
+uint32_t sequences[queueSize];
 size_t queueStart = 0;
 size_t queueCount = 0;
 protocol::FrameAssembler assembler(assembled);
@@ -35,9 +36,9 @@ std::atomic<int> brightness{noBrightness};
 std::atomic<uint32_t> framesDropped{0};
 std::atomic<uint32_t> packetsReceived{0};
 
-uint8_t* getQueuedFrame(size_t index) {
-  return queue + ((queueStart + index) % queueSize) * protocol::frameSize;
-}
+size_t getSlot(size_t index) { return (queueStart + index) % queueSize; }
+
+uint8_t* getQueuedFrame(size_t index) { return queue + getSlot(index) * protocol::frameSize; }
 
 void addFrame(uint32_t sequence) {
   std::lock_guard lock(queueMutex);
@@ -48,6 +49,7 @@ void addFrame(uint32_t sequence) {
     framesReplaced++;
   }
   std::memcpy(getQueuedFrame(queueCount), assembled, protocol::frameSize);
+  sequences[getSlot(queueCount)] = sequence;
   queueCount++;
   framesDropped = assembler.getFramesDropped() + framesReplaced;
 }
@@ -89,17 +91,18 @@ bool begin() {
                                  taskCore) == pdPASS;
 }
 
-bool takeFrame(uint8_t* frame) {
+std::optional<uint32_t> takeFrame(uint8_t* frame) {
   std::lock_guard lock(queueMutex);
   const uint32_t now = micros();
   if (!frameScheduler.isDue(queueCount, now)) {
-    return false;
+    return std::nullopt;
   }
   std::memcpy(frame, getQueuedFrame(0), protocol::frameSize);
+  const uint32_t sequence = sequences[queueStart];
   queueStart = (queueStart + 1) % queueSize;
   queueCount--;
   frameScheduler.setShown(queueCount, now);
-  return true;
+  return sequence;
 }
 
 size_t getQueuedFrames() {

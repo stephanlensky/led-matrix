@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <protocol.h>
 
+#include <algorithm>
 #include <optional>
 
 #include "display.h"
@@ -21,8 +22,16 @@ uint32_t framesShownAtLastStatus = 0;
 uint32_t packetsAtLastStatus = 0;
 uint32_t lastStatusAt = 0;
 std::optional<uint32_t> lastFrameAt;
+uint32_t shownSequence = 0;
+uint32_t shownAtUs = 0;
 bool wasStreaming = false;
 std::optional<String> shownAddress;
+
+uint16_t getShownAgeMs() {
+  const int32_t visibleAtUs = shownAtUs + display::getFramePeriodUs() / 2;
+  const int32_t ageUs = micros() - visibleAtUs;
+  return std::clamp<int32_t>(ageUs / 1000, 0, UINT16_MAX);
+}
 
 bool isStreaming(uint32_t now) {
   return lastFrameAt && now - *lastFrameAt < protocol::frameTimeoutMs;
@@ -39,6 +48,8 @@ void sendStatus(uint32_t now) {
       .uptimeMs = now,
       .framesShown = framesShown,
       .framesDropped = receiver::getFramesDropped(),
+      .shownSequence = shownSequence,
+      .shownAgeMs = getShownAgeMs(),
   });
   udp::send(network::getStatusAddress(), protocol::serverPort, status.data(), status.size());
 }
@@ -68,8 +79,14 @@ void setBrightness(uint8_t value, uint32_t now) {
 }
 
 void updateFrame(uint32_t now) {
-  if (display::isReady() && receiver::takeFrame(frame)) {
+  if (!display::isReady()) {
+    return;
+  }
+  const auto sequence = receiver::takeFrame(frame);
+  if (sequence) {
     display::showFrame(frame);
+    shownSequence = *sequence;
+    shownAtUs = micros();
     framesShown++;
     lastFrameAt = now;
   }

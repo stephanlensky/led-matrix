@@ -13,7 +13,7 @@ export const STATUS_INTERVAL_MS = 1000;
 
 const MAGIC = [0x4c, 0x4d] as const;
 const BRIGHTNESS_SIZE = HEADER_SIZE + 1;
-const STATUS_SIZE = 24;
+const STATUS_SIZE = 32;
 
 export const MessageType = {
   frame: 0x01,
@@ -37,6 +37,8 @@ export const deviceStatusSchema = z.object({
   uptimeMs: z.int(),
   framesShown: z.int(),
   framesDropped: z.int(),
+  shownSequence: z.int(),
+  shownAgeMs: z.int(),
 });
 
 export type DeviceStatus = z.infer<typeof deviceStatusSchema>;
@@ -98,6 +100,8 @@ export function encodeStatus(status: DeviceStatus): Uint8Array {
   view.setUint32(12, status.uptimeMs >>> 0, true);
   view.setUint32(16, status.framesShown >>> 0, true);
   view.setUint32(20, status.framesDropped >>> 0, true);
+  view.setUint32(24, status.shownSequence >>> 0, true);
+  view.setUint16(28, Math.min(status.shownAgeMs, 0xffff), true);
   return bytes;
 }
 
@@ -153,6 +157,8 @@ export function decodeMessage(bytes: Uint8Array): DeviceMessage | undefined {
           uptimeMs: view.getUint32(12, true),
           framesShown: view.getUint32(16, true),
           framesDropped: view.getUint32(20, true),
+          shownSequence: view.getUint32(24, true),
+          shownAgeMs: view.getUint16(28, true),
         },
       };
     }

@@ -24,6 +24,8 @@ const status: DeviceStatus = {
   uptimeMs: 1000,
   framesShown: 0,
   framesDropped: 0,
+  shownSequence: 0,
+  shownAgeMs: 0,
 };
 
 const red = animationSchema.parse({
@@ -141,5 +143,24 @@ describe("device link", () => {
     engine.tick();
     expect(states).toHaveLength(3);
     expect(states.at(-1)).toMatchObject({ connected: false });
+  });
+
+  it("measures latency from the frame the device reports as shown", async () => {
+    const { clock, engine, link, device } = await setup();
+    await sendStatus(device.socket, link.getPort(), status);
+    await vi.waitFor(() => expect(link.getState().connected).toBe(true));
+    expect(link.getState().latencyMs).toBeNull();
+
+    clock.time = 1000;
+    engine.tick();
+    engine.tick();
+    clock.time = 1150;
+    const streaming = { ...status, mode: DeviceMode.streaming, shownSequence: 1 };
+    await sendStatus(device.socket, link.getPort(), { ...streaming, shownAgeMs: 30 });
+    await vi.waitFor(() => expect(link.getState().latencyMs).toBe(120));
+    await sendStatus(device.socket, link.getPort(), { ...streaming, shownAgeMs: 10 });
+    await sendStatus(device.socket, link.getPort(), { ...streaming, shownSequence: 9 });
+    await vi.waitFor(() => expect(link.getState().status?.shownSequence).toBe(9));
+    expect(link.getLatency()).toBe(120);
   });
 });

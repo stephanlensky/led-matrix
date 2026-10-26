@@ -14,5 +14,6 @@ void showLines(std::initializer_list<String> lines);
 void clear();
 bool isReady();
 uint32_t getRefreshRate();
+uint32_t getFramePeriodUs();
 
 }  // namespace display

@@ -8,13 +8,14 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { createPlaybackEngine } from "./engine.ts";
 
-function createEngine(onError?: (error: unknown) => void) {
+function createEngine(onError?: (error: unknown) => void, latency = 0) {
   const clock = { time: 0 };
   const engine = createPlaybackEngine({
     renderer: createRenderer({ fps: 30 }),
     fps: 30,
     bpm: 120,
     getTime: () => clock.time,
+    getLatency: () => latency,
     onError,
   });
   return { clock, engine };
@@ -54,6 +55,35 @@ describe("playback engine", () => {
     expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
   });
 
+  it("starts and resyncs at a beat position", () => {
+    const { clock, engine } = createEngine();
+    clock.time = 1000;
+    engine.play("strobe", strobe, 2.5);
+    expect(engine.getState().beat).toBe(2.5);
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
+    clock.time = 1500;
+    expect(engine.getState().beat).toBe(3.5);
+    engine.setBeat(1);
+    expect(engine.getState().beat).toBe(1);
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 255, 255]);
+  });
+
+  it("renders ahead by the latency without changing the beat", () => {
+    const { clock, engine } = createEngine(undefined, 250);
+    engine.play("strobe", strobe);
+    clock.time = 100;
+    expect(engine.getState().beat).toBe(0.2);
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
+  });
+
+  it("keeps the beat position when the bpm changes", () => {
+    const { clock, engine } = createEngine();
+    engine.play("strobe", strobe);
+    clock.time = 1000;
+    engine.setBpm(60);
+    expect(engine.getState().beat).toBe(2);
+  });
+
   it("notifies listeners of frames and state", () => {
     const { engine } = createEngine();
     const setFrame = vi.fn<(frame: Frame) => void>();
@@ -63,7 +93,7 @@ describe("playback engine", () => {
     engine.tick();
     unsubscribe();
     engine.tick();
-    expect(setState).toHaveBeenCalledWith({ animationId: "strobe", bpm: 120, fps: 30 });
+    expect(setState).toHaveBeenCalledWith({ animationId: "strobe", bpm: 120, fps: 30, beat: 0 });
     expect(setFrame).toHaveBeenCalledOnce();
   });
 

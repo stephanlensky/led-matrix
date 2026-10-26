@@ -113,9 +113,11 @@ void test_encodes_status_in_little_endian() {
       .uptimeMs = 123456,
       .framesShown = 900,
       .framesDropped = 3,
+      .shownSequence = 0x01020304,
+      .shownAgeMs = 300,
   });
-  const uint8_t expected[] = {0x4c, 0x4d, 1,    0x81, 64,   0, 64, 0, 128, 1, 0, 0,
-                              0x40, 0xe2, 0x01, 0,    0x84, 3, 0,  0, 3,   0, 0, 0};
+  const uint8_t expected[] = {0x4c, 0x4d, 1, 0x81, 64, 0, 64, 0, 128, 1, 0, 0, 0x40, 0xe2, 0x01, 0,
+                              0x84, 3,    0, 0,    3,  0, 0,  0, 4,   3, 2, 1, 0x2c, 1,    0,    0};
   TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, bytes.data(), statusSize);
 }
 

@@ -1,6 +1,7 @@
 import { type Socket, createSocket } from "node:dgram";
 import {
   DEVICE_PORT,
+  DeviceMode,
   type DeviceState,
   type DeviceStatus,
   type Frame,
@@ -13,6 +14,8 @@ import {
 import type { PlaybackEngine } from "./engine.ts";
 
 const CONNECTION_TIMEOUT_MS = STATUS_INTERVAL_MS * 3;
+const SENT_FRAME_HISTORY = 256;
+const LATENCY_SAMPLES = 8;
 
 export type DeviceAddress = NonNullable<DeviceState["address"]>;
 
@@ -24,12 +27,14 @@ export const disabledDeviceState: DeviceState = {
   address: null,
   status: null,
   brightness: null,
+  latencyMs: null,
 };
 
 export type DeviceLinkOptions = {
   engine: PlaybackEngine;
   port?: number;
   host?: string;
+  latencyOffset?: number;
   getTime?: () => number;
   onError?: (error: unknown) => void;
 };
@@ -50,6 +55,7 @@ export async function createDeviceLink({
   engine,
   port = SERVER_PORT,
   host,
+  latencyOffset = 0,
   getTime = () => performance.now(),
   onError,
 }: DeviceLinkOptions) {
@@ -60,11 +66,35 @@ export async function createDeviceLink({
   let brightness: number | null = null;
   let sequence = 0;
   let wasConnected = false;
+  const sentFrames: Array<{ sequence: number; sentAt: number } | undefined> = [];
+  const latencySamples: number[] = [];
   const listeners = new Set<DeviceListener>();
+
+  function getLatency(): number | null {
+    return latencySamples.length > 0 ? Math.min(...latencySamples) + latencyOffset : null;
+  }
 
   function getState(): DeviceState {
     const connected = lastSeen !== undefined && getTime() - lastSeen < CONNECTION_TIMEOUT_MS;
-    return { enabled: true, connected, address: target, status, brightness };
+    return {
+      enabled: true,
+      connected,
+      address: target,
+      status,
+      brightness,
+      latencyMs: getLatency(),
+    };
+  }
+
+  function addLatencySample({ mode, shownSequence, shownAgeMs }: DeviceStatus): void {
+    const sent = sentFrames[shownSequence % SENT_FRAME_HISTORY];
+    if (mode !== DeviceMode.streaming || sent?.sequence !== shownSequence) {
+      return;
+    }
+    latencySamples.push(getTime() - shownAgeMs - sent.sentAt);
+    if (latencySamples.length > LATENCY_SAMPLES) {
+      latencySamples.shift();
+    }
   }
 
   function updateState(): void {
@@ -91,6 +121,7 @@ export async function createDeviceLink({
     for (const packet of encodeFrame(frame, sequence)) {
       send(packet);
     }
+    sentFrames[sequence % SENT_FRAME_HISTORY] = { sequence, sentAt: getTime() };
     sequence = (sequence + 1) >>> 0;
     updateConnection();
   }
@@ -104,6 +135,7 @@ export async function createDeviceLink({
     target = host ? target : { address: remote.address, port: remote.port };
     status = message.status;
     lastSeen = getTime();
+    addLatencySample(status);
     if (brightness !== null && brightness !== status.brightness) {
       send(encodeSetBrightness(brightness));
     }
@@ -116,6 +148,7 @@ export async function createDeviceLink({
   return {
     getPort: () => socket.address().port,
     getState,
+    getLatency: () => getLatency() ?? 0,
     setBrightness(value: number): void {
       brightness = value;
       send(encodeSetBrightness(value));

@@ -60,6 +60,8 @@ describe("device protocol", () => {
       uptimeMs: 123_456,
       framesShown: 900,
       framesDropped: 3,
+      shownSequence: 0xfffffff0,
+      shownAgeMs: 120,
     };
     expect(decodeMessage(encodeStatus(status))).toEqual({ type: "status", status });
     expect(decodeMessage(encodeSetBrightness(42))).toEqual({

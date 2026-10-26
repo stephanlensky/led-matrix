@@ -143,9 +143,42 @@ describe("playback", () => {
       url: "/api/outputs/simulator/play",
       body: { id: "plasma" },
     });
-    expect(played.json()).toEqual({ animationId: "plasma", bpm: 120, fps: 30 });
+    expect(played.json()).toEqual({
+      animationId: "plasma",
+      bpm: 120,
+      fps: 30,
+      beat: expect.any(Number),
+    });
     const stopped = await app.inject({ method: "POST", url: "/api/outputs/simulator/stop" });
-    expect(stopped.json()).toEqual({ animationId: null, bpm: 120, fps: 30 });
+    expect(stopped.json()).toEqual({ animationId: null, bpm: 120, fps: 30, beat: null });
+  });
+
+  it("plays from a beat position and resyncs the beat", async () => {
+    const idle = await app.inject({
+      method: "POST",
+      url: "/api/outputs/device/beat",
+      body: { beat: 4 },
+    });
+    expect(idle.statusCode).toBe(409);
+    const played = await app.inject({
+      method: "POST",
+      url: "/api/outputs/device/play",
+      body: { id: "plasma", beat: 8, bpm: 128 },
+    });
+    expect(played.json()).toMatchObject({ animationId: "plasma", bpm: 128 });
+    expect(played.json<{ beat: number }>().beat).toBeCloseTo(8, 1);
+    const synced = await app.inject({
+      method: "POST",
+      url: "/api/outputs/device/beat",
+      body: { beat: 16 },
+    });
+    expect(synced.json<{ beat: number }>().beat).toBeCloseTo(16, 1);
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/api/outputs/device/beat",
+      body: { beat: -1 },
+    });
+    expect(invalid.statusCode).toBe(400);
   });
 
   it("rejects unknown animations, outputs and bad requests", async () => {
@@ -192,9 +225,9 @@ describe("playback", () => {
     });
     await app.inject({ method: "POST", url: "/api/outputs/device/bpm", body: { bpm: 128 } });
     const device = await app.inject({ method: "GET", url: "/api/outputs/device" });
-    expect(device.json()).toEqual({ animationId: "plasma", bpm: 128, fps: 30 });
+    expect(device.json()).toMatchObject({ animationId: "plasma", bpm: 128, fps: 30 });
     const simulator = await app.inject({ method: "GET", url: "/api/outputs/simulator" });
-    expect(simulator.json()).toEqual({ animationId: null, bpm: 120, fps: 30 });
+    expect(simulator.json()).toEqual({ animationId: null, bpm: 120, fps: 30, beat: null });
   });
 
   it("stops the deleted animation on every output", async () => {
@@ -234,8 +267,11 @@ describe("playback", () => {
       .filter(({ isBinary }) => !isBinary)
       .map(({ data }) => JSON.parse(data.toString()));
     expect(states).toEqual([
-      { type: "state", state: { animationId: null, bpm: 120, fps: 30 } },
-      { type: "state", state: { animationId: "white-strobe", bpm: 120, fps: 30 } },
+      { type: "state", state: { animationId: null, bpm: 120, fps: 30, beat: null } },
+      {
+        type: "state",
+        state: { animationId: "white-strobe", bpm: 120, fps: 30, beat: expect.any(Number) },
+      },
     ]);
     const frame = messages.find(({ isBinary }) => isBinary);
     expect(frame?.data).toHaveLength(WIDTH * HEIGHT * 3);
@@ -254,10 +290,17 @@ describe("playback", () => {
     await expect.poll(() => messages.length).toBe(2);
     socket.terminate();
     expect(messages).toEqual([
-      { type: "state", state: { animationId: null, bpm: 120, fps: 30 } },
+      { type: "state", state: { animationId: null, bpm: 120, fps: 30, beat: null } },
       {
         type: "device",
-        device: { enabled: false, connected: false, address: null, status: null, brightness: null },
+        device: {
+          enabled: false,
+          connected: false,
+          address: null,
+          status: null,
+          brightness: null,
+          latencyMs: null,
+        },
       },
     ]);
   });
@@ -282,11 +325,25 @@ describe("playback", () => {
     expect(messages.slice(1)).toEqual([
       {
         type: "device",
-        device: { enabled: true, connected: false, address: null, status: null, brightness: null },
+        device: {
+          enabled: true,
+          connected: false,
+          address: null,
+          status: null,
+          brightness: null,
+          latencyMs: null,
+        },
       },
       {
         type: "device",
-        device: { enabled: true, connected: false, address: null, status: null, brightness: 40 },
+        device: {
+          enabled: true,
+          connected: false,
+          address: null,
+          status: null,
+          brightness: 40,
+          latencyMs: null,
+        },
       },
     ]);
   });

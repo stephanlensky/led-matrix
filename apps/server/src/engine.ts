@@ -4,7 +4,6 @@ import {
   type PlaybackState,
   type Renderer,
   createFrame,
-  getAnimationTiming,
 } from "@led-matrix/core";
 
 export type PlaybackListener = {
@@ -17,6 +16,7 @@ export type PlaybackEngineOptions = {
   fps: number;
   bpm: number;
   getTime?: () => number;
+  getLatency?: () => number;
   onError?: (error: unknown) => void;
 };
 
@@ -27,6 +27,7 @@ export function createPlaybackEngine({
   fps,
   bpm: initialBpm,
   getTime = () => performance.now(),
+  getLatency = () => 0,
   onError,
 }: PlaybackEngineOptions) {
   const listeners = new Set<PlaybackListener>();
@@ -34,8 +35,16 @@ export function createPlaybackEngine({
   let bpm = initialBpm;
   let timer: ReturnType<typeof setInterval> | undefined;
 
+  function getBeatDuration(): number {
+    return 60_000 / bpm;
+  }
+
+  function getBeat(): number | null {
+    return active ? (getTime() - active.startedAt) / getBeatDuration() : null;
+  }
+
   function getState(): PlaybackState {
-    return { animationId: active?.id ?? null, bpm, fps };
+    return { animationId: active?.id ?? null, bpm, fps, beat: getBeat() };
   }
 
   function updateState(): void {
@@ -50,7 +59,7 @@ export function createPlaybackEngine({
       return createFrame();
     }
     try {
-      return renderer.render(active.animation, getTime() - active.startedAt, bpm);
+      return renderer.render(active.animation, getTime() + getLatency() - active.startedAt, bpm);
     } catch (error) {
       if (!active.failed) {
         active.failed = true;
@@ -71,9 +80,20 @@ export function createPlaybackEngine({
     getState,
     renderFrame,
     tick,
-    play(id: string, animation: Animation): void {
-      active = { id, animation, startedAt: getTime(), failed: false };
+    play(id: string, animation: Animation, beat = 0): void {
+      active = {
+        id,
+        animation,
+        startedAt: getTime() - beat * getBeatDuration(),
+        failed: false,
+      };
       updateState();
+    },
+    setBeat(beat: number): void {
+      if (active) {
+        active.startedAt = getTime() - beat * getBeatDuration();
+        updateState();
+      }
     },
     updateAnimation(id: string, animation: Animation): void {
       if (active?.id === id) {
@@ -85,17 +105,11 @@ export function createPlaybackEngine({
       updateState();
     },
     setBpm(value: number): void {
-      if (active?.animation.mode.type === "loop" && "beats" in active.animation.mode) {
-        const now = getTime();
-        const { progress } = getAnimationTiming(
-          active.animation.mode,
-          now - active.startedAt,
-          bpm,
-          fps,
-        );
-        active.startedAt = now - (progress * active.animation.mode.beats * 60_000) / value;
-      }
+      const beat = getBeat();
       bpm = value;
+      if (active && beat !== null && "beats" in active.animation.mode) {
+        active.startedAt = getTime() - beat * getBeatDuration();
+      }
       updateState();
     },
     subscribe(listener: PlaybackListener): () => void {

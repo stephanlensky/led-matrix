@@ -44,7 +44,7 @@ uint32_t getTransitionBit() {
   return colorDepth - 1;
 }
 
-uint32_t getFramePeriodUs() {
+uint32_t calculateFramePeriodUs() {
   const uint32_t bit = getTransitionBit();
   const uint64_t planes = (1 << (colorDepth - bit)) + bit - 1;
   return protocol::width * rowPairs * planes * 1000000 / CLOCK_SPEED + 1;
@@ -53,7 +53,7 @@ uint32_t getFramePeriodUs() {
 constexpr int noChannel = -1;
 
 MatrixPanel_I2S_DMA matrix(getConfig());
-const uint32_t framePeriodUs = getFramePeriodUs();
+const uint32_t framePeriodUs = calculateFramePeriodUs();
 int channel = noChannel;
 int shownBuffer = 0;
 uint32_t lastFlipAt = 0;
@@ -150,5 +150,7 @@ bool isReady() {
 }
 
 uint32_t getRefreshRate() { return 1000000 / framePeriodUs; }
+
+uint32_t getFramePeriodUs() { return framePeriodUs; }
 
 }  // namespace display

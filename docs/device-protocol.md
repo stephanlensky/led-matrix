@@ -63,7 +63,7 @@ The device stores the value persistently and reports it in its status. The serve
 
 ### `0x81` status
 
-Sent once at startup, every 1000 ms, and right after the brightness changes.
+Sent once at startup, every 1000 ms, and right after the brightness changes. The message is 32 bytes.
 
 | Offset | Size | Field                                 |
 | ------ | ---- | ------------------------------------- |
@@ -75,6 +75,11 @@ Sent once at startup, every 1000 ms, and right after the brightness changes.
 | 12     | 4    | uptime in ms (u32, wraps)             |
 | 16     | 4    | frames shown since boot               |
 | 20     | 4    | frames dropped since boot             |
+| 24     | 4    | sequence of the frame being shown     |
+| 28     | 2    | age of that frame in ms, 0 to 65535   |
+| 30     | 2    | reserved, 0                           |
+
+The age counts from when the frame became visible: the device adds half a panel refresh period to the time it flipped buffers, since the hardware switches buffers at the end of the current refresh pass. The server keeps the send time of recent frames and computes the latency as `status received - age - frame sent`. It uses the lowest of the last 8 samples, since delays on the status packet itself only make a sample larger.
 
 The server considers the device disconnected after 3000 ms without a status.
 

@@ -7,6 +7,7 @@ export const playbackStateSchema = z.object({
   animationId: z.string().nullable(),
   bpm: z.number(),
   fps: z.number(),
+  beat: z.number().nullable(),
 });
 
 export const deviceStateSchema = z.object({
@@ -15,6 +16,7 @@ export const deviceStateSchema = z.object({
   address: z.object({ address: z.string(), port: z.int() }).nullable(),
   status: deviceStatusSchema.nullable(),
   brightness: z.int().nullable(),
+  latencyMs: z.number().nullable(),
 });
 
 export const streamMessageSchema = z.discriminatedUnion("type", [

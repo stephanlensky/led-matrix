@@ -70,6 +70,7 @@ function StatusRow({ label, value }: { label: string; value: string | undefined 
 export function Device({ stream, animations, showGrid, onShowGridChange }: DeviceProps) {
   const { frame, state, device } = stream;
   const status = device?.status ?? null;
+  const latencyMs = device?.latencyMs ?? null;
   const [fpsSample, setFpsSample] = useState<FpsSample>({ status, fps: undefined });
   if (status !== fpsSample.status) {
     setFpsSample({ status, fps: getFps(fpsSample.status, status) });
@@ -101,6 +102,10 @@ export function Device({ stream, animations, showGrid, onShowGridChange }: Devic
             />
             <StatusRow label="Mode" value={status ? modeLabels[status.mode] : undefined} />
             <StatusRow label="FPS" value={fpsSample.fps?.toFixed(1)} />
+            <StatusRow
+              label="Latency"
+              value={latencyMs === null ? undefined : `${Math.round(latencyMs)} ms`}
+            />
             <StatusRow label="Dropped frames" value={status?.framesDropped.toLocaleString()} />
             <StatusRow label="Uptime" value={status ? getDuration(status.uptimeMs) : undefined} />
           </dl>

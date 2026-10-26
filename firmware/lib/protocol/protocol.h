@@ -14,7 +14,7 @@ constexpr uint8_t version = 1;
 constexpr size_t headerSize = 4;
 constexpr size_t frameHeaderSize = 12;
 constexpr size_t setBrightnessSize = headerSize + 1;
-constexpr size_t statusSize = 24;
+constexpr size_t statusSize = 32;
 constexpr size_t maxPacketSize = 1472;
 constexpr uint32_t staleFrameWindow = 16;
 constexpr uint32_t frameTimeoutMs = 2000;
@@ -44,6 +44,8 @@ struct Status {
   uint32_t uptimeMs;
   uint32_t framesShown;
   uint32_t framesDropped;
+  uint32_t shownSequence;
+  uint16_t shownAgeMs;
 };
 
 std::optional<MessageType> getMessageType(const uint8_t* data, size_t size);
