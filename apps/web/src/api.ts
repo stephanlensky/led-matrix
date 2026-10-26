@@ -1,4 +1,5 @@
 import {
+  type Animation,
   type PlaybackState,
   type StoredAnimation,
   playbackStateSchema,
@@ -37,4 +38,19 @@ export function stop(): Promise<PlaybackState> {
 
 export function setBpm(bpm: number): Promise<PlaybackState> {
   return request(playbackStateSchema, "POST", "/api/bpm", { bpm });
+}
+
+export function createAnimation(animation: Animation): Promise<StoredAnimation> {
+  return request(storedAnimationSchema, "POST", "/api/animations", animation);
+}
+
+export function updateAnimation(id: string, animation: Animation): Promise<StoredAnimation> {
+  return request(storedAnimationSchema, "PUT", `/api/animations/${id}`, animation);
+}
+
+export async function deleteAnimation(id: string): Promise<void> {
+  const response = await fetch(`/api/animations/${id}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(`DELETE /api/animations/${id} failed with ${response.status}`);
+  }
 }

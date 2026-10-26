@@ -19,15 +19,19 @@ function getLevel(value: number): number {
   return OFF_LEVEL + (value * (255 - OFF_LEVEL)) / 255;
 }
 
-function getPitch(element: HTMLElement, inset: number): number {
+function getPitch(element: HTMLElement, insetX: number, insetY: number): number {
   const size = Math.min(
-    (element.clientWidth - inset) / WIDTH,
-    (element.clientHeight - inset) / HEIGHT,
+    (element.clientWidth - insetX) / WIDTH,
+    (element.clientHeight - insetY) / HEIGHT,
   );
   return Math.max(1, Math.floor(size * devicePixelRatio));
 }
 
-export function usePanelPitch(containerRef: RefObject<HTMLElement | null>, inset = 0): number {
+export function usePanelPitch(
+  containerRef: RefObject<HTMLElement | null>,
+  insetX = 0,
+  insetY = insetX,
+): number {
   const [pitch, setPitch] = useState(1);
 
   useEffect(() => {
@@ -35,11 +39,11 @@ export function usePanelPitch(containerRef: RefObject<HTMLElement | null>, inset
     if (!container) {
       return undefined;
     }
-    const updatePitch = () => setPitch(getPitch(container, inset));
+    const updatePitch = () => setPitch(getPitch(container, insetX, insetY));
     const observer = new ResizeObserver(updatePitch);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [containerRef, inset]);
+  }, [containerRef, insetX, insetY]);
 
   return pitch;
 }

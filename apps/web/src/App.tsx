@@ -1,144 +1,70 @@
-import { type StoredAnimation, effects } from "@led-matrix/core";
-import { MonitorIcon, SearchIcon, SquareIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { AnimationList } from "./AnimationList.tsx";
-import { getAnimations, play, setBpm, stop } from "./api.ts";
-import { EffectList } from "./EffectList.tsx";
+import type { StoredAnimation } from "@led-matrix/core";
+import { MonitorIcon, PencilRulerIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { getAnimations } from "./api.ts";
+import { Editor } from "./Editor.tsx";
 import { Navigation, type NavigationItem } from "./Navigation.tsx";
-import { Panel, usePanelPitch } from "./Panel.tsx";
+import { Simulator } from "./Simulator.tsx";
 import { useStream } from "./useStream.ts";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const PANEL_FRAME_INSET = 26;
-
-type View = "simulator";
+type View = "simulator" | "editor";
 
 const views: readonly NavigationItem<View>[] = [
   { id: "simulator", label: "Simulator", icon: MonitorIcon },
+  { id: "editor", label: "Editor", icon: PencilRulerIcon },
 ];
 
-function getMatches<T extends { name: string }>(items: readonly T[], query: string): T[] {
-  const normalizedQuery = query.trim().toLowerCase();
-  return items.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
-}
+const DEFAULT_BPM = 120;
+const DEFAULT_FPS = 30;
 
 export function App() {
-  const { frame, state, isConnected } = useStream();
+  const stream = useStream();
   const [animations, setAnimations] = useState<StoredAnimation[]>([]);
-  const [query, setQuery] = useState("");
   const [showGrid, setShowGrid] = useState(true);
-  const [error, setError] = useState<string>();
   const [view, setView] = useState<View>("simulator");
-  const panelContainerRef = useRef<HTMLElement>(null);
-  const pitch = usePanelPitch(panelContainerRef, PANEL_FRAME_INSET);
+  const [error, setError] = useState<string>();
+
+  const refreshAnimations = useCallback(() => {
+    getAnimations()
+      .then((result) => {
+        setAnimations(result);
+        setError(undefined);
+      })
+      .catch((cause: unknown) => setError(String(cause)));
+  }, []);
 
   useEffect(() => {
-    if (!isConnected) {
-      return;
+    if (stream.isConnected) {
+      refreshAnimations();
     }
-    getAnimations()
-      .then(setAnimations)
-      .catch((cause: unknown) => setError(String(cause)));
-  }, [isConnected]);
-
-  function run(action: () => Promise<unknown>) {
-    action()
-      .then(() => setError(undefined))
-      .catch((cause: unknown) => setError(String(cause)));
-  }
+  }, [stream.isConnected, refreshAnimations]);
 
   return (
     <TooltipProvider>
       <div className="flex h-svh overflow-hidden">
         <Navigation items={views} activeId={view} onSelect={setView} />
-        <main className="grid min-w-0 flex-1 grid-cols-1 gap-6 overflow-y-auto p-6 md:grid-cols-[320px_minmax(0,1fr)]">
-          <Card className="self-start">
-            <CardHeader className="flex items-center justify-between">
-              <CardTitle>LED Matrix</CardTitle>
-              <Badge variant={isConnected ? "secondary" : "destructive"}>
-                {isConnected ? "Connected" : "Disconnected"}
-              </Badge>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4">
-                <Label htmlFor="bpm">BPM</Label>
-                <Input
-                  id="bpm"
-                  key={state?.bpm}
-                  className="w-24"
-                  type="number"
-                  min={20}
-                  max={300}
-                  defaultValue={state?.bpm ?? 120}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                    }
-                  }}
-                  onBlur={(event) => {
-                    const bpm = Number(event.currentTarget.value);
-                    if (bpm !== state?.bpm) {
-                      run(() => setBpm(bpm));
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <Label htmlFor="pixel-grid">Pixel grid</Label>
-                <Switch id="pixel-grid" checked={showGrid} onCheckedChange={setShowGrid} />
-              </div>
-              <Separator />
-              <Tabs defaultValue="animations" className="gap-3">
-                <TabsList variant="line" className="gap-4">
-                  <TabsTrigger value="animations" className="flex-none px-0">
-                    Animations
-                  </TabsTrigger>
-                  <TabsTrigger value="effects" className="flex-none px-0">
-                    Effects
-                  </TabsTrigger>
-                </TabsList>
-                <div className="relative">
-                  <SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="h-7 pl-8 text-xs"
-                    placeholder="Search"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
-                <TabsContent value="animations" className="-mx-(--card-spacing)">
-                  <AnimationList
-                    animations={getMatches(animations, query)}
-                    activeId={state?.animationId}
-                    onPlay={(id) => run(() => play(id))}
-                  />
-                </TabsContent>
-                <TabsContent value="effects" className="-mx-(--card-spacing)">
-                  <EffectList effects={getMatches(effects, query)} />
-                </TabsContent>
-              </Tabs>
-              <Button variant="outline" onClick={() => run(stop)} disabled={!state?.animationId}>
-                <SquareIcon />
-                Stop
-              </Button>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-            </CardContent>
-          </Card>
-          <section ref={panelContainerRef} className="relative min-h-[50svh] min-w-0">
-            <div className="absolute inset-0 grid place-items-center">
-              <div className="rounded-xl border bg-neutral-900 p-3">
-                <Panel frame={frame} pitch={pitch} showGrid={showGrid} />
-              </div>
-            </div>
-          </section>
+        <main className="grid min-w-0 flex-1 grid-cols-1 gap-6 overflow-y-auto p-6 md:grid-cols-[auto_minmax(0,1fr)]">
+          {error && <p className="text-sm text-destructive md:col-span-2">{error}</p>}
+          <div className={view === "simulator" ? "contents" : "hidden"}>
+            <Simulator
+              stream={stream}
+              animations={animations}
+              showGrid={showGrid}
+              onShowGridChange={setShowGrid}
+            />
+          </div>
+          <div className={view === "editor" ? "contents" : "hidden"}>
+            <Editor
+              isVisible={view === "editor"}
+              animations={animations}
+              bpm={stream.state?.bpm ?? DEFAULT_BPM}
+              fps={stream.state?.fps ?? DEFAULT_FPS}
+              showGrid={showGrid}
+              onShowGridChange={setShowGrid}
+              onSaved={refreshAnimations}
+            />
+          </div>
         </main>
       </div>
     </TooltipProvider>
