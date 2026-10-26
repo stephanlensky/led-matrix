@@ -1,5 +1,6 @@
 import { basename, extname } from "node:path";
 import multipart from "@fastify/multipart";
+import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import {
   HEIGHT,
@@ -44,6 +45,7 @@ export type AppOptions = {
   fps?: number;
   bpm?: number;
   device?: Omit<DeviceLinkOptions, "engine" | "onError">;
+  webRoot?: string;
 };
 
 const bpmSchema = z.number().min(20).max(300);
@@ -83,6 +85,7 @@ export function createApp({
   fps = 30,
   bpm = 120,
   device: deviceOptions,
+  webRoot,
 }: AppOptions) {
   const app = Fastify({ logger });
   const database = openDatabase(databasePath);
@@ -405,6 +408,16 @@ export function createApp({
       });
     });
   });
+
+  if (webRoot) {
+    app.register(fastifyStatic, { root: webRoot, wildcard: false });
+    app.setNotFoundHandler((request, reply) => {
+      if (request.method !== "GET" || request.url.startsWith("/api/")) {
+        return reply.code(404).send({ error: "Not found" });
+      }
+      return reply.sendFile("index.html");
+    });
+  }
 
   return app;
 }

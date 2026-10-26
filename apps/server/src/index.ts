@@ -6,6 +6,7 @@ const databasePath =
   process.env["DATABASE_PATH"] ?? join(import.meta.dirname, "../data/led-matrix.db");
 const udpPort = process.env["UDP_PORT"];
 const latencyOffset = process.env["DEVICE_LATENCY_OFFSET_MS"];
+const webRoot = process.env["WEB_ROOT"];
 const app = createApp({
   databasePath,
   device: {
@@ -13,6 +14,7 @@ const app = createApp({
     port: udpPort === undefined ? undefined : Number(udpPort),
     latencyOffset: latencyOffset === undefined ? undefined : Number(latencyOffset),
   },
+  webRoot,
 });
 
 await app.listen({ port, host: "0.0.0.0" });
