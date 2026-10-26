@@ -6,13 +6,14 @@ import {
   type StoredAnimation,
   animationSchema,
   blendModes,
-  effects,
   getEffect,
   getParamFields,
 } from "@led-matrix/core";
 import { PlayIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createAnimation, deleteAnimation, play, updateAnimation } from "./api.ts";
+import { EffectSelectItems } from "./EffectItems.tsx";
+import { LayerList } from "./LayerList.tsx";
 import { ParamControl } from "./ParamControl.tsx";
 import { Preview } from "./Preview.tsx";
 import { navigate } from "./usePathname.ts";
@@ -40,7 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 
 type EditorProps = {
   isVisible: boolean;
@@ -95,6 +96,15 @@ function getEditorPathname(id: string | undefined): string {
 
 function getDraft({ id: _id, ...animation }: StoredAnimation): Animation {
   return animation;
+}
+
+function getInvalidLayerIndexes(issues: ReadonlyMap<string, string>): Set<number> {
+  return new Set(
+    [...issues.keys()]
+      .map((path) => /^layers\.(\d+)\./.exec(path)?.[1])
+      .filter((index) => index !== undefined)
+      .map(Number),
+  );
 }
 
 function getIssues(draft: Animation): Map<string, string> {
@@ -201,6 +211,30 @@ export function Editor({
         index === layerIndex ? { ...current, ...update } : current,
       ),
     });
+  }
+
+  function addLayer(effectId: string) {
+    setDraft({
+      ...draft,
+      layers: [...draft.layers, { effect: effectId, params: {}, blend: "normal", opacity: 1 }],
+    });
+    setLayerIndex(draft.layers.length);
+  }
+
+  function moveLayer(index: number, offset: number) {
+    const layers = [...draft.layers];
+    const [moved] = layers.splice(index, 1);
+    if (!moved) {
+      return;
+    }
+    layers.splice(index + offset, 0, moved);
+    setDraft({ ...draft, layers });
+    setLayerIndex(index + offset);
+  }
+
+  function removeLayer(index: number) {
+    setDraft({ ...draft, layers: draft.layers.toSpliced(index, 1) });
+    setLayerIndex(Math.max(0, layerIndex >= index ? layerIndex - 1 : layerIndex));
   }
 
   function updateParam(key: string, value: unknown) {
@@ -331,21 +365,36 @@ export function Editor({
             </div>
           </div>
           <Separator />
-          {draft.layers.length > 1 && (
-            <Tabs
-              value={layerIndex}
-              onValueChange={(index: number) => setLayerIndex(index)}
-              className="gap-0"
-            >
-              <TabsList variant="line" className="gap-4">
-                {draft.layers.map((current, index) => (
-                  <TabsTrigger key={index} value={index} className="flex-none px-0">
-                    {getEffect(current.effect)?.name ?? current.effect}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          )}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs text-muted-foreground">Layers</Label>
+              <Select
+                value={null}
+                onValueChange={(id: string | null) => {
+                  if (id) {
+                    addLayer(id);
+                  }
+                }}
+              >
+                <SelectTrigger size="sm" className="h-6 text-xs" aria-label="Add layer">
+                  <PlusIcon />
+                  <SelectValue placeholder="Add layer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <EffectSelectItems />
+                </SelectContent>
+              </Select>
+            </div>
+            <LayerList
+              layers={draft.layers}
+              selectedIndex={layerIndex}
+              invalidIndexes={getInvalidLayerIndexes(issues)}
+              onSelect={setLayerIndex}
+              onMove={moveLayer}
+              onRemove={removeLayer}
+            />
+          </div>
+          <Separator />
           {layer && (
             <>
               <div className="flex flex-col gap-1.5">
@@ -364,11 +413,7 @@ export function Editor({
                     <SelectValue>{(id: string) => getEffect(id)?.name ?? id}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {effects.map((current) => (
-                      <SelectItem key={current.id} value={current.id}>
-                        {current.name}
-                      </SelectItem>
-                    ))}
+                    <EffectSelectItems />
                   </SelectContent>
                 </Select>
               </div>
@@ -382,7 +427,22 @@ export function Editor({
                   onChange={(value) => updateParam(field.key, value)}
                 />
               ))}
-              {draft.layers.length > 1 && (
+              {effect?.kind === "canvas" && (
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="layer-antialias" className="text-xs text-muted-foreground">
+                    Antialias
+                  </Label>
+                  <Switch
+                    id="layer-antialias"
+                    size="sm"
+                    checked={layer.antialias !== false}
+                    onCheckedChange={(checked) =>
+                      updateLayer({ antialias: checked ? undefined : false })
+                    }
+                  />
+                </div>
+              )}
+              {(draft.layers.length > 1 || effect?.kind === "filter") && (
                 <>
                   <Separator />
                   <div className="flex flex-col gap-1.5">
