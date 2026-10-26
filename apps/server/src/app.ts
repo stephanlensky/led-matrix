@@ -1,22 +1,34 @@
+import { basename, extname } from "node:path";
+import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import {
   HEIGHT,
   WIDTH,
+  type StoredAnimation,
+  type StreamMessage,
   animationIdSchema,
   animationSchema,
+  clipIdSchema,
+  clipImportOptionsSchema,
+  clipInfoSchema,
   createRenderer,
   effects,
-  type StreamMessage,
 } from "@led-matrix/core";
 import { nodeCanvas } from "@led-matrix/core/node-canvas";
 import Fastify from "fastify";
 import { z } from "zod";
+import { createAnimationStore } from "./animations.ts";
+import { createClipStore } from "./clips.ts";
+import { getSlugId, openDatabase } from "./database.ts";
+import { DecodeError, type UploadedFile, decodeClip } from "./decode.ts";
 import { createPlaybackEngine } from "./engine.ts";
 import { seedAnimations } from "./seeds.ts";
-import { createAnimationStore, getAnimationId } from "./storage.ts";
+
+const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
+const MAX_UPLOAD_FILES = 2000;
 
 export type AppOptions = {
-  dataDir: string;
+  databasePath: string;
   logger?: boolean;
   fps?: number;
   bpm?: number;
@@ -27,34 +39,50 @@ const playSchema = z.object({ id: animationIdSchema });
 const setBpmSchema = z.object({ bpm: bpmSchema });
 const createAnimationSchema = animationSchema.extend({ id: animationIdSchema.optional() });
 const idParamsSchema = z.object({ id: z.string() });
+const updateClipSchema = clipInfoSchema.pick({ name: true });
 
 function getValidationError(message: string, error: z.ZodError) {
   return { error: message, issues: error.issues };
 }
 
-export function createApp({ dataDir, logger = true, fps = 30, bpm = 120 }: AppOptions) {
+function getClipUsers(animations: readonly StoredAnimation[], clipId: string): string[] {
+  return animations
+    .filter(({ layers }) =>
+      layers.some(({ effect, params }) => effect === "clip" && params["clip"] === clipId),
+    )
+    .map(({ id }) => id);
+}
+
+function getFileName(name: string): string {
+  return basename(name, extname(name)) || "Clip";
+}
+
+export function createApp({ databasePath, logger = true, fps = 30, bpm = 120 }: AppOptions) {
   const app = Fastify({ logger });
-  const store = createAnimationStore(dataDir);
+  const database = openDatabase(databasePath);
+  const store = createAnimationStore(database.connection);
+  const clips = createClipStore(database.connection);
   const engine = createPlaybackEngine({
-    renderer: createRenderer({ fps, canvas: nodeCanvas }),
+    renderer: createRenderer({ fps, canvas: nodeCanvas, clips: clips.library }),
     fps,
     bpm,
     onError: (error) => app.log.error(error, "Failed to render animation"),
   });
 
-  app.addHook("onReady", async () => {
-    if (await store.init()) {
-      await Promise.all(
-        Object.entries(seedAnimations).map(async ([id, animation]) =>
-          store.set(id, animationSchema.parse(animation)),
-        ),
-      );
+  if (database.isCreated) {
+    for (const [id, animation] of Object.entries(seedAnimations)) {
+      store.set(id, animationSchema.parse(animation));
     }
-    engine.start();
+  }
+
+  app.addHook("onReady", () => engine.start());
+  app.addHook("onClose", () => {
+    engine.close();
+    database.connection.close();
   });
-  app.addHook("onClose", () => engine.close());
 
   app.register(websocket);
+  app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES, files: MAX_UPLOAD_FILES } });
 
   app.get("/api/health", () => ({ status: "ok", width: WIDTH, height: HEIGHT }));
 
@@ -71,7 +99,7 @@ export function createApp({ dataDir, logger = true, fps = 30, bpm = 120 }: AppOp
 
   app.get("/api/animations/:id", async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
-    const animation = animationIdSchema.safeParse(id).success ? await store.get(id) : undefined;
+    const animation = animationIdSchema.safeParse(id).success ? store.get(id) : undefined;
     return animation ?? reply.code(404).send({ error: "Animation not found" });
   });
 
@@ -81,36 +109,114 @@ export function createApp({ dataDir, logger = true, fps = 30, bpm = 120 }: AppOp
       return reply.code(400).send(getValidationError("Invalid animation", result.error));
     }
     const { id: requestedId, ...animation } = result.data;
-    if (requestedId && (await store.has(requestedId))) {
+    if (requestedId && store.has(requestedId)) {
       return reply.code(409).send({ error: "Animation already exists" });
     }
-    const existingIds = new Set((await store.list()).map((stored) => stored.id));
-    const id = requestedId ?? getAnimationId(animation.name, existingIds);
-    return reply.code(201).send(await store.set(id, animation));
+    const existingIds = new Set(store.list().map((stored) => stored.id));
+    const id = requestedId ?? getSlugId(animation.name, existingIds, "animation");
+    return reply.code(201).send(store.set(id, animation));
   });
 
   app.put("/api/animations/:id", async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
-    if (!animationIdSchema.safeParse(id).success || !(await store.has(id))) {
+    if (!animationIdSchema.safeParse(id).success || !store.has(id)) {
       return reply.code(404).send({ error: "Animation not found" });
     }
     const result = animationSchema.safeParse(request.body);
     if (!result.success) {
       return reply.code(400).send(getValidationError("Invalid animation", result.error));
     }
-    const stored = await store.set(id, result.data);
+    const stored = store.set(id, result.data);
     engine.updateAnimation(id, result.data);
     return stored;
   });
 
   app.delete("/api/animations/:id", async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
-    if (!animationIdSchema.safeParse(id).success || !(await store.delete(id))) {
+    if (!animationIdSchema.safeParse(id).success || !store.delete(id)) {
       return reply.code(404).send({ error: "Animation not found" });
     }
     if (engine.getState().animationId === id) {
       engine.stop();
     }
+    return reply.code(204).send();
+  });
+
+  app.get("/api/clips", () => clips.list());
+
+  app.get("/api/clips/:id", async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const clip = clipIdSchema.safeParse(id).success ? clips.get(id) : undefined;
+    return clip ?? reply.code(404).send({ error: "Clip not found" });
+  });
+
+  app.get("/api/clips/:id/frames", async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const frames = clipIdSchema.safeParse(id).success ? clips.getFrames(id) : undefined;
+    if (!frames) {
+      return reply.code(404).send({ error: "Clip not found" });
+    }
+    return reply
+      .type("application/octet-stream")
+      .send(Buffer.from(frames.buffer, frames.byteOffset, frames.byteLength));
+  });
+
+  app.post("/api/clips", async (request, reply) => {
+    if (!request.isMultipart()) {
+      return reply.code(415).send({ error: "Expected multipart form data" });
+    }
+    const files: UploadedFile[] = [];
+    const fields: Record<string, unknown> = {};
+    for await (const part of request.parts()) {
+      if (part.type === "file") {
+        files.push({ name: part.filename, mimetype: part.mimetype, data: await part.toBuffer() });
+      } else {
+        fields[part.fieldname] = part.value;
+      }
+    }
+    const options = clipImportOptionsSchema.safeParse(fields);
+    if (!options.success) {
+      return reply.code(400).send(getValidationError("Invalid import options", options.error));
+    }
+    try {
+      const decoded = await decodeClip(files, options.data);
+      const name = options.data.name ?? getFileName(files[0]?.name ?? "");
+      const existingIds = new Set(clips.list().map((clip) => clip.id));
+      const id = getSlugId(name, existingIds, "clip");
+      const { frames, ...info } = decoded;
+      return reply.code(201).send(clips.create({ id, name, ...info }, frames));
+    } catch (error) {
+      if (error instanceof DecodeError) {
+        return reply.code(400).send({ error: error.message });
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/clips/:id", async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    if (!clipIdSchema.safeParse(id).success || !clips.get(id)) {
+      return reply.code(404).send({ error: "Clip not found" });
+    }
+    const result = updateClipSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send(getValidationError("Invalid clip", result.error));
+    }
+    return clips.rename(id, result.data.name);
+  });
+
+  app.delete("/api/clips/:id", async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    if (!clipIdSchema.safeParse(id).success || !clips.get(id)) {
+      return reply.code(404).send({ error: "Clip not found" });
+    }
+    const users = getClipUsers(store.list(), id);
+    if (users.length > 0) {
+      return reply
+        .code(409)
+        .send({ error: `Clip is used by animations: ${users.join(", ")}`, animations: users });
+    }
+    clips.delete(id);
     return reply.code(204).send();
   });
 
@@ -121,7 +227,7 @@ export function createApp({ dataDir, logger = true, fps = 30, bpm = 120 }: AppOp
     if (!result.success) {
       return reply.code(400).send(getValidationError("Invalid play request", result.error));
     }
-    const animation = await store.get(result.data.id);
+    const animation = store.get(result.data.id);
     if (!animation) {
       return reply.code(404).send({ error: "Animation not found" });
     }

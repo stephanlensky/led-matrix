@@ -1,11 +1,36 @@
 import {
   type Animation,
+  type ClipImportOptions,
+  type ClipInfo,
   type PlaybackState,
   type StoredAnimation,
+  clipInfoSchema,
   playbackStateSchema,
   storedAnimationSchema,
 } from "@led-matrix/core";
 import { z } from "zod";
+
+const errorResponseSchema = z.object({ error: z.string() });
+
+async function getResponseError(method: string, url: string, response: Response): Promise<Error> {
+  const body = errorResponseSchema.safeParse(await response.json().catch(() => undefined));
+  return new Error(
+    body.success ? body.data.error : `${method} ${url} failed with ${response.status}`,
+  );
+}
+
+async function send(method: string, url: string, body?: unknown): Promise<Response> {
+  const response = await fetch(url, {
+    method,
+    headers:
+      body === undefined || body instanceof FormData ? {} : { "content-type": "application/json" },
+    body: body === undefined || body instanceof FormData ? body : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw await getResponseError(method, url, response);
+  }
+  return response;
+}
 
 async function request<S extends z.ZodType>(
   schema: S,
@@ -13,14 +38,7 @@ async function request<S extends z.ZodType>(
   url: string,
   body?: unknown,
 ): Promise<z.output<S>> {
-  const response = await fetch(url, {
-    method,
-    headers: body === undefined ? {} : { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!response.ok) {
-    throw new Error(`${method} ${url} failed with ${response.status}`);
-  }
+  const response = await send(method, url, body);
   return schema.parse(await response.json());
 }
 
@@ -49,8 +67,42 @@ export function updateAnimation(id: string, animation: Animation): Promise<Store
 }
 
 export async function deleteAnimation(id: string): Promise<void> {
-  const response = await fetch(`/api/animations/${id}`, { method: "DELETE" });
-  if (!response.ok) {
-    throw new Error(`DELETE /api/animations/${id} failed with ${response.status}`);
+  await send("DELETE", `/api/animations/${id}`);
+}
+
+export function getClips(): Promise<ClipInfo[]> {
+  return request(z.array(clipInfoSchema), "GET", "/api/clips");
+}
+
+export function getClip(id: string): Promise<ClipInfo> {
+  return request(clipInfoSchema, "GET", `/api/clips/${id}`);
+}
+
+export async function getClipFrames(id: string): Promise<Uint8Array> {
+  const response = await send("GET", `/api/clips/${id}/frames`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+export function importClip(
+  files: readonly File[],
+  options: Partial<ClipImportOptions>,
+): Promise<ClipInfo> {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(options)) {
+    if (value !== undefined && value !== "") {
+      form.append(key, String(value));
+    }
   }
+  for (const file of files) {
+    form.append("files", file);
+  }
+  return request(clipInfoSchema, "POST", "/api/clips", form);
+}
+
+export function renameClip(id: string, name: string): Promise<ClipInfo> {
+  return request(clipInfoSchema, "PATCH", `/api/clips/${id}`, { name });
+}
+
+export async function deleteClip(id: string): Promise<void> {
+  await send("DELETE", `/api/clips/${id}`);
 }

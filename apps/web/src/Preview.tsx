@@ -8,6 +8,7 @@ import {
 import { Grid3x3Icon, PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { browserCanvas } from "./browserCanvas.ts";
+import { browserClips, subscribeClips } from "./clipLibrary.ts";
 import { MatrixFrame } from "./MatrixFrame.tsx";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -39,7 +40,9 @@ export function Preview({ animation, bpm, fps, showGrid, onShowGridChange }: Pre
   const [frame, setFrame] = useState<Frame>(createFrame);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [renderer] = useState(() => createRenderer({ fps, canvas: browserCanvas }));
+  const [renderer] = useState(() =>
+    createRenderer({ fps, canvas: browserCanvas, clips: browserClips }),
+  );
   const elapsedRef = useRef(0);
   const isPlayingRef = useRef(isPlaying);
   const animationRef = useRef(animation);
@@ -54,6 +57,9 @@ export function Preview({ animation, bpm, fps, showGrid, onShowGridChange }: Pre
     let lastRendered: { animation: Animation; frameTime: number } | undefined;
     let lastTime = performance.now();
     let requestId = 0;
+    const unsubscribe = subscribeClips(() => {
+      lastRendered = undefined;
+    });
 
     function tick(now: number) {
       const current = animationRef.current;
@@ -75,7 +81,10 @@ export function Preview({ animation, bpm, fps, showGrid, onShowGridChange }: Pre
     }
 
     requestId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(requestId);
+    return () => {
+      cancelAnimationFrame(requestId);
+      unsubscribe();
+    };
   }, [renderer, bpm, fps]);
 
   function seek(value: number) {

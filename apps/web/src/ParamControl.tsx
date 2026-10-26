@@ -1,4 +1,4 @@
-import { type ParamField, keyframeTrackSchema } from "@led-matrix/core";
+import { type ClipInfo, type ParamField, keyframeTrackSchema } from "@led-matrix/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 type ParamControlProps = {
   field: ParamField;
   value: unknown;
+  clips: readonly ClipInfo[];
   error: string | undefined;
   onChange: (value: unknown) => void;
 };
@@ -99,10 +100,42 @@ function ColorControl({
   );
 }
 
+function ClipControl({
+  id,
+  value,
+  clips,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  clips: readonly ClipInfo[];
+  onChange: (value: unknown) => void;
+}) {
+  return (
+    <Select value={value || null} onValueChange={onChange}>
+      <SelectTrigger id={id} size="sm" className="w-full">
+        <SelectValue placeholder="Select a clip">
+          {(clipId: string | null) =>
+            clips.find((clip) => clip.id === clipId)?.name ?? clipId ?? "Select a clip"
+          }
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {clips.map((clip) => (
+          <SelectItem key={clip.id} value={clip.id}>
+            {clip.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function getControl(
   id: string,
   field: ParamField,
   value: unknown,
+  clips: readonly ClipInfo[],
   onChange: (value: unknown) => void,
 ) {
   switch (field.type) {
@@ -121,6 +154,15 @@ function getControl(
           id={id}
           label={field.label}
           value={typeof value === "string" ? value : (field.defaultValue ?? "#000000")}
+          onChange={onChange}
+        />
+      );
+    case "clip":
+      return (
+        <ClipControl
+          id={id}
+          value={typeof value === "string" ? value : (field.defaultValue ?? "")}
+          clips={clips}
           onChange={onChange}
         />
       );
@@ -171,7 +213,7 @@ function getControl(
   );
 }
 
-export function ParamControl({ field, value, error, onChange }: ParamControlProps) {
+export function ParamControl({ field, value, clips, error, onChange }: ParamControlProps) {
   const id = `param-${field.key}`;
   const track = keyframeTrackSchema.safeParse(value);
   const isInline = field.type === "boolean" && !track.success;
@@ -194,7 +236,7 @@ export function ParamControl({ field, value, error, onChange }: ParamControlProp
           </Button>
         </div>
       ) : (
-        getControl(id, field, value, onChange)
+        getControl(id, field, value, clips, onChange)
       )}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

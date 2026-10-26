@@ -1,6 +1,7 @@
 import { type Animation, getAnimationTiming } from "./animation.ts";
 import { blendChannel } from "./blend.ts";
 import type { CanvasContext, CanvasProvider } from "./canvas.ts";
+import { type ClipLibrary, emptyClipLibrary } from "./clip.ts";
 import { getEffect } from "./effects/index.ts";
 import {
   CHANNELS,
@@ -16,13 +17,18 @@ import { resolveParams } from "./keyframes.ts";
 export type RendererOptions = {
   fps: number;
   canvas?: CanvasProvider;
+  clips?: ClipLibrary;
 };
 
 export type Renderer = {
   render(animation: Animation, elapsed: number, bpm: number): Frame;
 };
 
-export function createRenderer({ fps, canvas }: RendererOptions): Renderer {
+export function createRenderer({
+  fps,
+  canvas,
+  clips = emptyClipLibrary,
+}: RendererOptions): Renderer {
   const contexts: CanvasContext[] = [];
 
   function getContext(index: number): CanvasContext {
@@ -44,7 +50,7 @@ export function createRenderer({ fps, canvas }: RendererOptions): Renderer {
           throw new Error(`Unknown effect "${layer.effect}"`);
         }
         const params = effect.params.parse(resolveParams(layer.params, timing.progress));
-        const input = { ...timing, bpm, params };
+        const input = { ...timing, bpm, params, clips };
 
         let image = createRgbaImage();
         if (effect.kind === "pixel") {

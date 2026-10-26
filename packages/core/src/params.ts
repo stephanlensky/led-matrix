@@ -30,6 +30,14 @@ export type TextParamField = {
   maxLength: number | undefined;
 };
 
+export type ClipParamField = {
+  type: "clip";
+  key: string;
+  label: string;
+  isOptional: boolean;
+  defaultValue: string | undefined;
+};
+
 export type EnumParamField = {
   type: "enum";
   key: string;
@@ -50,6 +58,7 @@ export type BooleanParamField = {
 export type ParamField =
   | NumberParamField
   | ColorParamField
+  | ClipParamField
   | TextParamField
   | EnumParamField
   | BooleanParamField;
@@ -116,8 +125,8 @@ function getField(
   if (property.enum) {
     return { ...base, type: "enum", defaultValue: stringDefault, options: property.enum };
   }
-  if (property.format === "color") {
-    return { ...base, type: "color", defaultValue: stringDefault };
+  if (property.format === "color" || property.format === "clip") {
+    return { ...base, type: property.format, defaultValue: stringDefault };
   }
   return {
     ...base,

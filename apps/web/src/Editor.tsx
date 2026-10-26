@@ -1,6 +1,7 @@
 import {
   type Animation,
   type AnimationMode,
+  type ClipInfo,
   type Layer,
   type StoredAnimation,
   animationSchema,
@@ -45,6 +46,7 @@ type EditorProps = {
   isVisible: boolean;
   animationId: string | undefined;
   animations: readonly StoredAnimation[] | undefined;
+  clips: readonly ClipInfo[];
   bpm: number;
   fps: number;
   showGrid: boolean;
@@ -106,6 +108,7 @@ export function Editor({
   isVisible,
   animationId,
   animations,
+  clips,
   bpm,
   fps,
   showGrid,
@@ -374,6 +377,7 @@ export function Editor({
                   key={`${layerIndex}-${layer.effect}-${field.key}`}
                   field={field}
                   value={layer.params[field.key]}
+                  clips={clips}
                   error={issues.get(`layers.${layerIndex}.params.${field.key}`)}
                   onChange={(value) => updateParam(field.key, value)}
                 />

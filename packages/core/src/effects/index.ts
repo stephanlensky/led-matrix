@@ -1,5 +1,6 @@
 import type { Effect } from "../effect.ts";
 import { bigText } from "./big-text.ts";
+import { clip } from "./clip.ts";
 import { plasma } from "./plasma.ts";
 import { scrollingText } from "./scrolling-text.ts";
 import { solid } from "./solid.ts";
@@ -15,6 +16,7 @@ export const effects: readonly Effect[] = [
   text,
   scrollingText,
   bigText,
+  clip,
 ];
 
 const effectsById = new Map(effects.map((effect) => [effect.id, effect]));

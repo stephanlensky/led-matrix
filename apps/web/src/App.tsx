@@ -1,7 +1,8 @@
-import type { StoredAnimation } from "@led-matrix/core";
-import { MonitorIcon, PencilRulerIcon } from "lucide-react";
+import type { ClipInfo, StoredAnimation } from "@led-matrix/core";
+import { FilmIcon, MonitorIcon, PencilRulerIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { getAnimations } from "./api.ts";
+import { getAnimations, getClips } from "./api.ts";
+import { Clips } from "./Clips.tsx";
 import { Editor } from "./Editor.tsx";
 import { Navigation, type NavigationItem } from "./Navigation.tsx";
 import { Simulator } from "./Simulator.tsx";
@@ -9,14 +10,21 @@ import { navigate, usePathname } from "./usePathname.ts";
 import { useStream } from "./useStream.ts";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-type View = "simulator" | "editor";
+type View = "simulator" | "editor" | "clips";
 
-type Route = { view: "simulator" } | { view: "editor"; animationId: string | undefined };
+type Route =
+  | { view: "simulator" }
+  | { view: "editor"; animationId: string | undefined }
+  | { view: "clips"; clipId: string | undefined };
 
 function getRoute(pathname: string): Route {
   const [section, id] = pathname.split("/").filter(Boolean);
+  const decodedId = id && decodeURIComponent(id);
   if (section === "editor") {
-    return { view: "editor", animationId: id && decodeURIComponent(id) };
+    return { view: "editor", animationId: decodedId };
+  }
+  if (section === "clips") {
+    return { view: "clips", clipId: decodedId };
   }
   return { view: "simulator" };
 }
@@ -24,6 +32,7 @@ function getRoute(pathname: string): Route {
 const views: readonly NavigationItem<View>[] = [
   { id: "simulator", label: "Simulator", icon: MonitorIcon },
   { id: "editor", label: "Editor", icon: PencilRulerIcon },
+  { id: "clips", label: "Clips", icon: FilmIcon },
 ];
 
 const DEFAULT_BPM = 120;
@@ -32,6 +41,7 @@ const DEFAULT_FPS = 30;
 export function App() {
   const stream = useStream();
   const [animations, setAnimations] = useState<StoredAnimation[]>();
+  const [clips, setClips] = useState<ClipInfo[]>();
   const [showGrid, setShowGrid] = useState(true);
   const pathname = usePathname();
   const route = getRoute(pathname);
@@ -39,12 +49,32 @@ export function App() {
   if (route.view === "editor" && pathname !== editorPathname) {
     setEditorPathname(pathname);
   }
+  const [clipsPathname, setClipsPathname] = useState("/clips");
+  if (route.view === "clips" && pathname !== clipsPathname) {
+    setClipsPathname(pathname);
+  }
+  const viewPathnames: Readonly<Record<View, string>> = {
+    simulator: "/simulator",
+    editor: editorPathname,
+    clips: clipsPathname,
+  };
   const [error, setError] = useState<string>();
 
-  const refreshAnimations = useCallback(() => {
-    getAnimations()
+  const refreshAnimations = useCallback(
+    () =>
+      getAnimations()
+        .then((result) => {
+          setAnimations(result);
+          setError(undefined);
+        })
+        .catch((cause: unknown) => setError(String(cause))),
+    [],
+  );
+
+  const refreshClips = useCallback(() => {
+    getClips()
       .then((result) => {
-        setAnimations(result);
+        setClips(result);
         setError(undefined);
       })
       .catch((cause: unknown) => setError(String(cause)));
@@ -52,9 +82,10 @@ export function App() {
 
   useEffect(() => {
     if (stream.isConnected) {
-      refreshAnimations();
+      void refreshAnimations();
+      refreshClips();
     }
-  }, [stream.isConnected, refreshAnimations]);
+  }, [stream.isConnected, refreshAnimations, refreshClips]);
 
   return (
     <TooltipProvider>
@@ -62,7 +93,7 @@ export function App() {
         <Navigation
           items={views}
           activeId={route.view}
-          onSelect={(view) => navigate(view === "editor" ? editorPathname : "/simulator")}
+          onSelect={(view) => navigate(viewPathnames[view])}
         />
         <main className="grid min-w-0 flex-1 grid-cols-1 gap-6 overflow-y-auto p-6 md:grid-cols-[auto_minmax(0,1fr)]">
           {error && <p className="text-sm text-destructive md:col-span-2">{error}</p>}
@@ -79,11 +110,25 @@ export function App() {
               isVisible={route.view === "editor"}
               animationId={route.view === "editor" ? route.animationId : undefined}
               animations={animations}
+              clips={clips ?? []}
               bpm={stream.state?.bpm ?? DEFAULT_BPM}
               fps={stream.state?.fps ?? DEFAULT_FPS}
               showGrid={showGrid}
               onShowGridChange={setShowGrid}
               onSaved={refreshAnimations}
+            />
+          </div>
+          <div className={route.view === "clips" ? "contents" : "hidden"}>
+            <Clips
+              isVisible={route.view === "clips"}
+              clipId={route.view === "clips" ? route.clipId : undefined}
+              clips={clips}
+              bpm={stream.state?.bpm ?? DEFAULT_BPM}
+              fps={stream.state?.fps ?? DEFAULT_FPS}
+              showGrid={showGrid}
+              onShowGridChange={setShowGrid}
+              onClipsChanged={refreshClips}
+              onAnimationsChanged={refreshAnimations}
             />
           </div>
         </main>

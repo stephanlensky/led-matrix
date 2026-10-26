@@ -24,8 +24,10 @@ pnpm check    # format, lint, typecheck, test
 - `POST /api/animations` — create (id derived from the name unless given), `PUT`/`DELETE /api/animations/:id`
 - `POST /api/play {id}`, `POST /api/stop`, `POST /api/bpm {bpm}`, `GET /api/playback`
 - `GET /api/effects` — built-in effects with JSON schemas for their params
+- `GET /api/clips`, `GET /api/clips/:id`, `GET /api/clips/:id/frames` — list clips, fetch metadata or raw 64x64 RGBA frames
+- `POST /api/clips` — multipart import of a GIF, image, SVG, video or several images as a sequence (`fit`, `resample`, `fps`, `start`, `duration`, `name` fields); `PATCH`/`DELETE /api/clips/:id`
 - `WS /api/stream` — binary 64x64 RGB frames (12288 bytes) plus JSON `{type: "state"}` messages
 
-Animations are stored as JSON files in `apps/server/data/animations` (override with `DATA_DIR`) and seeded with examples on first start.
+Animations and clips are stored in a SQLite database at `apps/server/data/led-matrix.db` (override with `DATABASE_PATH`); a new database is seeded with example animations. Video import requires `ffmpeg` on the `PATH`.
 
 Fonts in `packages/core/fonts` are converted with `pnpm --filter @led-matrix/core generate-fonts`.

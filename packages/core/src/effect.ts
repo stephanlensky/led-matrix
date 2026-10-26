@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { CanvasContext } from "./canvas.ts";
+import type { ClipLibrary } from "./clip.ts";
 import type { RgbaImage } from "./frame.ts";
 
 export type EffectParamsSchema = z.ZodObject;
@@ -10,6 +11,7 @@ export type EffectInput<P> = {
   beat: number;
   bpm: number;
   progress: number;
+  clips: ClipLibrary;
 };
 
 type EffectBase<S extends EffectParamsSchema> = {

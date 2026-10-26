@@ -7,13 +7,13 @@ import { createApp } from "./app.ts";
 import { seedAnimations } from "./seeds.ts";
 
 let rootDir: string;
-let dataDir: string;
+let databasePath: string;
 let app: ReturnType<typeof createApp>;
 
 beforeEach(async () => {
   rootDir = await mkdtemp(join(tmpdir(), "led-matrix-"));
-  dataDir = join(rootDir, "animations");
-  app = createApp({ dataDir, logger: false });
+  databasePath = join(rootDir, "data", "led-matrix.db");
+  app = createApp({ databasePath, logger: false });
   await app.ready();
 });
 
@@ -49,17 +49,17 @@ describe("effects", () => {
 });
 
 describe("animations", () => {
-  it("seeds example animations into a new data directory", async () => {
+  it("seeds example animations into a new database", async () => {
     const response = await app.inject({ method: "GET", url: "/api/animations" });
     expect(response.json<{ id: string }[]>().map(({ id }) => id)).toEqual(
       Object.keys(seedAnimations).toSorted(),
     );
   });
 
-  it("does not reseed an existing data directory", async () => {
+  it("does not reseed an existing database", async () => {
     await app.inject({ method: "DELETE", url: "/api/animations/plasma" });
     await app.close();
-    app = createApp({ dataDir, logger: false });
+    app = createApp({ databasePath, logger: false });
     await app.ready();
     const response = await app.inject({ method: "GET", url: "/api/animations/plasma" });
     expect(response.statusCode).toBe(404);
