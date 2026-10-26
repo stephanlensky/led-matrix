@@ -9,6 +9,8 @@ namespace display {
 namespace {
 
 constexpr uint16_t minRefreshRate = 100;
+constexpr uint8_t colorDepth = 8;
+constexpr uint32_t rowPairs = protocol::height / 2;
 constexpr int16_t lineHeight = 6;
 
 HUB75_I2S_CFG getConfig() {
@@ -20,7 +22,30 @@ HUB75_I2S_CFG getConfig() {
   return config;
 }
 
+uint32_t getTransitionBit() {
+  for (uint32_t bit = 0; bit < colorDepth; bit++) {
+    const uint32_t estimatedPlanes = colorDepth + (1 << (colorDepth - 1 - bit)) - 1;
+    if (CLOCK_SPEED / (protocol::width * rowPairs * estimatedPlanes) >= minRefreshRate) {
+      return bit;
+    }
+  }
+  return colorDepth - 1;
+}
+
+uint32_t getFramePeriodUs() {
+  const uint32_t bit = getTransitionBit();
+  const uint64_t planes = (1 << (colorDepth - bit)) + bit - 1;
+  return protocol::width * rowPairs * planes * 1000000 / CLOCK_SPEED + 1;
+}
+
 MatrixPanel_I2S_DMA matrix(getConfig());
+const uint32_t framePeriodUs = getFramePeriodUs();
+uint32_t lastFlipAt = 0;
+
+void flip() {
+  matrix.flipDMABuffer();
+  lastFlipAt = micros();
+}
 
 }  // namespace
 
@@ -28,6 +53,7 @@ bool begin(uint8_t brightness) {
   if (!matrix.begin()) {
     return false;
   }
+  flip();
   setBrightness(brightness);
   matrix.setFont(&TomThumb);
   matrix.setTextWrap(false);
@@ -43,7 +69,7 @@ void showFrame(const uint8_t* rgb) {
       matrix.drawPixelRGB888(x, y, pixel[0], pixel[1], pixel[2]);
     }
   }
-  matrix.flipDMABuffer();
+  flip();
 }
 
 void showTestPattern() {
@@ -61,7 +87,7 @@ void showTestPattern() {
                            i == 1 || i == 3 ? value : 0, i == 2 || i == 3 ? value : 0);
     }
   }
-  matrix.flipDMABuffer();
+  flip();
 }
 
 void showLines(std::initializer_list<String> lines) {
@@ -73,14 +99,16 @@ void showLines(std::initializer_list<String> lines) {
     matrix.print(line);
     y += lineHeight + 1;
   }
-  matrix.flipDMABuffer();
+  flip();
 }
 
 void clear() {
   matrix.fillScreen(0);
-  matrix.flipDMABuffer();
+  flip();
 }
 
-uint16_t getRefreshRate() { return matrix.calculated_refresh_rate; }
+bool isReady() { return micros() - lastFlipAt >= framePeriodUs; }
+
+uint32_t getRefreshRate() { return 1000000 / framePeriodUs; }
 
 }  // namespace display

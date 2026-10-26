@@ -20,22 +20,27 @@ constexpr int noBrightness = -1;
 
 uint8_t packet[protocol::maxPacketSize + 1];
 uint8_t assembled[protocol::frameSize];
-uint8_t ready[protocol::frameSize];
+constexpr size_t queueSize = 3;
+
+uint8_t queue[queueSize][protocol::frameSize];
+size_t queueStart = 0;
+size_t queueCount = 0;
 protocol::FrameAssembler assembler(assembled);
-std::mutex readyMutex;
-bool isReady = false;
+std::mutex queueMutex;
 uint32_t framesReplaced = 0;
 std::atomic<int> brightness{noBrightness};
 std::atomic<uint32_t> framesDropped{0};
 std::atomic<uint32_t> packetsReceived{0};
 
-void setReadyFrame() {
-  std::lock_guard lock(readyMutex);
-  std::memcpy(ready, assembled, protocol::frameSize);
-  if (isReady) {
+void addFrame() {
+  std::lock_guard lock(queueMutex);
+  if (queueCount == queueSize) {
+    queueStart = (queueStart + 1) % queueSize;
+    queueCount--;
     framesReplaced++;
   }
-  isReady = true;
+  std::memcpy(queue[(queueStart + queueCount) % queueSize], assembled, protocol::frameSize);
+  queueCount++;
   framesDropped = assembler.getFramesDropped() + framesReplaced;
 }
 
@@ -44,7 +49,7 @@ void handlePacket(size_t size) {
   if (type == protocol::MessageType::frame) {
     const auto chunk = protocol::decodeFrameChunk(packet, size);
     if (chunk && assembler.add(*chunk)) {
-      setReadyFrame();
+      addFrame();
     }
   } else if (type == protocol::MessageType::setBrightness) {
     const auto value = protocol::decodeSetBrightness(packet, size);
@@ -75,12 +80,13 @@ bool begin() {
 }
 
 bool copyFrame(uint8_t* frame) {
-  std::lock_guard lock(readyMutex);
-  if (!isReady) {
+  std::lock_guard lock(queueMutex);
+  if (queueCount == 0) {
     return false;
   }
-  std::memcpy(frame, ready, protocol::frameSize);
-  isReady = false;
+  std::memcpy(frame, queue[queueStart], protocol::frameSize);
+  queueStart = (queueStart + 1) % queueSize;
+  queueCount--;
   return true;
 }
 

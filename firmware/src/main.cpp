@@ -48,9 +48,10 @@ void logStatus(uint32_t now) {
       "%s  %u packets/s  %u fps  refresh %u Hz  shown %u  dropped %u  brightness %u  rssi %d\n",
       isStreaming(now) ? "streaming" : "idle",
       static_cast<unsigned>(receiver::getPacketsReceived() - packetsAtLastStatus),
-      static_cast<unsigned>(framesShown - framesShownAtLastStatus), display::getRefreshRate(),
-      static_cast<unsigned>(framesShown), static_cast<unsigned>(receiver::getFramesDropped()),
-      brightness, static_cast<int>(WiFi.RSSI()));
+      static_cast<unsigned>(framesShown - framesShownAtLastStatus),
+      static_cast<unsigned>(display::getRefreshRate()), static_cast<unsigned>(framesShown),
+      static_cast<unsigned>(receiver::getFramesDropped()), brightness,
+      static_cast<int>(WiFi.RSSI()));
   framesShownAtLastStatus = framesShown;
   packetsAtLastStatus = receiver::getPacketsReceived();
 }
@@ -65,7 +66,7 @@ void setBrightness(uint8_t value, uint32_t now) {
 }
 
 void updateFrame(uint32_t now) {
-  if (receiver::copyFrame(frame)) {
+  if (display::isReady() && receiver::copyFrame(frame)) {
     display::showFrame(frame);
     framesShown++;
     lastFrameAt = now;

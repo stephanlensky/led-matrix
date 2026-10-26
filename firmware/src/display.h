@@ -12,6 +12,7 @@ void showFrame(const uint8_t* rgb);
 void showTestPattern();
 void showLines(std::initializer_list<String> lines);
 void clear();
-uint16_t getRefreshRate();
+bool isReady();
+uint32_t getRefreshRate();
 
 }  // namespace display
