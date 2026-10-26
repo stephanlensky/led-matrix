@@ -72,6 +72,11 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       { effect: "tilt", params: { spinEvery: 8 } },
     ],
   },
+  "jack-o-lantern": {
+    name: "Jack-o'-lantern",
+    mode: { type: "loop", beats: 32 },
+    layers: [{ effect: "pumpkin", params: { cyclesX: 3, cyclesY: 4 } }],
+  },
   "plasma-kaleidoscope": {
     name: "Plasma kaleidoscope",
     mode: { type: "loop", beats: 16 },
