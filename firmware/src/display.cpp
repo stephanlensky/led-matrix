@@ -20,7 +20,7 @@ namespace display {
 
 namespace {
 
-constexpr uint16_t minRefreshRate = 100;
+constexpr uint16_t minRefreshRate = MIN_REFRESH_RATE;
 constexpr uint8_t colorDepth = 8;
 constexpr uint32_t rowPairs = protocol::height / 2;
 constexpr int16_t lineHeight = 6;
