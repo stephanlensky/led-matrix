@@ -19,7 +19,10 @@ describe("built-in effects", () => {
       const animation = animationSchema.parse({
         name: id,
         mode: { type: "loop", beats: 4 },
-        layers: [{ effect: id }],
+        layers:
+          getEffect(id)?.kind === "filter"
+            ? [{ effect: "plasma" }, { effect: id }]
+            : [{ effect: id }],
       });
       const frames = [0, 300, 1200].map((elapsed) => renderer.render(animation, elapsed, 120));
       expect(frames.some((frame) => frame.some((value) => value > 0))).toBe(true);

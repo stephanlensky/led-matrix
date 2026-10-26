@@ -1,4 +1,13 @@
 import type { Effect } from "../effect.ts";
+import { emboss } from "./emboss.ts";
+import { tilt } from "./tilt.ts";
+import { pixelate } from "./pixelate.ts";
+import { posterize } from "./posterize.ts";
+import { blur } from "./blur.ts";
+import { mirror } from "./mirror.ts";
+import { kaleidoscope } from "./kaleidoscope.ts";
+import { chromatic } from "./chromatic.ts";
+import { trails } from "./trails.ts";
 import { bigText } from "./big-text.ts";
 import { clip } from "./clip.ts";
 import { plasma } from "./plasma.ts";
@@ -17,6 +26,15 @@ export const effects: readonly Effect[] = [
   scrollingText,
   bigText,
   clip,
+  emboss,
+  tilt,
+  pixelate,
+  posterize,
+  blur,
+  mirror,
+  kaleidoscope,
+  chromatic,
+  trails,
 ];
 
 const effectsById = new Map(effects.map((effect) => [effect.id, effect]));

@@ -14,6 +14,11 @@ export type EffectInput<P> = {
   clips: ClipLibrary;
 };
 
+export type FilterInput<P> = EffectInput<P> & {
+  source: RgbaImage;
+  previous: RgbaImage;
+};
+
 type EffectBase<S extends EffectParamsSchema> = {
   id: string;
   name: string;
@@ -30,9 +35,15 @@ export type CanvasEffect<S extends EffectParamsSchema = EffectParamsSchema> = Ef
   render(context: CanvasContext, input: EffectInput<z.output<S>>): void;
 };
 
+export type FilterEffect<S extends EffectParamsSchema = EffectParamsSchema> = EffectBase<S> & {
+  kind: "filter";
+  render(image: RgbaImage, input: FilterInput<z.output<S>>): void;
+};
+
 export type Effect<S extends EffectParamsSchema = EffectParamsSchema> =
   | PixelEffect<S>
-  | CanvasEffect<S>;
+  | CanvasEffect<S>
+  | FilterEffect<S>;
 
 export function defineEffect<S extends EffectParamsSchema>(effect: Effect<S>): Effect<S> {
   return effect;

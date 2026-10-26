@@ -1,6 +1,13 @@
 import type { Effect } from "@led-matrix/core";
-import { BrushIcon, GridIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { BlendIcon, BrushIcon, GridIcon } from "lucide-react";
 import { ListEmpty, ListRow } from "./ListRow.tsx";
+
+const kindIcons: Readonly<Record<Effect["kind"], ReactNode>> = {
+  pixel: <GridIcon />,
+  canvas: <BrushIcon />,
+  filter: <BlendIcon />,
+};
 
 type EffectListProps = {
   effects: readonly Effect[];
@@ -15,7 +22,7 @@ export function EffectList({ effects }: EffectListProps) {
       {effects.map((effect) => (
         <li key={effect.id}>
           <ListRow
-            icon={effect.kind === "canvas" ? <BrushIcon /> : <GridIcon />}
+            icon={kindIcons[effect.kind]}
             title={effect.name}
             subtitle={Object.keys(effect.params.shape).join(", ") || "No parameters"}
             detail={effect.kind}
