@@ -12,6 +12,6 @@ void showFrame(const uint8_t* rgb);
 void showTestPattern();
 void showLines(std::initializer_list<String> lines);
 void clear();
-uint32_t getRefreshCount();
+uint16_t getRefreshRate();
 
 }  // namespace display

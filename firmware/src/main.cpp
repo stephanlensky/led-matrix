@@ -48,10 +48,9 @@ void logStatus(uint32_t now) {
       "%s  %u packets/s  %u fps  refresh %u Hz  shown %u  dropped %u  brightness %u  rssi %d\n",
       isStreaming(now) ? "streaming" : "idle",
       static_cast<unsigned>(receiver::getPacketsReceived() - packetsAtLastStatus),
-      static_cast<unsigned>(framesShown - framesShownAtLastStatus),
-      static_cast<unsigned>(display::getRefreshCount()), static_cast<unsigned>(framesShown),
-      static_cast<unsigned>(receiver::getFramesDropped()), brightness,
-      static_cast<int>(WiFi.RSSI()));
+      static_cast<unsigned>(framesShown - framesShownAtLastStatus), display::getRefreshRate(),
+      static_cast<unsigned>(framesShown), static_cast<unsigned>(receiver::getFramesDropped()),
+      brightness, static_cast<int>(WiFi.RSSI()));
   framesShownAtLastStatus = framesShown;
   packetsAtLastStatus = receiver::getPacketsReceived();
 }

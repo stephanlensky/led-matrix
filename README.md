@@ -30,12 +30,12 @@ Requires [PlatformIO Core](https://docs.platformio.org/en/latest/core/installati
 pnpm firmware:build     # compile for the Matrix Portal S3
 pnpm firmware:upload    # flash over USB
 pnpm firmware:monitor   # serial log
-pnpm firmware:test      # protocol and colour tests on the host
+pnpm firmware:test      # protocol tests on the host
 ```
 
 Without configuration the board runs its own access point `led-matrix` (password `led-matrix`, board at `192.168.4.1`). To join a laptop hotspot instead, copy `firmware/config.example.ini` to `firmware/config.ini` and set `station_ssid` and `station_password`. `server_host` is optional; without it the board broadcasts its status and the server finds it.
 
-On boot the panel shows a test pattern, then the network name and board address until the first frame arrives. It drives the panel with Adafruit Protomatter at 6-bit depth (RGB565) and applies gamma and brightness on the board.
+On boot the panel shows a test pattern, then the network name and board address until the first frame arrives. It drives the panel with ESP32-HUB75-MatrixPanel-DMA at 8-bit depth with CIE 1931 correction and hardware (OE) brightness. `clock_speed` in `config.ini` sets the panel clock (default 16 MHz); lower it to 8000000 if WiFi drops packets.
 
 Flashing needs access to the serial port: on Arch, add yourself to the `uucp` group. If an upload does not find the board, double-tap reset or hold BOOT while pressing reset to enter the bootloader.
 
