@@ -48,17 +48,12 @@ const migrations: readonly Migration[] = [
   encodeClipFrameGroups,
 ];
 
-export type Database = {
-  connection: DatabaseSync;
-  isCreated: boolean;
-};
-
 function getVersion(connection: DatabaseSync): number {
   const row = connection.prepare("PRAGMA user_version").get();
   return Number(row?.["user_version"] ?? 0);
 }
 
-export function openDatabase(path: string): Database {
+export function openDatabase(path: string): DatabaseSync {
   if (path !== IN_MEMORY_PATH) {
     mkdirSync(dirname(path), { recursive: true });
   }
@@ -83,7 +78,7 @@ export function openDatabase(path: string): Database {
       throw error;
     }
   }
-  return { connection, isCreated: version === 0 };
+  return connection;
 }
 
 export function getSlugId(

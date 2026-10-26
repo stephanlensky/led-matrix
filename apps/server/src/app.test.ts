@@ -56,13 +56,16 @@ describe("animations", () => {
     );
   });
 
-  it("does not reseed an existing database", async () => {
+  it("reapplies seed animations to an existing database on restart", async () => {
     await app.inject({ method: "DELETE", url: "/api/animations/plasma" });
+    await app.inject({ method: "POST", url: "/api/animations", body: animation });
     await app.close();
     app = createApp({ databasePath, logger: false });
     await app.ready();
-    const response = await app.inject({ method: "GET", url: "/api/animations/plasma" });
-    expect(response.statusCode).toBe(404);
+    const plasma = await app.inject({ method: "GET", url: "/api/animations/plasma" });
+    expect(plasma.statusCode).toBe(200);
+    const created = await app.inject({ method: "GET", url: "/api/animations/red-alert" });
+    expect(created.statusCode).toBe(200);
   });
 
   it("creates animations with ids derived from their name", async () => {

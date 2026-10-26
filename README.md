@@ -55,7 +55,7 @@ GitHub Actions builds `ghcr.io/stephanlensky/led-matrix` from the `Dockerfile` o
 - `GET /api/device` — device connection, address and last status; `PUT /api/device/brightness {brightness}` (0–255)
 - `WS /api/stream/:output` — binary 64x64 RGB frames (12288 bytes) plus JSON `{type: "state"}` messages; the device stream also sends `{type: "device"}` messages on connect, status, brightness and connection changes
 
-Animations and clips are stored in a SQLite database at `apps/server/data/led-matrix.db` (override with `DATABASE_PATH`); a new database is seeded with example animations. Video import requires `ffmpeg` on the `PATH`.
+Animations and clips are stored in a SQLite database at `apps/server/data/led-matrix.db` (override with `DATABASE_PATH`); seed animations from `apps/server/src/seeds.ts` are written on every startup, overwriting stored animations with the same id. Video import requires `ffmpeg` on the `PATH`.
 
 The server streams frames to the device over UDP as described in [docs/device-protocol.md](docs/device-protocol.md). It listens for device status on UDP port 7701 (`UDP_PORT`) and sends frames to whichever device last reported in, or to `DEVICE_HOST` if set.
 

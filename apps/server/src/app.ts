@@ -89,8 +89,8 @@ export function createApp({
 }: AppOptions) {
   const app = Fastify({ logger });
   const database = openDatabase(databasePath);
-  const store = createAnimationStore(database.connection);
-  const clips = createClipStore(database.connection);
+  const store = createAnimationStore(database);
+  const clips = createClipStore(database);
   const engines: Readonly<Record<Output, PlaybackEngine>> = {
     simulator: createEngine("simulator"),
     device: createEngine("device", () => device?.getLatency() ?? 0),
@@ -111,10 +111,8 @@ export function createApp({
     return result.success ? engines[result.data.output] : undefined;
   }
 
-  if (database.isCreated) {
-    for (const [id, animation] of Object.entries(seedAnimations)) {
-      store.set(id, animationSchema.parse(animation));
-    }
+  for (const [id, animation] of Object.entries(seedAnimations)) {
+    store.set(id, animationSchema.parse(animation));
   }
 
   let device: DeviceLink | undefined;
@@ -137,7 +135,7 @@ export function createApp({
     for (const engine of Object.values(engines)) {
       engine.close();
     }
-    database.connection.close();
+    database.close();
   });
 
   app.register(websocket);
