@@ -77,6 +77,11 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     mode: { type: "loop", beats: 32 },
     layers: [{ effect: "pumpkin", params: { cyclesX: 3, cyclesY: 4 } }],
   },
+  "staring-cat": {
+    name: "Staring cat",
+    mode: { type: "loop", beats: 32 },
+    layers: [{ effect: "cat", params: {} }],
+  },
   "scare-meter-16": {
     name: "Scare meter (16 bars)",
     mode: { type: "loop", beats: 64 },

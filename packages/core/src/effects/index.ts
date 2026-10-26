@@ -11,6 +11,7 @@ import { trails } from "./trails.ts";
 import { vampireMouth } from "./vampire-mouth.ts";
 import { pumpkin } from "./pumpkin.ts";
 import { scareMeter } from "./scare-meter.ts";
+import { cat } from "./cat.ts";
 import { bigText } from "./big-text.ts";
 import { clip } from "./clip.ts";
 import { plasma } from "./plasma.ts";
@@ -32,6 +33,7 @@ export const effects: readonly Effect[] = [
   vampireMouth,
   pumpkin,
   scareMeter,
+  cat,
   emboss,
   tilt,
   pixelate,
