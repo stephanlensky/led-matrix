@@ -39,6 +39,10 @@ On boot the panel shows a test pattern, then the network name and board address 
 
 Flashing needs access to the serial port: on Arch, add yourself to the `uucp` group. If an upload does not find the board, double-tap reset or hold BOOT while pressing reset to enter the bootloader.
 
+## Deployment
+
+GitHub Actions builds `ghcr.io/stephanlensky/led-matrix` from the `Dockerfile` on every push to `main`. The image serves the web build (`WEB_ROOT`) and the API on port 3000, listens for device status on UDP 7701 and keeps its database at `/data/led-matrix.db`. On cardinal it runs at `led-matrix.cardinal.slensky.com`; broadcasts don't reach the pod there, so the board needs `server_host = 192.168.1.183`.
+
 ## API
 
 - `GET /api/animations`, `GET /api/animations/:id` — list or fetch animations
