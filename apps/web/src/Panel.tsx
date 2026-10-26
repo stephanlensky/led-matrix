@@ -1,64 +1,108 @@
 import { CHANNELS, HEIGHT, RGBA_CHANNELS, WIDTH, type Frame } from "@led-matrix/core";
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 
-const LED_PITCH = 8;
-const LED_RADIUS = 3;
+const OFF_LEVEL = 14;
+const GAP_RATIO = 0.2;
+const MIN_GRID_PITCH = 4;
 
-function createLedMask(): OffscreenCanvas {
-  const mask = new OffscreenCanvas(WIDTH * LED_PITCH, HEIGHT * LED_PITCH);
+type PanelProps = {
+  frame: Frame;
+  pitch: number;
+  showGrid: boolean;
+};
+
+function getGap(pitch: number, showGrid: boolean): number {
+  return showGrid && pitch >= MIN_GRID_PITCH ? Math.max(1, Math.round(pitch * GAP_RATIO)) : 0;
+}
+
+function getLevel(value: number): number {
+  return OFF_LEVEL + (value * (255 - OFF_LEVEL)) / 255;
+}
+
+function getPitch(element: HTMLElement, inset: number): number {
+  const size = Math.min(
+    (element.clientWidth - inset) / WIDTH,
+    (element.clientHeight - inset) / HEIGHT,
+  );
+  return Math.max(1, Math.floor(size * devicePixelRatio));
+}
+
+export function usePanelPitch(containerRef: RefObject<HTMLElement | null>, inset = 0): number {
+  const [pitch, setPitch] = useState(1);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return undefined;
+    }
+    const updatePitch = () => setPitch(getPitch(container, inset));
+    const observer = new ResizeObserver(updatePitch);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [containerRef, inset]);
+
+  return pitch;
+}
+
+function createGapMask(pitch: number, gap: number): OffscreenCanvas {
+  const mask = new OffscreenCanvas(WIDTH * pitch - gap, HEIGHT * pitch - gap);
   const context = mask.getContext("2d");
   if (context) {
-    context.fillStyle = "#000";
-    context.fillRect(0, 0, mask.width, mask.height);
-    context.globalCompositeOperation = "destination-out";
-    for (let y = 0; y < HEIGHT; y++) {
-      for (let x = 0; x < WIDTH; x++) {
-        context.beginPath();
-        context.arc((x + 0.5) * LED_PITCH, (y + 0.5) * LED_PITCH, LED_RADIUS, 0, Math.PI * 2);
-        context.fill();
-      }
+    for (let x = 1; x < WIDTH; x++) {
+      context.fillRect(x * pitch - gap, 0, gap, mask.height);
+    }
+    for (let y = 1; y < HEIGHT; y++) {
+      context.fillRect(0, y * pitch - gap, mask.width, gap);
     }
   }
   return mask;
 }
 
-export function Panel({ frame }: { frame: Frame }) {
+export function Panel({ frame, pitch, showGrid }: PanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const resourcesRef = useRef<{ mask: OffscreenCanvas; pixels: OffscreenCanvas; image: ImageData }>(
-    null,
-  );
+  const pixelsRef = useRef<{ canvas: OffscreenCanvas; image: ImageData }>(null);
+  const gap = getGap(pitch, showGrid);
+  const mask = useMemo(() => (gap > 0 ? createGapMask(pitch, gap) : undefined), [pitch, gap]);
 
   useEffect(() => {
     const context = canvasRef.current?.getContext("2d");
-    resourcesRef.current ??= {
-      mask: createLedMask(),
-      pixels: new OffscreenCanvas(WIDTH, HEIGHT),
+    pixelsRef.current ??= {
+      canvas: new OffscreenCanvas(WIDTH, HEIGHT),
       image: new ImageData(WIDTH, HEIGHT),
     };
-    const { mask, pixels, image } = resourcesRef.current;
-    const pixelContext = pixels.getContext("2d");
+    const { canvas, image } = pixelsRef.current;
+    const pixelContext = canvas.getContext("2d");
     if (!context || !pixelContext) {
       return;
     }
     for (let pixel = 0; pixel < WIDTH * HEIGHT; pixel++) {
-      image.data.set(
-        frame.subarray(pixel * CHANNELS, pixel * CHANNELS + CHANNELS),
-        pixel * RGBA_CHANNELS,
-      );
+      for (let channel = 0; channel < CHANNELS; channel++) {
+        image.data[pixel * RGBA_CHANNELS + channel] = getLevel(
+          frame[pixel * CHANNELS + channel] ?? 0,
+        );
+      }
       image.data[pixel * RGBA_CHANNELS + 3] = 255;
     }
     pixelContext.putImageData(image, 0, 0);
+    context.globalCompositeOperation = "copy";
     context.imageSmoothingEnabled = false;
-    context.drawImage(pixels, 0, 0, WIDTH * LED_PITCH, HEIGHT * LED_PITCH);
-    context.drawImage(mask, 0, 0);
-  }, [frame]);
+    context.drawImage(canvas, 0, 0, WIDTH * pitch, HEIGHT * pitch);
+    if (mask) {
+      context.globalCompositeOperation = "destination-out";
+      context.drawImage(mask, 0, 0);
+    }
+  }, [frame, pitch, mask]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="block h-auto max-w-full"
-      width={WIDTH * LED_PITCH}
-      height={HEIGHT * LED_PITCH}
+      className="block"
+      width={WIDTH * pitch - gap}
+      height={HEIGHT * pitch - gap}
+      style={{
+        width: (WIDTH * pitch - gap) / devicePixelRatio,
+        height: (HEIGHT * pitch - gap) / devicePixelRatio,
+      }}
     />
   );
 }

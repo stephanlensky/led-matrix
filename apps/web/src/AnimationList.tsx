@@ -1,7 +1,6 @@
-import type { StoredAnimation } from "@led-matrix/core";
+import { type StoredAnimation, getEffect } from "@led-matrix/core";
 import { PlayIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ListEmpty, ListRow } from "./ListRow.tsx";
 
 type AnimationListProps = {
   animations: readonly StoredAnimation[];
@@ -20,28 +19,28 @@ function getModeLabel({ mode }: StoredAnimation): string {
   return "beats" in mode ? getCountLabel(mode.beats, "beat") : getCountLabel(mode.frames, "frame");
 }
 
+function getEffectsLabel({ layers }: StoredAnimation): string {
+  return layers.map((layer) => getEffect(layer.effect)?.name ?? layer.effect).join(" + ");
+}
+
 export function AnimationList({ animations, activeId, onPlay }: AnimationListProps) {
+  if (animations.length === 0) {
+    return <ListEmpty>No animations</ListEmpty>;
+  }
   return (
-    <ul className="flex flex-col gap-1">
-      {animations.map((animation) => {
-        const isActive = animation.id === activeId;
-        return (
-          <li key={animation.id}>
-            <Button
-              variant={isActive ? "secondary" : "ghost"}
-              className="w-full justify-between"
-              aria-pressed={isActive}
-              onClick={() => onPlay(animation.id)}
-            >
-              <span className="flex items-center gap-2">
-                <PlayIcon className={isActive ? "text-primary" : "text-muted-foreground"} />
-                {animation.name}
-              </span>
-              <Badge variant="outline">{getModeLabel(animation)}</Badge>
-            </Button>
-          </li>
-        );
-      })}
+    <ul>
+      {animations.map((animation) => (
+        <li key={animation.id}>
+          <ListRow
+            isActive={animation.id === activeId}
+            icon={<PlayIcon />}
+            title={animation.name}
+            subtitle={getEffectsLabel(animation)}
+            detail={getModeLabel(animation)}
+            onClick={() => onPlay(animation.id)}
+          />
+        </li>
+      ))}
     </ul>
   );
 }
