@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPosePath, interpolatePaths, parseSvgPath } from "./svg-path.ts";
+import { getPosePath, interpolatePaths, parseSvgPath, transformPath } from "./svg-path.ts";
 
 describe("parseSvgPath", () => {
   it("converts relative and shorthand commands to absolute curves and lines", () => {
@@ -45,6 +45,14 @@ describe("pose paths", () => {
   it("requires matching path structure", () => {
     expect(() => interpolatePaths(parseSvgPath("M0 0 L1 1"), parseSvgPath("M0 0 Z"), 0.5)).toThrow(
       "same commands",
+    );
+  });
+});
+
+describe("transformPath", () => {
+  it("maps every coordinate pair", () => {
+    expect(transformPath(parseSvgPath("M1 2 C3 4 5 6 7 8 Z"), (x, y) => [x * 2, y + 1])).toEqual(
+      parseSvgPath("M2 3 C6 5 10 7 14 9 Z"),
     );
   });
 });

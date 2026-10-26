@@ -139,6 +139,18 @@ export function getPosePath(
   return interpolatePaths(from, poses[index + 1] ?? from, clamped - Math.max(index, 0));
 }
 
+export function transformPath(
+  commands: readonly PathCommand[],
+  transform: (x: number, y: number) => [x: number, y: number],
+): PathCommand[] {
+  return commands.map(({ type, values }) => ({
+    type,
+    values: values.flatMap((value, index) =>
+      index % 2 === 0 ? transform(value, values[index + 1] ?? 0) : [],
+    ),
+  }));
+}
+
 export function tracePath(context: CanvasContext, commands: readonly PathCommand[]): void {
   context.beginPath();
   for (const { type, values } of commands) {
