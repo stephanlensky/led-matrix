@@ -4,6 +4,7 @@ export * from "./canvas.ts";
 export * from "./canvas-fonts.ts";
 export * from "./clip.ts";
 export * from "./color.ts";
+export * from "./device-protocol.ts";
 export * from "./effect.ts";
 export * from "./effects/index.ts";
 export * from "./fonts/index.ts";

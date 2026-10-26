@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node --watch src/index.ts",
     "start": "node src/index.ts",
+    "fake-device": "node src/fake-device.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {

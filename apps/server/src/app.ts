@@ -21,6 +21,7 @@ import { createAnimationStore } from "./animations.ts";
 import { createClipStore } from "./clips.ts";
 import { getSlugId, openDatabase } from "./database.ts";
 import { DecodeError, type UploadedFile, decodeClip } from "./decode.ts";
+import { type DeviceLink, type DeviceLinkOptions, createDeviceLink } from "./device.ts";
 import { createPlaybackEngine } from "./engine.ts";
 import { seedAnimations } from "./seeds.ts";
 
@@ -32,11 +33,13 @@ export type AppOptions = {
   logger?: boolean;
   fps?: number;
   bpm?: number;
+  device?: Omit<DeviceLinkOptions, "engine" | "onError">;
 };
 
 const bpmSchema = z.number().min(20).max(300);
 const playSchema = z.object({ id: animationIdSchema });
 const setBpmSchema = z.object({ bpm: bpmSchema });
+const setBrightnessSchema = z.object({ brightness: z.int().min(0).max(255) });
 const createAnimationSchema = animationSchema.extend({ id: animationIdSchema.optional() });
 const idParamsSchema = z.object({ id: z.string() });
 const updateClipSchema = clipInfoSchema.pick({ name: true });
@@ -57,7 +60,13 @@ function getFileName(name: string): string {
   return basename(name, extname(name)) || "Clip";
 }
 
-export function createApp({ databasePath, logger = true, fps = 30, bpm = 120 }: AppOptions) {
+export function createApp({
+  databasePath,
+  logger = true,
+  fps = 30,
+  bpm = 120,
+  device: deviceOptions,
+}: AppOptions) {
   const app = Fastify({ logger });
   const database = openDatabase(databasePath);
   const store = createAnimationStore(database.connection);
@@ -75,8 +84,21 @@ export function createApp({ databasePath, logger = true, fps = 30, bpm = 120 }: 
     }
   }
 
-  app.addHook("onReady", () => engine.start());
+  let device: DeviceLink | undefined;
+
+  app.addHook("onReady", async () => {
+    if (deviceOptions) {
+      device = await createDeviceLink({
+        ...deviceOptions,
+        engine,
+        onError: (error) => app.log.error(error, "Device link error"),
+      });
+      app.log.info(`Device link listening on UDP port ${device.getPort()}`);
+    }
+    engine.start();
+  });
   app.addHook("onClose", () => {
+    device?.close();
     engine.close();
     database.connection.close();
   });
@@ -248,6 +270,22 @@ export function createApp({ databasePath, logger = true, fps = 30, bpm = 120 }: 
     }
     engine.setBpm(result.data.bpm);
     return engine.getState();
+  });
+
+  app.get("/api/device", async (_request, reply) =>
+    device ? device.getState() : reply.code(503).send({ error: "Device link is disabled" }),
+  );
+
+  app.put("/api/device/brightness", async (request, reply) => {
+    if (!device) {
+      return reply.code(503).send({ error: "Device link is disabled" });
+    }
+    const result = setBrightnessSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send(getValidationError("Invalid brightness", result.error));
+    }
+    device.setBrightness(result.data.brightness);
+    return device.getState();
   });
 
   app.register(async (scope) => {

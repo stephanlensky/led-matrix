@@ -6,6 +6,7 @@
     "dev": "pnpm --parallel --filter './apps/*' dev",
     "build": "pnpm --recursive build",
     "typecheck": "pnpm --recursive typecheck",
+    "fake-device": "pnpm --filter @led-matrix/server fake-device",
     "lint": "oxlint --type-aware",
     "lint:fix": "oxlint --type-aware --fix",
     "format": "oxfmt",
