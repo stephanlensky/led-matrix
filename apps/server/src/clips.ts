@@ -1,12 +1,11 @@
 import type { DatabaseSync } from "node:sqlite";
 import {
-  CLIP_FRAME_BYTES,
   type Clip,
   type ClipInfo,
   type ClipLibrary,
   clipInfoSchema,
   createClip,
-  encodeClipFrames,
+  getEncodedFrameCount,
 } from "@led-matrix/core";
 import { z } from "zod";
 
@@ -71,16 +70,10 @@ export function createClipStore(connection: DatabaseSync) {
     get,
     getEncodedFrames,
     create(info: ClipInfo, frames: Uint8Array): ClipInfo {
-      if (frames.length !== info.durations.length * CLIP_FRAME_BYTES) {
+      if (getEncodedFrameCount(frames) !== info.durations.length) {
         throw new Error("Frame data does not match the frame count");
       }
-      insertStatement.run(
-        info.id,
-        info.name,
-        info.source,
-        JSON.stringify(info.durations),
-        encodeClipFrames(frames),
-      );
+      insertStatement.run(info.id, info.name, info.source, JSON.stringify(info.durations), frames);
       return info;
     },
     rename(id: string, name: string): ClipInfo | undefined {

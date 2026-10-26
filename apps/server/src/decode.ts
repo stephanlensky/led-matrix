@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
+import { Worker } from "node:worker_threads";
 import {
   CLIP_FRAME_BYTES,
   HEIGHT,
@@ -39,6 +40,10 @@ type DecodedImage = {
   frames: SourceImage[];
   delays: number[] | undefined;
 };
+
+export type DecodeWorkerMessage =
+  | { type: "clip"; clip: DecodedClip }
+  | { type: "error"; message: string };
 
 export class DecodeError extends Error {}
 
@@ -228,4 +233,24 @@ export async function decodeClip(
     ),
     frames: getFrameData(frames, options),
   };
+}
+
+export function decodeClipInWorker(
+  files: readonly UploadedFile[],
+  options: ClipImportOptions,
+): Promise<DecodedClip> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL("./decode-worker.ts", import.meta.url), {
+      workerData: { files, options },
+    });
+    worker.once("message", (message: DecodeWorkerMessage) => {
+      if (message.type === "clip") {
+        resolve(message.clip);
+      } else {
+        reject(new DecodeError(message.message));
+      }
+    });
+    worker.once("error", reject);
+    worker.once("exit", (code) => reject(new Error(`Clip decoder exited with code ${code}`)));
+  });
 }

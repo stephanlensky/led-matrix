@@ -26,7 +26,7 @@ import { z } from "zod";
 import { createAnimationStore } from "./animations.ts";
 import { createClipStore } from "./clips.ts";
 import { getSlugId, openDatabase } from "./database.ts";
-import { DecodeError, type UploadedFile, decodeClip } from "./decode.ts";
+import { DecodeError, type UploadedFile, decodeClipInWorker } from "./decode.ts";
 import {
   type DeviceLink,
   type DeviceLinkOptions,
@@ -242,7 +242,7 @@ export function createApp({
       return reply.code(400).send(getValidationError("Invalid import options", options.error));
     }
     try {
-      const decoded = await decodeClip(files, options.data);
+      const decoded = await decodeClipInWorker(files, options.data);
       const name = options.data.name ?? getFileName(files[0]?.name ?? "");
       const existingIds = new Set(clips.list().map((clip) => clip.id));
       const id = getSlugId(name, existingIds, "clip");

@@ -18,5 +18,13 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": ["**/dist"]
+  "ignorePatterns": ["**/dist"],
+  "overrides": [
+    {
+      "files": ["apps/server/**"],
+      "rules": {
+        "unicorn/require-post-message-target-origin": "off"
+      }
+    }
+  ]
 }
