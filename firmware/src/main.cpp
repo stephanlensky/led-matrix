@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include <protocol.h>
 
 #include <optional>
@@ -18,6 +19,7 @@ uint8_t frame[protocol::frameSize];
 protocol::FrameAssembler assembler(frame);
 uint8_t brightness;
 uint32_t framesShown = 0;
+uint32_t framesShownAtLastStatus = 0;
 uint32_t lastStatusAt = 0;
 std::optional<uint32_t> lastFrameAt;
 bool wasStreaming = false;
@@ -40,6 +42,17 @@ void sendStatus(uint32_t now) {
       .framesDropped = assembler.getFramesDropped(),
   });
   udp::send(network::getStatusAddress(), protocol::serverPort, status.data(), status.size());
+}
+
+void logStatus(uint32_t now) {
+  Serial.printf("%s  %u fps  refresh %u Hz  shown %u  dropped %u  brightness %u  rssi %d\n",
+                isStreaming(now) ? "streaming" : "idle",
+                static_cast<unsigned>(framesShown - framesShownAtLastStatus),
+                static_cast<unsigned>(display::getRefreshCount()),
+                static_cast<unsigned>(framesShown),
+                static_cast<unsigned>(assembler.getFramesDropped()), brightness,
+                static_cast<int>(WiFi.RSSI()));
+  framesShownAtLastStatus = framesShown;
 }
 
 void setBrightness(uint8_t value, uint32_t now) {
@@ -121,6 +134,7 @@ void loop() {
     showNetwork();
   }
   if (now - lastStatusAt >= protocol::statusIntervalMs) {
+    logStatus(now);
     sendStatus(now);
   }
 }

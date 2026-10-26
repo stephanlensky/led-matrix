@@ -14,11 +14,10 @@ uint8_t addressPins[] = {45, 36, 48, 35, 21};
 constexpr uint8_t clockPin = 2;
 constexpr uint8_t latchPin = 47;
 constexpr uint8_t outputEnablePin = 14;
-constexpr uint8_t bitDepth = 6;
 constexpr int16_t lineHeight = 6;
 
-Adafruit_Protomatter matrix(protocol::width, bitDepth, 1, rgbPins, sizeof(addressPins), addressPins,
-                            clockPin, latchPin, outputEnablePin, true);
+Adafruit_Protomatter matrix(protocol::width, BIT_DEPTH, 1, rgbPins, sizeof(addressPins),
+                            addressPins, clockPin, latchPin, outputEnablePin, true);
 color::ColorTable colorTable;
 
 uint16_t getColor(uint8_t red, uint8_t green, uint8_t blue) {
@@ -77,5 +76,7 @@ void clear() {
   matrix.fillScreen(0);
   matrix.show();
 }
+
+uint32_t getRefreshCount() { return matrix.getFrameCount(); }
 
 }  // namespace display
