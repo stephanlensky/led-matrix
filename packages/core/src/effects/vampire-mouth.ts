@@ -42,6 +42,10 @@ const fangPoses = [
 
 const lipBottoms = [44, 47, 56];
 
+const FANG_TIP_INDEXES = [2, 6];
+
+export const dripSources = ["lip", "fangs", "both"] as const;
+
 function getPoseValue(values: readonly number[], pose: number): number {
   const index = Math.min(Math.floor(pose), values.length - 2);
   const from = values[index] ?? 0;
@@ -71,6 +75,7 @@ export const vampireMouth = defineEffect({
     teethSize: z.number().min(0).max(8).default(4),
     bloodColor: colorSchema.default("#d00010"),
     drips: z.number().min(0).max(6).default(1.5),
+    dripFrom: z.enum(dripSources).default("lip"),
     dripSpeed: z.number().min(1).max(64).default(12),
     scale: z.number().min(0.5).max(2).default(1.2),
     snap: z.boolean().default(true),
@@ -84,6 +89,8 @@ export const vampireMouth = defineEffect({
       transformPath(getPosePath(poses, pose), (x, y) => [scaleX(x), scaleY(y)]);
     const upperLip = getShape(upperLipPoses);
     const lipBottom = getPoseValue(lipBottoms, pose);
+    const fangPath = getPosePath(fangPoses, pose);
+    const fangTips = FANG_TIP_INDEXES.map((index) => fangPath[index]?.values ?? [0, 0]);
 
     context.lineJoin = "round";
     context.strokeStyle = params.outlineColor;
@@ -126,6 +133,12 @@ export const vampireMouth = defineEffect({
         gravity: params.dripSpeed,
         period: (60_000 / bpm) * 64,
         spawn: (random) => {
+          const isFromFang =
+            params.dripFrom === "fangs" || (params.dripFrom === "both" && random() < 0.5);
+          if (isFromFang) {
+            const [x = 0, y = 0] = fangTips[random() < 0.5 ? 0 : 1] ?? [];
+            return { x, y: y - 1, vx: 0, vy: 0 };
+          }
           const x = getRandomBetween(random, 22, 42);
           return { x, y: lipBottom - 1 - ((x - 32) / 16) ** 2 * 3, vx: 0, vy: 0 };
         },
