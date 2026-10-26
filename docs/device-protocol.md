@@ -1,6 +1,6 @@
 # Device protocol
 
-UDP protocol between the server (laptop) and the LED matrix device (Matrix Portal S3). The reference implementation is `packages/core/src/device-protocol.ts`; `pnpm fake-device` runs a receiver that behaves like the firmware should.
+UDP protocol between the server (laptop) and the LED matrix device (Matrix Portal S3). The reference implementation is `packages/core/src/device-protocol.ts` and the firmware implementation is `firmware/lib/protocol`; `pnpm fake-device` runs a receiver that behaves like the firmware should.
 
 ## Transport
 

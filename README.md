@@ -7,6 +7,7 @@ Animation designer, simulator and server for a 64x64 HUB75 LED matrix driven by 
 - `packages/core` — frame model, effects, animation schema and renderer shared by server and web
 - `apps/server` — Fastify API and playback engine (runs TypeScript directly on Node)
 - `apps/web` — Vite + React frontend with the panel simulator
+- `firmware` — PlatformIO (Arduino) firmware for the Matrix Portal S3
 
 ## Development
 
@@ -20,6 +21,23 @@ pnpm fake-device   # UDP receiver that renders device frames in the terminal
 ```
 
 `pnpm fake-device` accepts `--port`, `--server`, `--server-port`, `--loss` (probability of dropping each packet) and `--brightness`.
+
+## Firmware
+
+Requires [PlatformIO Core](https://docs.platformio.org/en/latest/core/installation/index.html) (`uv tool install platformio`). The first build downloads the ESP32 toolchain.
+
+```sh
+pnpm firmware:build     # compile for the Matrix Portal S3
+pnpm firmware:upload    # flash over USB
+pnpm firmware:monitor   # serial log
+pnpm firmware:test      # protocol and colour tests on the host
+```
+
+Without configuration the board runs its own access point `led-matrix` (password `led-matrix`, board at `192.168.4.1`). To join a laptop hotspot instead, copy `firmware/config.example.ini` to `firmware/config.ini` and set `station_ssid` and `station_password`. `server_host` is optional; without it the board broadcasts its status and the server finds it.
+
+On boot the panel shows a test pattern, then the network name and board address until the first frame arrives. It drives the panel with Adafruit Protomatter at 6-bit depth (RGB565) and applies gamma and brightness on the board.
+
+Flashing needs access to the serial port: on Arch, add yourself to the `uucp` group. If an upload does not find the board, double-tap reset or hold BOOT while pressing reset to enter the bootloader.
 
 ## API
 

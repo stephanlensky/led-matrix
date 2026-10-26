@@ -8,3 +8,7 @@ pre-commit:
     - name: lint
       glob: "*.{ts,tsx,js}"
       run: pnpm exec oxlint --type-aware {staged_files}
+    - name: format firmware
+      glob: "firmware/**/*.{cpp,h}"
+      run: clang-format -i {staged_files}
+      stage_fixed: true
