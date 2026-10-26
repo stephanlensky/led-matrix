@@ -1,8 +1,20 @@
 #include "display.h"
 
-#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <Fonts/TomThumb.h>
 #include <protocol.h>
+#include <soc/gdma_channel.h>
+#include <soc/gdma_struct.h>
+
+#include <algorithm>
+#include <memory>
+#include <vector>
+
+// Exposes the DMA descriptors so a flip can wait until the hardware has switched buffers.
+#define private public
+#define protected public
+#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#undef protected
+#undef private
 
 namespace display {
 
@@ -38,11 +50,33 @@ uint32_t getFramePeriodUs() {
   return protocol::width * rowPairs * planes * 1000000 / CLOCK_SPEED + 1;
 }
 
+constexpr int noChannel = -1;
+
 MatrixPanel_I2S_DMA matrix(getConfig());
 const uint32_t framePeriodUs = getFramePeriodUs();
+int channel = noChannel;
+int shownBuffer = 0;
 uint32_t lastFlipAt = 0;
 
+int getChannel() {
+  for (int i = 0; i < SOC_GDMA_PAIRS_PER_GROUP; i++) {
+    if (GDMA.channel[i].out.peri_sel.sel == SOC_GDMA_TRIG_PERIPH_LCD0) {
+      return i;
+    }
+  }
+  return noChannel;
+}
+
+bool isShowingBuffer(int buffer) {
+  const Bus_Parallel16& bus = matrix.dma_bus;
+  const dma_descriptor_t* first = buffer == 0 ? bus._dmadesc_a : bus._dmadesc_b;
+  const auto* current =
+      reinterpret_cast<const dma_descriptor_t*>(GDMA.channel[channel].out.dscr_bf0);
+  return current >= first && current < first + bus._dmadesc_count;
+}
+
 void flip() {
+  shownBuffer = matrix.back_buffer_id;
   matrix.flipDMABuffer();
   lastFlipAt = micros();
 }
@@ -53,6 +87,7 @@ bool begin(uint8_t brightness) {
   if (!matrix.begin()) {
     return false;
   }
+  channel = getChannel();
   flip();
   setBrightness(brightness);
   matrix.setFont(&TomThumb);
@@ -107,7 +142,12 @@ void clear() {
   flip();
 }
 
-bool isReady() { return micros() - lastFlipAt >= framePeriodUs; }
+bool isReady() {
+  if (channel == noChannel) {
+    return micros() - lastFlipAt >= framePeriodUs;
+  }
+  return isShowingBuffer(shownBuffer);
+}
 
 uint32_t getRefreshRate() { return 1000000 / framePeriodUs; }
 

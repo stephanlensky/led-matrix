@@ -45,10 +45,12 @@ void sendStatus(uint32_t now) {
 
 void logStatus(uint32_t now) {
   Serial.printf(
-      "%s  %u packets/s  %u fps  refresh %u Hz  shown %u  dropped %u  brightness %u  rssi %d\n",
+      "%s  %u packets/s  %u fps  queued %u  refresh %u Hz  shown %u  dropped %u  brightness %u  "
+      "rssi %d\n",
       isStreaming(now) ? "streaming" : "idle",
       static_cast<unsigned>(receiver::getPacketsReceived() - packetsAtLastStatus),
       static_cast<unsigned>(framesShown - framesShownAtLastStatus),
+      static_cast<unsigned>(receiver::getQueuedFrames()),
       static_cast<unsigned>(display::getRefreshRate()), static_cast<unsigned>(framesShown),
       static_cast<unsigned>(receiver::getFramesDropped()), brightness,
       static_cast<int>(WiFi.RSSI()));
@@ -66,7 +68,7 @@ void setBrightness(uint8_t value, uint32_t now) {
 }
 
 void updateFrame(uint32_t now) {
-  if (display::isReady() && receiver::copyFrame(frame)) {
+  if (display::isReady() && receiver::takeFrame(frame)) {
     display::showFrame(frame);
     framesShown++;
     lastFrameAt = now;
