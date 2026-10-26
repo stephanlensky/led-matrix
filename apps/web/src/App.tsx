@@ -1,8 +1,9 @@
 import type { ClipInfo, StoredAnimation } from "@led-matrix/core";
-import { FilmIcon, MonitorIcon, PencilRulerIcon } from "lucide-react";
+import { FilmIcon, MonitorIcon, PencilRulerIcon, RadioTowerIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { getAnimations, getClips } from "./api.ts";
 import { Clips } from "./Clips.tsx";
+import { Device } from "./Device.tsx";
 import { Editor } from "./Editor.tsx";
 import { Navigation, type NavigationItem } from "./Navigation.tsx";
 import { Simulator } from "./Simulator.tsx";
@@ -10,16 +11,20 @@ import { navigate, usePathname } from "./usePathname.ts";
 import { useStream } from "./useStream.ts";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-type View = "simulator" | "editor" | "clips";
+type View = "simulator" | "device" | "editor" | "clips";
 
 type Route =
   | { view: "simulator" }
+  | { view: "device" }
   | { view: "editor"; animationId: string | undefined }
   | { view: "clips"; clipId: string | undefined };
 
 function getRoute(pathname: string): Route {
   const [section, id] = pathname.split("/").filter(Boolean);
   const decodedId = id && decodeURIComponent(id);
+  if (section === "device") {
+    return { view: "device" };
+  }
   if (section === "editor") {
     return { view: "editor", animationId: decodedId };
   }
@@ -31,6 +36,7 @@ function getRoute(pathname: string): Route {
 
 const views: readonly NavigationItem<View>[] = [
   { id: "simulator", label: "Simulator", icon: MonitorIcon },
+  { id: "device", label: "Device", icon: RadioTowerIcon },
   { id: "editor", label: "Editor", icon: PencilRulerIcon },
   { id: "clips", label: "Clips", icon: FilmIcon },
 ];
@@ -39,7 +45,8 @@ const DEFAULT_BPM = 120;
 const DEFAULT_FPS = 30;
 
 export function App() {
-  const stream = useStream();
+  const stream = useStream("simulator");
+  const deviceStream = useStream("device");
   const [animations, setAnimations] = useState<StoredAnimation[]>();
   const [clips, setClips] = useState<ClipInfo[]>();
   const [showGrid, setShowGrid] = useState(true);
@@ -55,6 +62,7 @@ export function App() {
   }
   const viewPathnames: Readonly<Record<View, string>> = {
     simulator: "/simulator",
+    device: "/device",
     editor: editorPathname,
     clips: clipsPathname,
   };
@@ -100,6 +108,14 @@ export function App() {
           <div className={route.view === "simulator" ? "contents" : "hidden"}>
             <Simulator
               stream={stream}
+              animations={animations ?? []}
+              showGrid={showGrid}
+              onShowGridChange={setShowGrid}
+            />
+          </div>
+          <div className={route.view === "device" ? "contents" : "hidden"}>
+            <Device
+              stream={deviceStream}
               animations={animations ?? []}
               showGrid={showGrid}
               onShowGridChange={setShowGrid}

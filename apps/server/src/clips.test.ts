@@ -168,9 +168,13 @@ describe("clips", () => {
     expect(blocked.statusCode).toBe(409);
     expect(blocked.json()).toMatchObject({ animations: ["uses-white"] });
 
-    await app.inject({ method: "POST", url: "/api/play", body: { id: "uses-white" } });
+    await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: { id: "uses-white" },
+    });
     const frame = await new Promise<Buffer>((resolve) => {
-      void app.injectWS("/api/stream", undefined, {
+      void app.injectWS("/api/stream/simulator", undefined, {
         onInit: (client) =>
           client.on("message", (data: Buffer, isBinary: boolean) => {
             if (isBinary && data.some((value) => value > 0)) {

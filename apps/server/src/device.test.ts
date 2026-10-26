@@ -3,6 +3,7 @@ import { once } from "node:events";
 import {
   DeviceMode,
   type DeviceMessage,
+  type DeviceState,
   type DeviceStatus,
   animationSchema,
   createFrameAssembler,
@@ -119,5 +120,26 @@ describe("device link", () => {
     await vi.waitFor(() => expect(link.getState().status?.brightness).toBe(64));
     expect(device.messages).toEqual([{ type: "setBrightness", brightness: 64 }]);
     expect(link.getState().brightness).toBe(64);
+  });
+
+  it("notifies listeners on status, brightness and connection timeout", async () => {
+    const { clock, engine, link, device } = await setup();
+    const states: DeviceState[] = [];
+    link.subscribe((state) => states.push(state));
+
+    await sendStatus(device.socket, link.getPort(), status);
+    await vi.waitFor(() => expect(states).toHaveLength(1));
+    expect(states[0]).toMatchObject({ enabled: true, connected: true, status });
+
+    link.setBrightness(32);
+    expect(states.at(-1)).toMatchObject({ brightness: 32 });
+
+    engine.tick();
+    expect(states).toHaveLength(2);
+    clock.time = 3000;
+    engine.tick();
+    engine.tick();
+    expect(states).toHaveLength(3);
+    expect(states.at(-1)).toMatchObject({ connected: false });
   });
 });

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { CHANNELS, type Frame, HEIGHT, WIDTH, createFrame } from "./frame.ts";
 
 export const DEVICE_PORT = 7700;
@@ -28,15 +29,17 @@ export const DeviceMode = {
 
 export type DeviceMode = (typeof DeviceMode)[keyof typeof DeviceMode];
 
-export type DeviceStatus = {
-  width: number;
-  height: number;
-  brightness: number;
-  mode: DeviceMode;
-  uptimeMs: number;
-  framesShown: number;
-  framesDropped: number;
-};
+export const deviceStatusSchema = z.object({
+  width: z.int(),
+  height: z.int(),
+  brightness: z.int(),
+  mode: z.literal([DeviceMode.idle, DeviceMode.streaming, DeviceMode.fallback]),
+  uptimeMs: z.int(),
+  framesShown: z.int(),
+  framesDropped: z.int(),
+});
+
+export type DeviceStatus = z.infer<typeof deviceStatusSchema>;
 
 export type FrameChunk = {
   sequence: number;

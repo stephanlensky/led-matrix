@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { deviceStatusSchema } from "./device-protocol.ts";
+
+export const outputSchema = z.enum(["simulator", "device"]);
 
 export const playbackStateSchema = z.object({
   animationId: z.string().nullable(),
@@ -6,11 +9,23 @@ export const playbackStateSchema = z.object({
   fps: z.number(),
 });
 
-export const streamMessageSchema = z.object({
-  type: z.literal("state"),
-  state: playbackStateSchema,
+export const deviceStateSchema = z.object({
+  enabled: z.boolean(),
+  connected: z.boolean(),
+  address: z.object({ address: z.string(), port: z.int() }).nullable(),
+  status: deviceStatusSchema.nullable(),
+  brightness: z.int().nullable(),
 });
 
+export const streamMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("state"), state: playbackStateSchema }),
+  z.object({ type: z.literal("device"), device: deviceStateSchema }),
+]);
+
+export type Output = z.infer<typeof outputSchema>;
+
 export type PlaybackState = z.infer<typeof playbackStateSchema>;
+
+export type DeviceState = z.infer<typeof deviceStateSchema>;
 
 export type StreamMessage = z.infer<typeof streamMessageSchema>;

@@ -9,9 +9,10 @@ type MatrixFrameProps = {
   frame: Frame;
   showGrid: boolean;
   footer?: ReactNode;
+  overlay?: ReactNode;
 };
 
-export function MatrixFrame({ frame, showGrid, footer }: MatrixFrameProps) {
+export function MatrixFrame({ frame, showGrid, footer, overlay }: MatrixFrameProps) {
   const containerRef = useRef<HTMLElement>(null);
   const pitch = usePanelPitch(
     containerRef,
@@ -23,8 +24,9 @@ export function MatrixFrame({ frame, showGrid, footer }: MatrixFrameProps) {
     <section ref={containerRef} className="relative min-h-[50svh] min-w-0">
       <div className="absolute inset-0 grid place-items-center">
         <div className="flex flex-col gap-3">
-          <div className="rounded-xl border bg-neutral-900 p-3">
+          <div className="relative rounded-xl border bg-neutral-900 p-3">
             <Panel frame={frame} pitch={pitch} showGrid={showGrid} />
+            {overlay && <div className="absolute top-5 right-5">{overlay}</div>}
           </div>
           {footer}
         </div>

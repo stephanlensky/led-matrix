@@ -138,43 +138,95 @@ describe("animations", () => {
 
 describe("playback", () => {
   it("plays and stops animations", async () => {
-    const played = await app.inject({ method: "POST", url: "/api/play", body: { id: "plasma" } });
+    const played = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: { id: "plasma" },
+    });
     expect(played.json()).toEqual({ animationId: "plasma", bpm: 120, fps: 30 });
-    const stopped = await app.inject({ method: "POST", url: "/api/stop" });
+    const stopped = await app.inject({ method: "POST", url: "/api/outputs/simulator/stop" });
     expect(stopped.json()).toEqual({ animationId: null, bpm: 120, fps: 30 });
   });
 
-  it("rejects unknown animations and bad requests", async () => {
-    const unknown = await app.inject({ method: "POST", url: "/api/play", body: { id: "missing" } });
+  it("rejects unknown animations, outputs and bad requests", async () => {
+    const unknown = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: { id: "missing" },
+    });
     expect(unknown.statusCode).toBe(404);
-    const invalid = await app.inject({ method: "POST", url: "/api/play", body: {} });
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: {},
+    });
     expect(invalid.statusCode).toBe(400);
+    const output = await app.inject({
+      method: "POST",
+      url: "/api/outputs/stage/play",
+      body: { id: "plasma" },
+    });
+    expect(output.statusCode).toBe(404);
   });
 
   it("sets the bpm", async () => {
-    const response = await app.inject({ method: "POST", url: "/api/bpm", body: { bpm: 128 } });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/bpm",
+      body: { bpm: 128 },
+    });
     expect(response.json<{ bpm: number }>().bpm).toBe(128);
-    const invalid = await app.inject({ method: "POST", url: "/api/bpm", body: { bpm: 1000 } });
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/bpm",
+      body: { bpm: 1000 },
+    });
     expect(invalid.statusCode).toBe(400);
   });
 
-  it("stops playback when the active animation is deleted", async () => {
-    await app.inject({ method: "POST", url: "/api/play", body: { id: "plasma" } });
+  it("keeps playback and bpm separate per output", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/api/outputs/device/play",
+      body: { id: "plasma" },
+    });
+    await app.inject({ method: "POST", url: "/api/outputs/device/bpm", body: { bpm: 128 } });
+    const device = await app.inject({ method: "GET", url: "/api/outputs/device" });
+    expect(device.json()).toEqual({ animationId: "plasma", bpm: 128, fps: 30 });
+    const simulator = await app.inject({ method: "GET", url: "/api/outputs/simulator" });
+    expect(simulator.json()).toEqual({ animationId: null, bpm: 120, fps: 30 });
+  });
+
+  it("stops the deleted animation on every output", async () => {
+    const outputs = ["simulator", "device"];
+    await Promise.all(
+      outputs.map((output) =>
+        app.inject({ method: "POST", url: `/api/outputs/${output}/play`, body: { id: "plasma" } }),
+      ),
+    );
     await app.inject({ method: "DELETE", url: "/api/animations/plasma" });
-    const response = await app.inject({ method: "GET", url: "/api/playback" });
-    expect(response.json<{ animationId: string | null }>().animationId).toBeNull();
+    const responses = await Promise.all(
+      outputs.map((output) => app.inject({ method: "GET", url: `/api/outputs/${output}` })),
+    );
+    expect(
+      responses.map((response) => response.json<{ animationId: unknown }>().animationId),
+    ).toEqual([null, null]);
   });
 
   it("streams state messages and binary frames over websocket", async () => {
     const messages: { data: Buffer; isBinary: boolean }[] = [];
-    const socket = await app.injectWS("/api/stream", undefined, {
+    const socket = await app.injectWS("/api/stream/simulator", undefined, {
       onInit: (client) =>
         client.on("message", (data: Buffer, isBinary: boolean) =>
           messages.push({ data, isBinary }),
         ),
     });
     await expect.poll(() => messages.length).toBeGreaterThan(0);
-    await app.inject({ method: "POST", url: "/api/play", body: { id: "white-strobe" } });
+    await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: { id: "white-strobe" },
+    });
     await expect.poll(() => messages.filter(({ isBinary }) => isBinary).length).toBeGreaterThan(1);
     socket.terminate();
 
@@ -187,5 +239,55 @@ describe("playback", () => {
     ]);
     const frame = messages.find(({ isBinary }) => isBinary);
     expect(frame?.data).toHaveLength(WIDTH * HEIGHT * 3);
+  });
+
+  it("sends a disabled device state on the device stream when the link is off", async () => {
+    const messages: unknown[] = [];
+    const socket = await app.injectWS("/api/stream/device", undefined, {
+      onInit: (client) =>
+        client.on("message", (data: Buffer, isBinary: boolean) => {
+          if (!isBinary) {
+            messages.push(JSON.parse(data.toString()));
+          }
+        }),
+    });
+    await expect.poll(() => messages.length).toBe(2);
+    socket.terminate();
+    expect(messages).toEqual([
+      { type: "state", state: { animationId: null, bpm: 120, fps: 30 } },
+      {
+        type: "device",
+        device: { enabled: false, connected: false, address: null, status: null, brightness: null },
+      },
+    ]);
+  });
+
+  it("sends the device state on the device stream when the link is on", async () => {
+    await app.close();
+    app = createApp({ databasePath, logger: false, device: { port: 0 } });
+    await app.ready();
+    const messages: unknown[] = [];
+    const socket = await app.injectWS("/api/stream/device", undefined, {
+      onInit: (client) =>
+        client.on("message", (data: Buffer, isBinary: boolean) => {
+          if (!isBinary) {
+            messages.push(JSON.parse(data.toString()));
+          }
+        }),
+    });
+    await expect.poll(() => messages.length).toBe(2);
+    await app.inject({ method: "PUT", url: "/api/device/brightness", body: { brightness: 40 } });
+    await expect.poll(() => messages.length).toBe(3);
+    socket.terminate();
+    expect(messages.slice(1)).toEqual([
+      {
+        type: "device",
+        device: { enabled: true, connected: false, address: null, status: null, brightness: null },
+      },
+      {
+        type: "device",
+        device: { enabled: true, connected: false, address: null, status: null, brightness: 40 },
+      },
+    ]);
   });
 });

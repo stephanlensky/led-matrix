@@ -513,7 +513,9 @@ export function Editor({
               variant="outline"
               disabled={issues.size > 0}
               onClick={() =>
-                run(async () => play(isDirty || !selectedId ? await save() : selectedId))
+                run(async () =>
+                  play("simulator", isDirty || !selectedId ? await save() : selectedId),
+                )
               }
             >
               <PlayIcon />

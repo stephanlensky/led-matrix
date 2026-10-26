@@ -1,4 +1,11 @@
-import { type Frame, type PlaybackState, createFrame, streamMessageSchema } from "@led-matrix/core";
+import {
+  type DeviceState,
+  type Frame,
+  type Output,
+  type PlaybackState,
+  createFrame,
+  streamMessageSchema,
+} from "@led-matrix/core";
 import { useEffect, useState } from "react";
 
 const RECONNECT_DELAY_MS = 1000;
@@ -6,17 +13,19 @@ const RECONNECT_DELAY_MS = 1000;
 export type Stream = {
   frame: Frame;
   state: PlaybackState | undefined;
+  device: DeviceState | undefined;
   isConnected: boolean;
 };
 
-function getStreamUrl(): string {
+function getStreamUrl(output: Output): string {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${location.host}/api/stream`;
+  return `${protocol}//${location.host}/api/stream/${output}`;
 }
 
-export function useStream(): Stream {
+export function useStream(output: Output): Stream {
   const [frame, setFrame] = useState<Frame>(createFrame);
   const [state, setState] = useState<PlaybackState>();
+  const [device, setDevice] = useState<DeviceState>();
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -25,14 +34,19 @@ export function useStream(): Stream {
     let isClosed = false;
 
     function connect() {
-      socket = new WebSocket(getStreamUrl());
+      socket = new WebSocket(getStreamUrl(output));
       socket.binaryType = "arraybuffer";
       socket.addEventListener("open", () => setIsConnected(true));
       socket.addEventListener("message", (event: MessageEvent<ArrayBuffer | string>) => {
-        if (typeof event.data === "string") {
-          setState(streamMessageSchema.parse(JSON.parse(event.data)).state);
-        } else {
+        if (typeof event.data !== "string") {
           setFrame(new Uint8ClampedArray(event.data));
+          return;
+        }
+        const message = streamMessageSchema.parse(JSON.parse(event.data));
+        if (message.type === "state") {
+          setState(message.state);
+        } else {
+          setDevice(message.device);
         }
       });
       socket.addEventListener("close", () => {
@@ -49,7 +63,7 @@ export function useStream(): Stream {
       clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, []);
+  }, [output]);
 
-  return { frame, state, isConnected };
+  return { frame, state, device, isConnected };
 }

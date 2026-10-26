@@ -4,6 +4,9 @@ import websocket from "@fastify/websocket";
 import {
   HEIGHT,
   WIDTH,
+  type DeviceState,
+  type Output,
+  type PlaybackState,
   type StoredAnimation,
   type StreamMessage,
   animationIdSchema,
@@ -13,6 +16,7 @@ import {
   clipInfoSchema,
   createRenderer,
   effects,
+  outputSchema,
 } from "@led-matrix/core";
 import { nodeCanvas } from "@led-matrix/core/node-canvas";
 import Fastify from "fastify";
@@ -21,8 +25,13 @@ import { createAnimationStore } from "./animations.ts";
 import { createClipStore } from "./clips.ts";
 import { getSlugId, openDatabase } from "./database.ts";
 import { DecodeError, type UploadedFile, decodeClip } from "./decode.ts";
-import { type DeviceLink, type DeviceLinkOptions, createDeviceLink } from "./device.ts";
-import { createPlaybackEngine } from "./engine.ts";
+import {
+  type DeviceLink,
+  type DeviceLinkOptions,
+  createDeviceLink,
+  disabledDeviceState,
+} from "./device.ts";
+import { type PlaybackEngine, createPlaybackEngine } from "./engine.ts";
 import { seedAnimations } from "./seeds.ts";
 
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
@@ -42,6 +51,7 @@ const setBpmSchema = z.object({ bpm: bpmSchema });
 const setBrightnessSchema = z.object({ brightness: z.int().min(0).max(255) });
 const createAnimationSchema = animationSchema.extend({ id: animationIdSchema.optional() });
 const idParamsSchema = z.object({ id: z.string() });
+const outputParamsSchema = z.object({ output: outputSchema });
 const updateClipSchema = clipInfoSchema.pick({ name: true });
 
 function getValidationError(message: string, error: z.ZodError) {
@@ -71,12 +81,24 @@ export function createApp({
   const database = openDatabase(databasePath);
   const store = createAnimationStore(database.connection);
   const clips = createClipStore(database.connection);
-  const engine = createPlaybackEngine({
-    renderer: createRenderer({ fps, canvas: nodeCanvas, clips: clips.library }),
-    fps,
-    bpm,
-    onError: (error) => app.log.error(error, "Failed to render animation"),
-  });
+  const engines: Readonly<Record<Output, PlaybackEngine>> = {
+    simulator: createEngine("simulator"),
+    device: createEngine("device"),
+  };
+
+  function createEngine(output: Output): PlaybackEngine {
+    return createPlaybackEngine({
+      renderer: createRenderer({ fps, canvas: nodeCanvas, clips: clips.library }),
+      fps,
+      bpm,
+      onError: (error) => app.log.error(error, `Failed to render animation on ${output}`),
+    });
+  }
+
+  function getEngine(params: unknown): PlaybackEngine | undefined {
+    const result = outputParamsSchema.safeParse(params);
+    return result.success ? engines[result.data.output] : undefined;
+  }
 
   if (database.isCreated) {
     for (const [id, animation] of Object.entries(seedAnimations)) {
@@ -90,16 +112,20 @@ export function createApp({
     if (deviceOptions) {
       device = await createDeviceLink({
         ...deviceOptions,
-        engine,
+        engine: engines.device,
         onError: (error) => app.log.error(error, "Device link error"),
       });
       app.log.info(`Device link listening on UDP port ${device.getPort()}`);
     }
-    engine.start();
+    for (const engine of Object.values(engines)) {
+      engine.start();
+    }
   });
   app.addHook("onClose", () => {
     device?.close();
-    engine.close();
+    for (const engine of Object.values(engines)) {
+      engine.close();
+    }
     database.connection.close();
   });
 
@@ -149,7 +175,9 @@ export function createApp({
       return reply.code(400).send(getValidationError("Invalid animation", result.error));
     }
     const stored = store.set(id, result.data);
-    engine.updateAnimation(id, result.data);
+    for (const engine of Object.values(engines)) {
+      engine.updateAnimation(id, result.data);
+    }
     return stored;
   });
 
@@ -158,8 +186,10 @@ export function createApp({
     if (!animationIdSchema.safeParse(id).success || !store.delete(id)) {
       return reply.code(404).send({ error: "Animation not found" });
     }
-    if (engine.getState().animationId === id) {
-      engine.stop();
+    for (const engine of Object.values(engines)) {
+      if (engine.getState().animationId === id) {
+        engine.stop();
+      }
     }
     return reply.code(204).send();
   });
@@ -242,9 +272,16 @@ export function createApp({
     return reply.code(204).send();
   });
 
-  app.get("/api/playback", () => engine.getState());
+  app.get("/api/outputs/:output", async (request, reply) => {
+    const engine = getEngine(request.params);
+    return engine ? engine.getState() : reply.code(404).send({ error: "Output not found" });
+  });
 
-  app.post("/api/play", async (request, reply) => {
+  app.post("/api/outputs/:output/play", async (request, reply) => {
+    const engine = getEngine(request.params);
+    if (!engine) {
+      return reply.code(404).send({ error: "Output not found" });
+    }
     const result = playSchema.safeParse(request.body);
     if (!result.success) {
       return reply.code(400).send(getValidationError("Invalid play request", result.error));
@@ -258,12 +295,20 @@ export function createApp({
     return engine.getState();
   });
 
-  app.post("/api/stop", () => {
+  app.post("/api/outputs/:output/stop", async (request, reply) => {
+    const engine = getEngine(request.params);
+    if (!engine) {
+      return reply.code(404).send({ error: "Output not found" });
+    }
     engine.stop();
     return engine.getState();
   });
 
-  app.post("/api/bpm", async (request, reply) => {
+  app.post("/api/outputs/:output/bpm", async (request, reply) => {
+    const engine = getEngine(request.params);
+    if (!engine) {
+      return reply.code(404).send({ error: "Output not found" });
+    }
     const result = setBpmSchema.safeParse(request.body);
     if (!result.success) {
       return reply.code(400).send(getValidationError("Invalid bpm", result.error));
@@ -289,19 +334,39 @@ export function createApp({
   });
 
   app.register(async (scope) => {
-    scope.get("/api/stream", { websocket: true }, (socket) => {
-      const sendState = (state: StreamMessage["state"]) =>
-        socket.send(JSON.stringify({ type: "state", state } satisfies StreamMessage));
-      const unsubscribe = engine.subscribe({
-        setFrame: (frame) => {
-          if (socket.bufferedAmount < frame.length * 4) {
-            socket.send(frame);
-          }
-        },
-        setState: sendState,
-      });
+    scope.get("/api/stream/:output", { websocket: true }, (socket, request) => {
+      const result = outputParamsSchema.safeParse(request.params);
+      if (!result.success) {
+        socket.close(4404, "Output not found");
+        return;
+      }
+      const { output } = result.data;
+      const engine = engines[output];
+      const sendMessage = (message: StreamMessage) => socket.send(JSON.stringify(message));
+      const sendState = (state: PlaybackState) => sendMessage({ type: "state", state });
+      const sendDevice = (state: DeviceState) => sendMessage({ type: "device", device: state });
+      const unsubscribers = [
+        engine.subscribe({
+          setFrame: (frame) => {
+            if (socket.bufferedAmount < frame.length * 4) {
+              socket.send(frame);
+            }
+          },
+          setState: sendState,
+        }),
+      ];
       sendState(engine.getState());
-      socket.on("close", unsubscribe);
+      if (output === "device") {
+        sendDevice(device?.getState() ?? disabledDeviceState);
+        if (device) {
+          unsubscribers.push(device.subscribe(sendDevice));
+        }
+      }
+      socket.on("close", () => {
+        for (const unsubscribe of unsubscribers) {
+          unsubscribe();
+        }
+      });
     });
   });
 

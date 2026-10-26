@@ -2,9 +2,12 @@ import {
   type Animation,
   type ClipImportOptions,
   type ClipInfo,
+  type DeviceState,
+  type Output,
   type PlaybackState,
   type StoredAnimation,
   clipInfoSchema,
+  deviceStateSchema,
   playbackStateSchema,
   storedAnimationSchema,
 } from "@led-matrix/core";
@@ -46,16 +49,20 @@ export function getAnimations(): Promise<StoredAnimation[]> {
   return request(z.array(storedAnimationSchema), "GET", "/api/animations");
 }
 
-export function play(id: string): Promise<PlaybackState> {
-  return request(playbackStateSchema, "POST", "/api/play", { id });
+export function play(output: Output, id: string): Promise<PlaybackState> {
+  return request(playbackStateSchema, "POST", `/api/outputs/${output}/play`, { id });
 }
 
-export function stop(): Promise<PlaybackState> {
-  return request(playbackStateSchema, "POST", "/api/stop");
+export function stop(output: Output): Promise<PlaybackState> {
+  return request(playbackStateSchema, "POST", `/api/outputs/${output}/stop`);
 }
 
-export function setBpm(bpm: number): Promise<PlaybackState> {
-  return request(playbackStateSchema, "POST", "/api/bpm", { bpm });
+export function setBpm(output: Output, bpm: number): Promise<PlaybackState> {
+  return request(playbackStateSchema, "POST", `/api/outputs/${output}/bpm`, { bpm });
+}
+
+export function setBrightness(brightness: number): Promise<DeviceState> {
+  return request(deviceStateSchema, "PUT", "/api/device/brightness", { brightness });
 }
 
 export function createAnimation(animation: Animation): Promise<StoredAnimation> {

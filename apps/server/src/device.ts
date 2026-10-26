@@ -1,6 +1,7 @@
 import { type Socket, createSocket } from "node:dgram";
 import {
   DEVICE_PORT,
+  type DeviceState,
   type DeviceStatus,
   type Frame,
   SERVER_PORT,
@@ -13,13 +14,16 @@ import type { PlaybackEngine } from "./engine.ts";
 
 const CONNECTION_TIMEOUT_MS = STATUS_INTERVAL_MS * 3;
 
-export type DeviceAddress = { address: string; port: number };
+export type DeviceAddress = NonNullable<DeviceState["address"]>;
 
-export type DeviceState = {
-  connected: boolean;
-  address: DeviceAddress | null;
-  status: DeviceStatus | null;
-  brightness: number | null;
+export type DeviceListener = (state: DeviceState) => void;
+
+export const disabledDeviceState: DeviceState = {
+  enabled: false,
+  connected: false,
+  address: null,
+  status: null,
+  brightness: null,
 };
 
 export type DeviceLinkOptions = {
@@ -55,6 +59,27 @@ export async function createDeviceLink({
   let lastSeen: number | undefined;
   let brightness: number | null = null;
   let sequence = 0;
+  let wasConnected = false;
+  const listeners = new Set<DeviceListener>();
+
+  function getState(): DeviceState {
+    const connected = lastSeen !== undefined && getTime() - lastSeen < CONNECTION_TIMEOUT_MS;
+    return { enabled: true, connected, address: target, status, brightness };
+  }
+
+  function updateState(): void {
+    const state = getState();
+    wasConnected = state.connected;
+    for (const listener of listeners) {
+      listener(state);
+    }
+  }
+
+  function updateConnection(): void {
+    if (getState().connected !== wasConnected) {
+      updateState();
+    }
+  }
 
   function send(packet: Uint8Array): void {
     if (target) {
@@ -67,6 +92,7 @@ export async function createDeviceLink({
       send(packet);
     }
     sequence = (sequence + 1) >>> 0;
+    updateConnection();
   }
 
   socket.on("error", (error) => onError?.(error));
@@ -81,6 +107,7 @@ export async function createDeviceLink({
     if (brightness !== null && brightness !== status.brightness) {
       send(encodeSetBrightness(brightness));
     }
+    updateState();
   });
 
   await bind(socket, port);
@@ -88,16 +115,19 @@ export async function createDeviceLink({
 
   return {
     getPort: () => socket.address().port,
-    getState(): DeviceState {
-      const connected = lastSeen !== undefined && getTime() - lastSeen < CONNECTION_TIMEOUT_MS;
-      return { connected, address: target, status, brightness };
-    },
+    getState,
     setBrightness(value: number): void {
       brightness = value;
       send(encodeSetBrightness(value));
+      updateState();
+    },
+    subscribe(listener: DeviceListener): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     close(): void {
       unsubscribe();
+      listeners.clear();
       socket.close();
     },
   };
