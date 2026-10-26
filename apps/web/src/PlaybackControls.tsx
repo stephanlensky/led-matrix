@@ -1,15 +1,13 @@
-import { type Output, type PlaybackState, type StoredAnimation, effects } from "@led-matrix/core";
+import type { Output, PlaybackState, StoredAnimation } from "@led-matrix/core";
 import { SearchIcon, SquareIcon } from "lucide-react";
 import { useState } from "react";
 import { AnimationList } from "./AnimationList.tsx";
 import { play, setBpm, stop } from "./api.ts";
-import { EffectList } from "./EffectList.tsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type PlaybackControlsProps = {
   output: Output;
@@ -19,7 +17,7 @@ type PlaybackControlsProps = {
   onShowGridChange: (showGrid: boolean) => void;
 };
 
-function getMatches<T extends { name: string }>(items: readonly T[], query: string): T[] {
+function getMatches(items: readonly StoredAnimation[], query: string): StoredAnimation[] {
   const normalizedQuery = query.trim().toLowerCase();
   return items.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
 }
@@ -70,15 +68,8 @@ export function PlaybackControls({
         <Switch id={`${output}-pixel-grid`} checked={showGrid} onCheckedChange={onShowGridChange} />
       </div>
       <Separator />
-      <Tabs defaultValue="animations" className="gap-3">
-        <TabsList variant="line" className="gap-4">
-          <TabsTrigger value="animations" className="flex-none px-0">
-            Animations
-          </TabsTrigger>
-          <TabsTrigger value="effects" className="flex-none px-0">
-            Effects
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-medium">Animations</h3>
         <div className="relative">
           <SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -88,17 +79,14 @@ export function PlaybackControls({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <TabsContent value="animations" className="-mx-(--card-spacing)">
+        <div className="-mx-(--card-spacing)">
           <AnimationList
             animations={getMatches(animations, query)}
             activeId={state?.animationId}
             onPlay={(id) => run(() => play(output, id))}
           />
-        </TabsContent>
-        <TabsContent value="effects" className="-mx-(--card-spacing)">
-          <EffectList effects={getMatches(effects, query)} />
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
       <Button
         variant="outline"
         onClick={() => run(() => stop(output))}
