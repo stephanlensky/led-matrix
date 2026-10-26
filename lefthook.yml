@@ -1,0 +1,10 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: format
+      glob: "*.{ts,tsx,js,json,md,yml,yaml,css,html}"
+      run: pnpm exec oxfmt {staged_files}
+      stage_fixed: true
+    - name: lint
+      glob: "*.{ts,tsx,js}"
+      run: pnpm exec oxlint --type-aware {staged_files}
