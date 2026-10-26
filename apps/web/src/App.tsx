@@ -5,10 +5,21 @@ import { getAnimations } from "./api.ts";
 import { Editor } from "./Editor.tsx";
 import { Navigation, type NavigationItem } from "./Navigation.tsx";
 import { Simulator } from "./Simulator.tsx";
+import { navigate, usePathname } from "./usePathname.ts";
 import { useStream } from "./useStream.ts";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 type View = "simulator" | "editor";
+
+type Route = { view: "simulator" } | { view: "editor"; animationId: string | undefined };
+
+function getRoute(pathname: string): Route {
+  const [section, id] = pathname.split("/").filter(Boolean);
+  if (section === "editor") {
+    return { view: "editor", animationId: id && decodeURIComponent(id) };
+  }
+  return { view: "simulator" };
+}
 
 const views: readonly NavigationItem<View>[] = [
   { id: "simulator", label: "Simulator", icon: MonitorIcon },
@@ -20,9 +31,14 @@ const DEFAULT_FPS = 30;
 
 export function App() {
   const stream = useStream();
-  const [animations, setAnimations] = useState<StoredAnimation[]>([]);
+  const [animations, setAnimations] = useState<StoredAnimation[]>();
   const [showGrid, setShowGrid] = useState(true);
-  const [view, setView] = useState<View>("simulator");
+  const pathname = usePathname();
+  const route = getRoute(pathname);
+  const [editorPathname, setEditorPathname] = useState("/editor");
+  if (route.view === "editor" && pathname !== editorPathname) {
+    setEditorPathname(pathname);
+  }
   const [error, setError] = useState<string>();
 
   const refreshAnimations = useCallback(() => {
@@ -43,20 +59,25 @@ export function App() {
   return (
     <TooltipProvider>
       <div className="flex h-svh overflow-hidden">
-        <Navigation items={views} activeId={view} onSelect={setView} />
+        <Navigation
+          items={views}
+          activeId={route.view}
+          onSelect={(view) => navigate(view === "editor" ? editorPathname : "/simulator")}
+        />
         <main className="grid min-w-0 flex-1 grid-cols-1 gap-6 overflow-y-auto p-6 md:grid-cols-[auto_minmax(0,1fr)]">
           {error && <p className="text-sm text-destructive md:col-span-2">{error}</p>}
-          <div className={view === "simulator" ? "contents" : "hidden"}>
+          <div className={route.view === "simulator" ? "contents" : "hidden"}>
             <Simulator
               stream={stream}
-              animations={animations}
+              animations={animations ?? []}
               showGrid={showGrid}
               onShowGridChange={setShowGrid}
             />
           </div>
-          <div className={view === "editor" ? "contents" : "hidden"}>
+          <div className={route.view === "editor" ? "contents" : "hidden"}>
             <Editor
-              isVisible={view === "editor"}
+              isVisible={route.view === "editor"}
+              animationId={route.view === "editor" ? route.animationId : undefined}
               animations={animations}
               bpm={stream.state?.bpm ?? DEFAULT_BPM}
               fps={stream.state?.fps ?? DEFAULT_FPS}

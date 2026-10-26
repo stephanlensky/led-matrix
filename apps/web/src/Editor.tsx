@@ -10,10 +10,21 @@ import {
   getParamFields,
 } from "@led-matrix/core";
 import { PlayIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createAnimation, deleteAnimation, play, updateAnimation } from "./api.ts";
 import { ParamControl } from "./ParamControl.tsx";
 import { Preview } from "./Preview.tsx";
+import { navigate } from "./usePathname.ts";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +43,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type EditorProps = {
   isVisible: boolean;
-  animations: readonly StoredAnimation[];
+  animationId: string | undefined;
+  animations: readonly StoredAnimation[] | undefined;
   bpm: number;
   fps: number;
   showGrid: boolean;
@@ -75,6 +87,10 @@ function getMode(type: ModeType, value: number): AnimationMode {
   return type === "beats" ? { type: "loop", beats: value } : { type: "loop", frames: value };
 }
 
+function getEditorPathname(id: string | undefined): string {
+  return id === undefined ? "/editor" : `/editor/${encodeURIComponent(id)}`;
+}
+
 function getDraft({ id: _id, ...animation }: StoredAnimation): Animation {
   return animation;
 }
@@ -88,6 +104,7 @@ function getIssues(draft: Animation): Map<string, string> {
 
 export function Editor({
   isVisible,
+  animationId,
   animations,
   bpm,
   fps,
@@ -96,8 +113,11 @@ export function Editor({
   onSaved,
 }: EditorProps) {
   const [selectedId, setSelectedId] = useState<string>();
+  const [pendingSelection, setPendingSelection] = useState<{
+    animation: StoredAnimation | undefined;
+  }>();
   const [draft, setDraft] = useState<Animation>(NEW_ANIMATION);
-  const [saved, setSaved] = useState<Animation>();
+  const [saved, setSaved] = useState<Animation>(NEW_ANIMATION);
   const [layerIndex, setLayerIndex] = useState(0);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [error, setError] = useState<string>();
@@ -122,10 +142,53 @@ export function Editor({
     const next = animation ? getDraft(animation) : NEW_ANIMATION;
     setSelectedId(animation?.id);
     setDraft(next);
-    setSaved(animation ? next : undefined);
+    setSaved(next);
     setLayerIndex(0);
     setIsConfirmingDelete(false);
     setError(undefined);
+  }
+
+  const routeAnimation = animations?.find((animation) => animation.id === animationId);
+  const isRouteChanged = isVisible && animationId !== selectedId;
+  if (isRouteChanged && (routeAnimation || animationId === undefined)) {
+    if (!isDirty) {
+      load(routeAnimation);
+    } else if (!pendingSelection) {
+      setPendingSelection({ animation: routeAnimation });
+    }
+  }
+
+  useEffect(() => {
+    if (isRouteChanged && animations && !routeAnimation) {
+      navigate(getEditorPathname(selectedId), { replace: true });
+    }
+  }, [isRouteChanged, animations, routeAnimation, selectedId]);
+
+  useEffect(() => {
+    if (!isDirty) {
+      return undefined;
+    }
+    const preventUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+    addEventListener("beforeunload", preventUnload);
+    return () => removeEventListener("beforeunload", preventUnload);
+  }, [isDirty]);
+
+  function requestSelect(animation: StoredAnimation | undefined) {
+    if (animation?.id !== selectedId) {
+      navigate(getEditorPathname(animation?.id));
+    } else if (isDirty) {
+      setPendingSelection({ animation });
+    }
+  }
+
+  function cancelSelection() {
+    navigate(getEditorPathname(selectedId), { replace: true });
+    setPendingSelection(undefined);
+  }
+
+  function confirmSelection() {
+    load(pendingSelection?.animation);
+    setPendingSelection(undefined);
   }
 
   function updateLayer(update: Partial<Layer>) {
@@ -151,12 +214,15 @@ export function Editor({
       .catch((cause: unknown) => setError(String(cause)));
   }
 
-  async function save(): Promise<string> {
+  async function save({ shouldNavigate = true } = {}): Promise<string> {
     const animation = animationSchema.parse(draft);
     const stored = selectedId
       ? await updateAnimation(selectedId, animation)
       : await createAnimation(animation);
     setSelectedId(stored.id);
+    if (shouldNavigate) {
+      navigate(getEditorPathname(stored.id), { replace: true });
+    }
     setSaved(draft);
     onSaved();
     return stored.id;
@@ -168,6 +234,7 @@ export function Editor({
     }
     await deleteAnimation(selectedId);
     load(undefined);
+    navigate(getEditorPathname(undefined), { replace: true });
     onSaved();
   }
 
@@ -182,24 +249,26 @@ export function Editor({
           <div className="flex items-center gap-2">
             <Select
               value={selectedId ?? null}
-              onValueChange={(id) => load(animations.find((animation) => animation.id === id))}
+              onValueChange={(id) =>
+                requestSelect(animations?.find((animation) => animation.id === id))
+              }
             >
               <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Animation">
                 <SelectValue placeholder="New animation">
                   {(id: string | null) =>
-                    animations.find((animation) => animation.id === id)?.name ?? "New animation"
+                    animations?.find((animation) => animation.id === id)?.name ?? "New animation"
                   }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {animations.map((animation) => (
+                {animations?.map((animation) => (
                   <SelectItem key={animation.id} value={animation.id}>
                     {animation.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={() => load(undefined)}>
+            <Button variant="outline" size="sm" onClick={() => requestSelect(undefined)}>
               <PlusIcon />
               New
             </Button>
@@ -398,6 +467,40 @@ export function Editor({
           </div>
         </CardContent>
       </Card>
+      <AlertDialog
+        open={pendingSelection !== undefined}
+        onOpenChange={(isOpen) => {
+          if (!isOpen && pendingSelection) {
+            cancelSelection();
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your changes to "{draft.name}" will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmSelection}>
+              Discard
+            </AlertDialogAction>
+            <AlertDialogAction
+              disabled={issues.size > 0}
+              onClick={() =>
+                run(async () => {
+                  await save({ shouldNavigate: false });
+                  confirmSelection();
+                })
+              }
+            >
+              Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {isVisible && (
         <Preview
           animation={previewAnimation}
