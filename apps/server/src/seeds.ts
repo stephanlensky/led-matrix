@@ -45,4 +45,36 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       },
     ],
   },
+  "vampire-lips": {
+    name: "Vampire lips",
+    mode: { type: "loop", beats: 16 },
+    layers: [
+      {
+        effect: "vampire-mouth",
+        params: {
+          pose: {
+            keyframes: [
+              { at: 0, value: 0, easing: "easeInOutSine" },
+              { at: 0.25, value: 1, easing: "easeInOutSine" },
+              { at: 0.5, value: 2, easing: "easeInOutSine" },
+              { at: 0.75, value: 1, easing: "easeInOutSine" },
+              { at: 1, value: 0 },
+            ],
+          },
+          chatter: 0.3,
+        },
+      },
+      { effect: "emboss", params: { depth: 6 } },
+      { effect: "tilt", params: { wobble: 20, wobbleCycles: 2, spinEvery: 8 } },
+    ],
+  },
+  "plasma-kaleidoscope": {
+    name: "Plasma kaleidoscope",
+    mode: { type: "loop", beats: 16 },
+    layers: [
+      { effect: "plasma", params: { cycles: 2, scale: 1.5 } },
+      { effect: "kaleidoscope", params: { segments: 8, rotations: 1 } },
+      { effect: "chromatic", params: { offset: 1, pulse: 2 } },
+    ],
+  },
 };

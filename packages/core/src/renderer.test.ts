@@ -122,3 +122,17 @@ describe("renderer", () => {
     expect(() => renderer.render(animation, 0, 120)).toThrow("canvas provider");
   });
 });
+
+function isPartial(value: number): boolean {
+  return value > 0 && value < 255;
+}
+
+describe("antialias", () => {
+  it("snaps canvas edges to fully opaque or transparent pixels when disabled", () => {
+    const layer = { effect: "big-text", params: { text: "O", color: "#ffffff" } };
+    const smooth = render({ name: "Smooth", mode: loop, layers: [layer] });
+    const sharp = render({ name: "Sharp", mode: loop, layers: [{ ...layer, antialias: false }] });
+    expect(smooth.some(isPartial)).toBe(true);
+    expect(sharp.some(isPartial)).toBe(false);
+  });
+});

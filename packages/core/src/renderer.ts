@@ -34,6 +34,12 @@ function getSource(frame: Frame): RgbaImage {
   return source;
 }
 
+function hardenAlpha(image: RgbaImage): void {
+  for (let offset = 3; offset < image.length; offset += RGBA_CHANNELS) {
+    image[offset] = (image[offset] ?? 0) >= 128 ? 255 : 0;
+  }
+}
+
 function blendLayer(frame: Frame, image: RgbaImage, layer: Layer, isFilter: boolean): void {
   for (let pixel = 0; pixel < WIDTH * HEIGHT; pixel++) {
     const source = pixel * RGBA_CHANNELS;
@@ -99,6 +105,9 @@ export function createRenderer({
           effect.render(context, input);
           context.restore();
           image = context.getImageData(0, 0, WIDTH, HEIGHT).data;
+        }
+        if (layer.antialias === false) {
+          hardenAlpha(image);
         }
 
         blendLayer(frame, image, layer, effect.kind === "filter");

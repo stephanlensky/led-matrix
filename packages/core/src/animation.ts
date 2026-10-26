@@ -15,6 +15,7 @@ export const layerSchema = z
     params: z.record(z.string(), z.unknown()).default({}),
     blend: z.enum(blendModes).default("normal"),
     opacity: z.number().min(0).max(1).default(1),
+    antialias: z.boolean().optional(),
   })
   .superRefine((layer, context) => {
     const effect = getEffect(layer.effect);
