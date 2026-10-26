@@ -77,6 +77,59 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     mode: { type: "loop", beats: 32 },
     layers: [{ effect: "pumpkin", params: { cyclesX: 3, cyclesY: 4 } }],
   },
+  "scare-meter-16": {
+    name: "Scare meter (16 bars)",
+    mode: { type: "loop", beats: 64 },
+    layers: [
+      {
+        effect: "scare-meter",
+        params: {
+          level: {
+            keyframes: [
+              { at: 0, value: 0 },
+              { at: 1, value: 1 },
+            ],
+          },
+        },
+      },
+    ],
+  },
+  "scare-meter-32": {
+    name: "Scare meter (32 bars)",
+    mode: { type: "loop", beats: 128 },
+    layers: [
+      {
+        effect: "scare-meter",
+        params: {
+          level: {
+            keyframes: [
+              { at: 0, value: 0 },
+              { at: 1, value: 1 },
+            ],
+          },
+        },
+      },
+    ],
+  },
+  "scare-meter-max": {
+    name: "Scare meter (maxed)",
+    mode: { type: "loop", beats: 16 },
+    layers: [
+      {
+        effect: "scare-meter",
+        params: {
+          level: 1,
+          shake: 2,
+          textShake: 3,
+          pulse: 4,
+          rain: 44,
+          rainSpeed: 2,
+          explosion: 32,
+          explosionPeriod: 16,
+        },
+      },
+    ],
+  },
   "plasma-kaleidoscope": {
     name: "Plasma kaleidoscope",
     mode: { type: "loop", beats: 16 },
