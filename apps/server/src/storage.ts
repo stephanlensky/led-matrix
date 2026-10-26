@@ -1,11 +1,11 @@
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { type Animation, animationSchema } from "@led-matrix/core";
-import { z } from "zod";
-
-export const animationIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
-
-export type StoredAnimation = Animation & { id: string };
+import {
+  type Animation,
+  type StoredAnimation,
+  animationIdSchema,
+  animationSchema,
+} from "@led-matrix/core";
 
 export type AnimationStore = {
   init(): Promise<boolean>;

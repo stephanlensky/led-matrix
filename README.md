@@ -17,3 +17,15 @@ pnpm install
 pnpm dev      # server on :3000, web on :5173
 pnpm check    # format, lint, typecheck, test
 ```
+
+## API
+
+- `GET /api/animations`, `GET /api/animations/:id` — list or fetch animations
+- `POST /api/animations` — create (id derived from the name unless given), `PUT`/`DELETE /api/animations/:id`
+- `POST /api/play {id}`, `POST /api/stop`, `POST /api/bpm {bpm}`, `GET /api/playback`
+- `GET /api/effects` — built-in effects with JSON schemas for their params
+- `WS /api/stream` — binary 64x64 RGB frames (12288 bytes) plus JSON `{type: "state"}` messages
+
+Animations are stored as JSON files in `apps/server/data/animations` (override with `DATA_DIR`) and seeded with examples on first start.
+
+Fonts in `packages/core/fonts` are converted with `pnpm --filter @led-matrix/core generate-fonts`.

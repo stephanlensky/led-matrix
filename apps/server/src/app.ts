@@ -2,6 +2,7 @@ import websocket from "@fastify/websocket";
 import {
   HEIGHT,
   WIDTH,
+  animationIdSchema,
   animationSchema,
   createRenderer,
   effects,
@@ -12,7 +13,7 @@ import Fastify from "fastify";
 import { z } from "zod";
 import { createPlaybackEngine } from "./engine.ts";
 import { seedAnimations } from "./seeds.ts";
-import { animationIdSchema, createAnimationStore, getAnimationId } from "./storage.ts";
+import { createAnimationStore, getAnimationId } from "./storage.ts";
 
 export type AppOptions = {
   dataDir: string;

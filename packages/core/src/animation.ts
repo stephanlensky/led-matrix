@@ -44,11 +44,17 @@ export const animationSchema = z.object({
   layers: z.array(layerSchema).min(1),
 });
 
+export const animationIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
+
+export const storedAnimationSchema = animationSchema.extend({ id: animationIdSchema });
+
 export type AnimationMode = z.infer<typeof animationModeSchema>;
 
 export type Layer = z.infer<typeof layerSchema>;
 
 export type Animation = z.infer<typeof animationSchema>;
+
+export type StoredAnimation = z.infer<typeof storedAnimationSchema>;
 
 export type AnimationInput = z.input<typeof animationSchema>;
 
