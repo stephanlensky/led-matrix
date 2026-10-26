@@ -6,20 +6,19 @@
 
 #include "display.h"
 #include "network.h"
+#include "receiver.h"
 #include "settings.h"
 #include "udp.h"
 
 namespace {
 
 constexpr uint32_t testPatternMs = 2000;
-constexpr size_t maxPacketsPerLoop = 64;
 
-uint8_t packet[protocol::maxPacketSize + 1];
 uint8_t frame[protocol::frameSize];
-protocol::FrameAssembler assembler(frame);
 uint8_t brightness;
 uint32_t framesShown = 0;
 uint32_t framesShownAtLastStatus = 0;
+uint32_t packetsAtLastStatus = 0;
 uint32_t lastStatusAt = 0;
 std::optional<uint32_t> lastFrameAt;
 bool wasStreaming = false;
@@ -39,20 +38,22 @@ void sendStatus(uint32_t now) {
       .mode = isStreaming(now) ? protocol::Mode::streaming : protocol::Mode::idle,
       .uptimeMs = now,
       .framesShown = framesShown,
-      .framesDropped = assembler.getFramesDropped(),
+      .framesDropped = receiver::getFramesDropped(),
   });
   udp::send(network::getStatusAddress(), protocol::serverPort, status.data(), status.size());
 }
 
 void logStatus(uint32_t now) {
-  Serial.printf("%s  %u fps  refresh %u Hz  shown %u  dropped %u  brightness %u  rssi %d\n",
-                isStreaming(now) ? "streaming" : "idle",
-                static_cast<unsigned>(framesShown - framesShownAtLastStatus),
-                static_cast<unsigned>(display::getRefreshCount()),
-                static_cast<unsigned>(framesShown),
-                static_cast<unsigned>(assembler.getFramesDropped()), brightness,
-                static_cast<int>(WiFi.RSSI()));
+  Serial.printf(
+      "%s  %u packets/s  %u fps  refresh %u Hz  shown %u  dropped %u  brightness %u  rssi %d\n",
+      isStreaming(now) ? "streaming" : "idle",
+      static_cast<unsigned>(receiver::getPacketsReceived() - packetsAtLastStatus),
+      static_cast<unsigned>(framesShown - framesShownAtLastStatus),
+      static_cast<unsigned>(display::getRefreshCount()), static_cast<unsigned>(framesShown),
+      static_cast<unsigned>(receiver::getFramesDropped()), brightness,
+      static_cast<int>(WiFi.RSSI()));
   framesShownAtLastStatus = framesShown;
+  packetsAtLastStatus = receiver::getPacketsReceived();
 }
 
 void setBrightness(uint8_t value, uint32_t now) {
@@ -64,32 +65,18 @@ void setBrightness(uint8_t value, uint32_t now) {
   sendStatus(now);
 }
 
-void handlePacket(size_t size, uint32_t now) {
-  const auto type = protocol::getMessageType(packet, size);
-  if (type == protocol::MessageType::frame) {
-    const auto chunk = protocol::decodeFrameChunk(packet, size);
-    if (chunk && assembler.add(*chunk)) {
-      display::showFrame(frame);
-      framesShown++;
-      lastFrameAt = now;
-    }
-  } else if (type == protocol::MessageType::setBrightness) {
-    const auto value = protocol::decodeSetBrightness(packet, size);
-    if (value) {
-      setBrightness(*value, now);
-    }
+void updateFrame(uint32_t now) {
+  if (receiver::copyFrame(frame)) {
+    display::showFrame(frame);
+    framesShown++;
+    lastFrameAt = now;
   }
 }
 
-void receivePackets(uint32_t now) {
-  for (size_t i = 0; i < maxPacketsPerLoop; i++) {
-    const size_t size = udp::receive(packet, sizeof(packet));
-    if (size == 0) {
-      return;
-    }
-    if (size <= protocol::maxPacketSize) {
-      handlePacket(size, now);
-    }
+void updateBrightness(uint32_t now) {
+  const auto value = receiver::takeBrightness();
+  if (value) {
+    setBrightness(*value, now);
   }
 }
 
@@ -116,15 +103,16 @@ void setup() {
   }
   display::showTestPattern();
   network::begin();
-  if (!udp::begin(protocol::devicePort)) {
-    Serial.println("udp socket failed to open");
+  if (!receiver::begin()) {
+    Serial.println("receiver failed to start");
   }
   delay(testPatternMs);
 }
 
 void loop() {
   const uint32_t now = millis();
-  receivePackets(now);
+  updateBrightness(now);
+  updateFrame(now);
   const bool streaming = isStreaming(now);
   if (wasStreaming && !streaming) {
     display::clear();

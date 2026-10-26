@@ -17,7 +17,6 @@ bool begin(uint16_t port) {
   }
   const int enabled = 1;
   lwip_setsockopt(socketId, SOL_SOCKET, SO_BROADCAST, &enabled, sizeof(enabled));
-  lwip_fcntl(socketId, F_SETFL, O_NONBLOCK);
   sockaddr_in address{};
   address.sin_family = AF_INET;
   address.sin_port = htons(port);
@@ -26,7 +25,7 @@ bool begin(uint16_t port) {
 }
 
 size_t receive(uint8_t* buffer, size_t size) {
-  const int received = lwip_recv(socketId, buffer, size, MSG_DONTWAIT);
+  const int received = lwip_recv(socketId, buffer, size, 0);
   return received > 0 ? received : 0;
 }
 
