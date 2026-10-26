@@ -1,0 +1,48 @@
+import type { AnimationInput } from "@led-matrix/core";
+
+export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
+  plasma: {
+    name: "Plasma",
+    mode: { type: "loop", beats: 16 },
+    layers: [{ effect: "plasma", params: { cycles: 1, scale: 1.2 } }],
+  },
+  "white-strobe": {
+    name: "White strobe",
+    mode: { type: "loop", beats: 1 },
+    layers: [{ effect: "strobe", params: { flashesPerBeat: 2, duty: 0.2 } }],
+  },
+  "spinning-squares": {
+    name: "Spinning squares",
+    mode: { type: "loop", beats: 8 },
+    layers: [{ effect: "squares", params: { count: 4, rotations: 1 } }],
+  },
+  "text-over-plasma": {
+    name: "Text over plasma",
+    mode: { type: "loop", beats: 16 },
+    layers: [
+      { effect: "plasma", params: { cycles: 2, brightness: 0.35 } },
+      {
+        effect: "scrolling-text",
+        params: { text: "TURN IT UP", font: "spleen-8x16", color: "#ffffff", cycles: 2 },
+      },
+    ],
+  },
+  "sunrise-fade": {
+    name: "Sunrise fade",
+    mode: { type: "duration", ms: 20_000 },
+    layers: [
+      {
+        effect: "solid",
+        params: {
+          color: {
+            keyframes: [
+              { at: 0, value: "#000000", easing: "easeInQuad" },
+              { at: 0.6, value: "#ff4000", easing: "easeInOutSine" },
+              { at: 1, value: "#ffd080" },
+            ],
+          },
+        },
+      },
+    ],
+  },
+};

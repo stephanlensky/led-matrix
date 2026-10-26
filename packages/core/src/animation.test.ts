@@ -39,7 +39,6 @@ describe("animationSchema", () => {
     expect(result.error?.issues.map((issue) => issue.path)).toEqual([
       ["layers", 0, "effect"],
       ["layers", 1, "params", "color"],
-      ["layers", 1, "params", "color"],
       ["layers", 2, "params", "duty"],
     ]);
   });

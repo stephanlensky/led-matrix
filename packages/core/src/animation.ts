@@ -26,15 +26,15 @@ export const layerSchema = z
       });
       return;
     }
+    const issues = new Map<string, z.core.$ZodIssue>();
     for (const progress of [0, 1]) {
-      const result = effect.params.safeParse(resolveParams(layer.params, progress));
-      for (const issue of result.error?.issues ?? []) {
-        context.addIssue({
-          code: "custom",
-          path: ["params", ...issue.path],
-          message: issue.message,
-        });
+      for (const issue of effect.params.safeParse(resolveParams(layer.params, progress)).error
+        ?.issues ?? []) {
+        issues.set(JSON.stringify([issue.path, issue.message]), issue);
       }
+    }
+    for (const issue of issues.values()) {
+      context.addIssue({ code: "custom", path: ["params", ...issue.path], message: issue.message });
     }
   });
 

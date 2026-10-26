@@ -8,3 +8,4 @@ export * from "./fonts/index.ts";
 export * from "./frame.ts";
 export * from "./keyframes.ts";
 export * from "./renderer.ts";
+export * from "./playback.ts";
