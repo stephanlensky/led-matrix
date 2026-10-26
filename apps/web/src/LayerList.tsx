@@ -1,6 +1,7 @@
 import { type Layer, getEffect } from "@led-matrix/core";
 import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from "lucide-react";
 import { effectKindIcons } from "./EffectItems.tsx";
+import { TruncatedText } from "./TruncatedText.tsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -49,9 +50,9 @@ export function LayerList({
               >
                 {effect && effectKindIcons[effect.kind]}
               </span>
-              <span className={cn("truncate", invalidIndexes.has(index) && "text-destructive")}>
+              <TruncatedText className={cn(invalidIndexes.has(index) && "text-destructive")}>
                 {effect?.name ?? layer.effect}
-              </span>
+              </TruncatedText>
               {layers.length > 1 && (layer.blend !== "normal" || layer.opacity < 1) && (
                 <span className="ml-auto font-mono text-muted-foreground tabular-nums">
                   {layer.blend !== "normal" && layer.blend}{" "}

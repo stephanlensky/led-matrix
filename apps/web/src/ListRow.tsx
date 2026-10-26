@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TruncatedText } from "./TruncatedText.tsx";
 import { cn } from "@/lib/utils";
 
 type ListRowProps = {
@@ -33,8 +34,8 @@ export function ListRow({
         {icon}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm">{title}</span>
-        <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
+        <TruncatedText className="text-sm">{title}</TruncatedText>
+        <TruncatedText className="text-xs text-muted-foreground">{subtitle}</TruncatedText>
       </span>
       <span className="font-mono text-xs text-muted-foreground tabular-nums">{detail}</span>
     </button>

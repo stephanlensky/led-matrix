@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createAnimation, deleteAnimation, play, updateAnimation } from "./api.ts";
 import { EffectSelectItems } from "./EffectItems.tsx";
 import { LayerList } from "./LayerList.tsx";
+import { TruncatedText } from "./TruncatedText.tsx";
 import { ParamControl } from "./ParamControl.tsx";
 import { Preview } from "./Preview.tsx";
 import { navigate } from "./usePathname.ts";
@@ -292,9 +293,12 @@ export function Editor({
             >
               <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Animation">
                 <SelectValue placeholder="New animation">
-                  {(id: string | null) =>
-                    animations?.find((animation) => animation.id === id)?.name ?? "New animation"
-                  }
+                  {(id: string | null) => (
+                    <TruncatedText>
+                      {animations?.find((animation) => animation.id === id)?.name ??
+                        "New animation"}
+                    </TruncatedText>
+                  )}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
