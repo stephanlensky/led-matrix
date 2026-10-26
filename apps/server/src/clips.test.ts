@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { inflateSync } from "node:zlib";
 import { join } from "node:path";
 import { CLIP_FRAME_BYTES, type ClipInfo, getRgbaPixel } from "@led-matrix/core";
 import sharp from "sharp";
@@ -59,7 +60,8 @@ function createGif(colors: readonly (readonly [number, number, number])[], delay
 async function getFrames(id: string): Promise<Uint8ClampedArray> {
   const response = await app.inject({ method: "GET", url: `/api/clips/${id}/frames` });
   expect(response.headers["content-type"]).toBe("application/octet-stream");
-  return new Uint8ClampedArray(response.rawPayload);
+  expect(response.headers["content-encoding"]).toBe("deflate");
+  return new Uint8ClampedArray(inflateSync(response.rawPayload));
 }
 
 describe("clips", () => {

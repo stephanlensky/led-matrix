@@ -24,7 +24,7 @@ export const clipImportOptionsSchema = z.object({
   resample: z.enum(resampleModes).default("area"),
   fps: z.coerce.number().min(1).max(60).default(30),
   start: z.coerce.number().min(0).default(0),
-  duration: z.coerce.number().positive().max(60).default(10),
+  duration: z.coerce.number().positive().max(600).default(10),
 });
 
 export type ClipImportOptions = z.infer<typeof clipImportOptionsSchema>;

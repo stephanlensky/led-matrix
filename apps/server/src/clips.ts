@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { deflateSync, inflateSync } from "node:zlib";
 import {
   CLIP_FRAME_BYTES,
   type Clip,
@@ -40,7 +41,7 @@ export function createClipStore(connection: DatabaseSync) {
     return row && infoRowSchema.parse(row);
   }
 
-  function getFrames(id: string): Uint8Array | undefined {
+  function getCompressedFrames(id: string): Uint8Array | undefined {
     const row = getFramesStatement.get(id);
     return row && framesRowSchema.parse(row).frames;
   }
@@ -52,12 +53,12 @@ export function createClipStore(connection: DatabaseSync) {
         return cached;
       }
       const info = get(id);
-      const frames = getFrames(id);
+      const frames = getCompressedFrames(id);
       if (!info || !frames) {
         return undefined;
       }
       const clip = {
-        frames: getClipFrames(frames, info.durations.length),
+        frames: getClipFrames(inflateSync(frames), info.durations.length),
         durations: info.durations,
       };
       cache.set(id, clip);
@@ -71,12 +72,18 @@ export function createClipStore(connection: DatabaseSync) {
       return listStatement.all().map((row) => infoRowSchema.parse(row));
     },
     get,
-    getFrames,
+    getCompressedFrames,
     create(info: ClipInfo, frames: Uint8Array): ClipInfo {
       if (frames.length !== info.durations.length * CLIP_FRAME_BYTES) {
         throw new Error("Frame data does not match the frame count");
       }
-      insertStatement.run(info.id, info.name, info.source, JSON.stringify(info.durations), frames);
+      insertStatement.run(
+        info.id,
+        info.name,
+        info.source,
+        JSON.stringify(info.durations),
+        deflateSync(frames),
+      );
       return info;
     },
     rename(id: string, name: string): ClipInfo | undefined {

@@ -368,7 +368,7 @@ export function Clips({
                       label="Duration (s)"
                       value={settings.duration}
                       min={0.1}
-                      max={60}
+                      max={600}
                       step={0.1}
                       onChange={(duration) => updateSettings({ duration })}
                     />

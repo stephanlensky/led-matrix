@@ -14,7 +14,7 @@ import {
 } from "@led-matrix/core";
 import sharp from "sharp";
 
-export const MAX_FRAMES = 1800;
+export const MAX_FRAMES = 18_000;
 const MAX_SOURCE_SIZE = 512;
 const SVG_RENDER_SIZE = 256;
 const SVG_BASE_DENSITY = 72;

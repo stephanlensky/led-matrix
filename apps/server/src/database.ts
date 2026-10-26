@@ -1,10 +1,24 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { deflateSync } from "node:zlib";
+import { z } from "zod";
 
 const IN_MEMORY_PATH = ":memory:";
 
-const migrations: readonly string[] = [
+const clipFramesRowSchema = z.object({ id: z.string(), frames: z.instanceof(Uint8Array) });
+
+type Migration = string | ((connection: DatabaseSync) => void);
+
+function compressClipFrames(connection: DatabaseSync) {
+  const update = connection.prepare("UPDATE clips SET frames = ? WHERE id = ?");
+  for (const row of connection.prepare("SELECT id, frames FROM clips").all()) {
+    const { id, frames } = clipFramesRowSchema.parse(row);
+    update.run(deflateSync(frames), id);
+  }
+}
+
+const migrations: readonly Migration[] = [
   `
   CREATE TABLE animations (
     id TEXT PRIMARY KEY,
@@ -21,6 +35,7 @@ const migrations: readonly string[] = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   ) STRICT;
   `,
+  compressClipFrames,
 ];
 
 export type Database = {
@@ -46,7 +61,11 @@ export function openDatabase(path: string): Database {
     }
     connection.exec("BEGIN");
     try {
-      connection.exec(migration);
+      if (typeof migration === "string") {
+        connection.exec(migration);
+      } else {
+        migration(connection);
+      }
       connection.exec(`PRAGMA user_version = ${index + 1}`);
       connection.exec("COMMIT");
     } catch (error) {

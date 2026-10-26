@@ -204,12 +204,13 @@ export function createApp({
 
   app.get("/api/clips/:id/frames", async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
-    const frames = clipIdSchema.safeParse(id).success ? clips.getFrames(id) : undefined;
+    const frames = clipIdSchema.safeParse(id).success ? clips.getCompressedFrames(id) : undefined;
     if (!frames) {
       return reply.code(404).send({ error: "Clip not found" });
     }
     return reply
       .type("application/octet-stream")
+      .header("content-encoding", "deflate")
       .send(Buffer.from(frames.buffer, frames.byteOffset, frames.byteLength));
   });
 
