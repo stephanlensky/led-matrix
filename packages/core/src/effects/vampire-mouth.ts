@@ -76,7 +76,7 @@ export const vampireMouth = defineEffect({
     mouthColor: colorSchema.default("#3a0010"),
     teethColor: colorSchema.default("#ffffff"),
     teethSize: z.number().min(0).max(8).default(4),
-    bloodColor: colorSchema.default("#d00010"),
+    bloodColor: colorSchema.default("#800010"),
     drips: z.number().min(0).max(6).default(1.5),
     dripFrom: z.enum(dripSources).default("lip"),
     dripSpeed: z.number().min(1).max(64).default(12),
