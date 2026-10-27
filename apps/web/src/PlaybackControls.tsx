@@ -3,10 +3,10 @@ import { SearchIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { AnimationList } from "./AnimationList.tsx";
 import { play, seek, setBpm } from "./api.ts";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@led-matrix/ui/components/input";
+import { Label } from "@led-matrix/ui/components/label";
+import { Separator } from "@led-matrix/ui/components/separator";
+import { Switch } from "@led-matrix/ui/components/switch";
 
 const BPM_DEBOUNCE_MS = 300;
 

@@ -12,8 +12,8 @@ import { browserCanvas } from "./browserCanvas.ts";
 import { browserClips, subscribeClips } from "./clipLibrary.ts";
 import { Filmstrip } from "./Filmstrip.tsx";
 import { getPositionLabel, getSectionName } from "./sectionLabels.ts";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@led-matrix/ui/components/button";
+import { cn } from "@led-matrix/ui/lib/utils";
 
 const STRIP_HEIGHT = 56;
 const CONTROLS_HEIGHT = 32;

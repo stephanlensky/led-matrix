@@ -30,22 +30,22 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@led-matrix/ui/components/alert-dialog";
+import { Badge } from "@led-matrix/ui/components/badge";
+import { Button } from "@led-matrix/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@led-matrix/ui/components/card";
+import { Input } from "@led-matrix/ui/components/input";
+import { Label } from "@led-matrix/ui/components/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
+} from "@led-matrix/ui/components/select";
+import { Separator } from "@led-matrix/ui/components/separator";
+import { Slider } from "@led-matrix/ui/components/slider";
+import { Switch } from "@led-matrix/ui/components/switch";
 
 type EditorProps = {
   isVisible: boolean;

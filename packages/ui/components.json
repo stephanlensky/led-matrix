@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/renderer/src/styles.css",
+    "css": "src/styles.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
@@ -13,11 +13,11 @@
   "iconLibrary": "lucide",
   "rtl": false,
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "components": "@led-matrix/ui/components",
+    "utils": "@led-matrix/ui/lib/utils",
+    "ui": "@led-matrix/ui/components",
+    "lib": "@led-matrix/ui/lib",
+    "hooks": "@led-matrix/ui/hooks"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

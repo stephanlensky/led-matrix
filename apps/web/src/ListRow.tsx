@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { TruncatedText } from "./TruncatedText.tsx";
-import { cn } from "@/lib/utils";
+import { cn } from "@led-matrix/ui/lib/utils";
 
 type ListRowProps = {
   icon: ReactNode;

@@ -26,19 +26,19 @@ import { removeClip } from "./clipLibrary.ts";
 import { ListEmpty, ListRow } from "./ListRow.tsx";
 import { Preview } from "./Preview.tsx";
 import { navigate } from "./usePathname.ts";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@led-matrix/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@led-matrix/ui/components/card";
+import { Input } from "@led-matrix/ui/components/input";
+import { Label } from "@led-matrix/ui/components/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+} from "@led-matrix/ui/components/select";
+import { Separator } from "@led-matrix/ui/components/separator";
+import { cn } from "@led-matrix/ui/lib/utils";
 
 type ClipsProps = {
   isVisible: boolean;

@@ -1,7 +1,12 @@
 import { type Effect, effects } from "@led-matrix/core";
 import { BlendIcon, BrushIcon, GridIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { SelectGroup, SelectItem, SelectLabel, SelectSeparator } from "@/components/ui/select";
+import {
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+} from "@led-matrix/ui/components/select";
 
 export const effectKindIcons: Readonly<Record<Effect["kind"], ReactNode>> = {
   pixel: <GridIcon />,

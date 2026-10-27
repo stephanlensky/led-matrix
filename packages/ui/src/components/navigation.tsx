@@ -1,7 +1,7 @@
 import { type LucideIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { type ReactElement, useState } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip.tsx";
+import { cn } from "../lib/utils.ts";
 
 const EXPANDED_STORAGE_KEY = "navigation-expanded";
 

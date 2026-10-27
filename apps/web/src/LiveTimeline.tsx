@@ -10,7 +10,7 @@ import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { advance, pause, resume, seek, stop } from "./api.ts";
 import { Timeline, type TimelinePosition } from "./Timeline.tsx";
-import { Button } from "@/components/ui/button";
+import { Button } from "@led-matrix/ui/components/button";
 
 type LiveTimelineProps = {
   output: Output;

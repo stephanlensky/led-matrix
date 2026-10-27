@@ -1,17 +1,17 @@
 import { type ClipInfo, type ParamField, keyframeTrackSchema } from "@led-matrix/core";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@led-matrix/ui/components/button";
+import { Input } from "@led-matrix/ui/components/input";
+import { Label } from "@led-matrix/ui/components/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+} from "@led-matrix/ui/components/select";
+import { Slider } from "@led-matrix/ui/components/slider";
+import { Switch } from "@led-matrix/ui/components/switch";
+import { Textarea } from "@led-matrix/ui/components/textarea";
 
 type ParamControlProps = {
   field: ParamField;

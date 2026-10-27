@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@led-matrix/ui/components/tooltip";
+import { cn } from "@led-matrix/ui/lib/utils";
 
 type TruncatedTextProps = {
   children: string;

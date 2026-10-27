@@ -3,7 +3,7 @@ import { MoveRightIcon, PlayIcon, RepeatIcon } from "lucide-react";
 import { ListEmpty, ListRow } from "./ListRow.tsx";
 import { getLengthLabel, getSectionName } from "./sectionLabels.ts";
 import { TruncatedText } from "./TruncatedText.tsx";
-import { cn } from "@/lib/utils";
+import { cn } from "@led-matrix/ui/lib/utils";
 
 type AnimationListProps = {
   animations: readonly StoredAnimation[];

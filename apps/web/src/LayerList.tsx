@@ -2,8 +2,8 @@ import { type Layer, getEffect } from "@led-matrix/core";
 import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from "lucide-react";
 import { effectKindIcons } from "./EffectItems.tsx";
 import { TruncatedText } from "./TruncatedText.tsx";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@led-matrix/ui/components/button";
+import { cn } from "@led-matrix/ui/lib/utils";
 
 type LayerListProps = {
   layers: readonly Layer[];

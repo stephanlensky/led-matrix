@@ -5,11 +5,11 @@ import { LiveTimeline } from "./LiveTimeline.tsx";
 import { MatrixFrame } from "./MatrixFrame.tsx";
 import { PlaybackControls } from "./PlaybackControls.tsx";
 import type { Stream } from "./useStream.ts";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
+import { Badge } from "@led-matrix/ui/components/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@led-matrix/ui/components/card";
+import { Label } from "@led-matrix/ui/components/label";
+import { Separator } from "@led-matrix/ui/components/separator";
+import { Slider } from "@led-matrix/ui/components/slider";
 
 const MAX_BRIGHTNESS = 255;
 

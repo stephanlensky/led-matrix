@@ -5,11 +5,11 @@ import { getAnimations, getClips } from "./api.ts";
 import { Clips } from "./Clips.tsx";
 import { Device } from "./Device.tsx";
 import { Editor } from "./Editor.tsx";
-import { Navigation, type NavigationItem } from "./Navigation.tsx";
+import { Navigation, type NavigationItem } from "@led-matrix/ui/components/navigation";
 import { Simulator } from "./Simulator.tsx";
 import { navigate, usePathname } from "./usePathname.ts";
 import { useStream } from "./useStream.ts";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@led-matrix/ui/components/tooltip";
 
 type View = "simulator" | "device" | "editor" | "clips";
 

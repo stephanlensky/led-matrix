@@ -3,8 +3,8 @@ import { LiveTimeline } from "./LiveTimeline.tsx";
 import { MatrixFrame } from "./MatrixFrame.tsx";
 import { PlaybackControls } from "./PlaybackControls.tsx";
 import type { Stream } from "./useStream.ts";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@led-matrix/ui/components/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@led-matrix/ui/components/card";
 
 type SimulatorProps = {
   stream: Stream;

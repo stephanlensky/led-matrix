@@ -2,18 +2,24 @@ import type { Output } from "@led-matrix/core";
 import { FolderOpenIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import type { DaemonStatus, Settings } from "../../shared/api.ts";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@led-matrix/ui/components/badge";
+import { Button } from "@led-matrix/ui/components/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@led-matrix/ui/components/card";
+import { Input } from "@led-matrix/ui/components/input";
+import { Label } from "@led-matrix/ui/components/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@led-matrix/ui/components/select";
 import { useDaemonStatus, useLog } from "./useDaemon.ts";
 
 const outputs: readonly Output[] = ["device", "simulator"];

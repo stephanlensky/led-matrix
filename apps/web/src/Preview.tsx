@@ -15,7 +15,7 @@ import { browserCanvas } from "./browserCanvas.ts";
 import { browserClips, subscribeClips } from "./clipLibrary.ts";
 import { MatrixFrame } from "./MatrixFrame.tsx";
 import { Timeline, type TimelinePosition } from "./Timeline.tsx";
-import { Button } from "@/components/ui/button";
+import { Button } from "@led-matrix/ui/components/button";
 
 type PreviewProps = {
   animation: Animation | undefined;
