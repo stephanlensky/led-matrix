@@ -10,6 +10,9 @@ import { chromatic } from "./chromatic.ts";
 import { trails } from "./trails.ts";
 import { vampireMouth } from "./vampire-mouth.ts";
 import { pumpkin } from "./pumpkin.ts";
+import { split, wipe } from "./transitions.ts";
+import { colorFade, colorFlash } from "./color-flash.ts";
+import { checker, rings, stripes, twinkle } from "./patterns.ts";
 import { scareMeter } from "./scare-meter.ts";
 import { loading } from "./loading.ts";
 import { cat } from "./cat.ts";
@@ -27,6 +30,14 @@ import { text } from "./text.ts";
 export const effects: readonly Effect[] = [
   solid,
   strobe,
+  colorFlash,
+  colorFade,
+  split,
+  wipe,
+  checker,
+  stripes,
+  rings,
+  twinkle,
   plasma,
   squares,
   text,
