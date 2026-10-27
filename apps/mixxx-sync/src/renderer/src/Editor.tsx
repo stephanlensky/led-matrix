@@ -7,7 +7,8 @@ import type { Settings } from "../../shared/api.ts";
 import type { AnimationSource, CueSelection, LaneEditor } from "./AnimationLane.tsx";
 import { AnimationPanel, useAnimations } from "./AnimationPanel.tsx";
 import { LibraryNav } from "./LibraryNav.tsx";
-import { PlaybackSimulator } from "./Playback.tsx";
+import { type AnimationPreview, PlaybackSimulator } from "./Playback.tsx";
+import { ResizeHandle, useStoredSize } from "./ResizeHandle.tsx";
 import { getNudgedBeat } from "../../shared/lane-edit.ts";
 import { moveCue, removeCue } from "../../shared/mapping-edits.ts";
 import { BEATS_PER_BAR } from "../../shared/track-scale.ts";
@@ -22,8 +23,10 @@ import {
 } from "./useLibrary.ts";
 import { type MappingEditor, useMapping } from "./useMapping.ts";
 import { useSettings } from "./useSettings.ts";
+import { useStoredState } from "./useStoredState.ts";
 
 const FPS = 30;
+const ALL_TRACKS: LibrarySelection = { type: "all" };
 const INTERACTIVE_SELECTOR =
   "input, textarea, select, button, [contenteditable='true'], [role='button'], [role='switch']";
 
@@ -105,6 +108,33 @@ function useLiveTrack(): LiveTrack | undefined {
   return useMemo(() => (location === undefined ? undefined : { location, cue }), [location, cue]);
 }
 
+function getLibrarySelection(value: unknown): LibrarySelection | undefined {
+  if (typeof value !== "object" || value === null || !("type" in value)) {
+    return undefined;
+  }
+  if (value.type === "all") {
+    return ALL_TRACKS;
+  }
+  return value.type === "playlist" && "playlistId" in value && typeof value.playlistId === "number"
+    ? { type: "playlist", playlistId: value.playlistId }
+    : undefined;
+}
+
+function useLibrarySelection(
+  playlists: ReturnType<typeof usePlaylists>,
+): [LibrarySelection, (selection: LibrarySelection) => void] {
+  const [selection, setSelection] = useStoredState(
+    "editor.librarySelection",
+    ALL_TRACKS,
+    getLibrarySelection,
+  );
+  const isMissing =
+    selection.type === "playlist" &&
+    playlists.status === "loaded" &&
+    !playlists.value.some(({ id }) => id === selection.playlistId);
+  return [isMissing ? ALL_TRACKS : selection, setSelection];
+}
+
 function getSelectionTitle(
   selection: LibrarySelection,
   playlists: ReturnType<typeof usePlaylists>,
@@ -120,8 +150,8 @@ function getSelectionTitle(
 }
 
 function EditorContent({ settings }: { settings: Settings }) {
-  const [selection, setSelection] = useState<LibrarySelection>({ type: "all" });
   const playlists = usePlaylists();
+  const [selection, setSelection] = useLibrarySelection(playlists);
   const tracks = useTracks(selection);
   const api = useMemo(
     () => createApiClient(settings.serverUrl.replace(/\/+$/, "")),
@@ -147,9 +177,11 @@ function EditorContent({ settings }: { settings: Settings }) {
   const [cache] = useState(createTrackDataCache);
   const player = usePlayer();
   const editor = useLaneEditor(mapping);
+  const [preview, setPreview] = useState<AnimationPreview>();
   const live = useLiveTrack();
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const navWidth = useStoredSize("editor.navWidth", 224, 160, 480);
   useEditorKeys(rootRef, (event) => {
     const isModified = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
@@ -188,13 +220,24 @@ function EditorContent({ settings }: { settings: Settings }) {
       editor.onSelect(undefined);
       return true;
     }
+    if (event.key === "Escape") {
+      return player.clearLoop();
+    }
     return false;
   });
 
   return (
     <ClipsContext value={clips}>
       <div ref={rootRef} className="flex h-full">
-        <LibraryNav playlists={playlists} selection={selection} onSelect={setSelection} />
+        <div className="relative flex shrink-0" style={{ width: navWidth.value }}>
+          <LibraryNav playlists={playlists} selection={selection} onSelect={setSelection} />
+          <ResizeHandle
+            axis="x"
+            direction={1}
+            size={navWidth}
+            className="right-0 translate-x-1/2"
+          />
+        </div>
         <TrackList
           title={getSelectionTitle(selection, playlists)}
           tracks={tracks}
@@ -209,12 +252,16 @@ function EditorContent({ settings }: { settings: Settings }) {
         />
         <AnimationPanel
           animations={animations}
+          preview={preview}
+          onPreviewChange={setPreview}
           simulator={
             <PlaybackSimulator
               player={player}
               mapping={mapping.mapping}
               cache={cache}
               source={source}
+              preview={preview}
+              onPreviewChange={setPreview}
             />
           }
         />

@@ -66,6 +66,21 @@ export function getDropRange(track: BeatRange): BeatRange {
   return { min: track.min, max: track.max - MIN_CUE_BEATS };
 }
 
+export function getGap(
+  cues: readonly Cue[],
+  beat: number,
+  track: BeatRange,
+): BeatRange | undefined {
+  const previous = cues.findLast((cue) => cue.beat <= beat);
+  const max = cues.find((cue) => cue.beat > beat)?.beat ?? track.max;
+  if (!previous) {
+    return { min: track.min, max };
+  }
+  return previous.end !== undefined && previous.end <= beat
+    ? { min: previous.end, max }
+    : undefined;
+}
+
 export function getSnapTargets(
   cues: readonly Cue[],
   exclude: number | undefined,
@@ -76,6 +91,9 @@ export function getSnapTargets(
     index === exclude ? [] : cue.end === undefined ? [cue.beat] : [cue.beat, cue.end],
   );
   for (const cue of mixxxCues) {
+    if (cue.type === "main") {
+      continue;
+    }
     for (const position of [cue.start, cue.end]) {
       if (position !== undefined) {
         targets.push(getBeat(beats, position));

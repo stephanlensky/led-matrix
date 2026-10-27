@@ -190,6 +190,10 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       maxedScareMeter,
     ],
   },
+  loading: {
+    name: "Loading",
+    sections: [{ mode: { type: "loop", beats: 4 }, layers: [{ effect: "loading" }] }],
+  },
   "plasma-kaleidoscope": {
     name: "Plasma kaleidoscope",
     sections: [

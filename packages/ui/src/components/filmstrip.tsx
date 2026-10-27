@@ -33,21 +33,22 @@ function wait(ms: number): Promise<void> {
 }
 
 export function Filmstrip({ getFrame, version }: FilmstripProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState<Size>();
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
+    const container = containerRef.current;
+    if (!container) {
       return undefined;
     }
     const observer = new ResizeObserver(() =>
       setSize({
-        width: Math.round(canvas.clientWidth * devicePixelRatio),
-        height: Math.round(canvas.clientHeight * devicePixelRatio),
+        width: Math.round(container.clientWidth * devicePixelRatio),
+        height: Math.round(container.clientHeight * devicePixelRatio),
       }),
     );
-    observer.observe(canvas);
+    observer.observe(container);
     return () => observer.disconnect();
   }, []);
 
@@ -83,6 +84,7 @@ export function Filmstrip({ getFrame, version }: FilmstripProps) {
       if (!isCancelled) {
         canvas.width = strip.width;
         canvas.height = strip.height;
+        canvas.style.width = `${strip.width / devicePixelRatio}px`;
         canvas.getContext("2d")?.drawImage(strip, 0, 0);
       }
     }
@@ -93,7 +95,11 @@ export function Filmstrip({ getFrame, version }: FilmstripProps) {
     };
   }, [getFrame, version, size]);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 size-full" />;
+  return (
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden">
+      <canvas ref={canvasRef} className="absolute top-0 left-0 h-full w-0" />
+    </div>
+  );
 }
 
 type SectionFilmstripProps = {

@@ -1,4 +1,5 @@
 import type { Waveform } from "./library.ts";
+import { FULL_RANGE, type TrackRange } from "./track-scale.ts";
 
 export type Rgb = readonly [number, number, number];
 
@@ -32,6 +33,7 @@ function getMax(values: Uint8Array, start: number, stop: number): number {
 export function getWaveformColumns(
   waveform: Waveform,
   count: number,
+  range: TrackRange = FULL_RANGE,
   colors: WaveformColors = MIXXX_RGB_COLORS,
 ): WaveformColumns {
   const frameCount = waveform.all.length;
@@ -40,10 +42,14 @@ export function getWaveformColumns(
   if (frameCount === 0) {
     return { heights, colors: rgb };
   }
-  const step = frameCount / count;
+  const offset = range.start * frameCount;
+  const step = ((range.end - range.start) * frameCount) / count;
   for (let column = 0; column < count; column++) {
-    const start = Math.min(Math.floor(column * step), frameCount - 1);
-    const stop = Math.max(Math.floor((column + 1) * step), start + 1);
+    const start = Math.min(Math.max(Math.floor(offset + column * step), 0), frameCount - 1);
+    const stop = Math.min(
+      Math.max(Math.floor(offset + (column + 1) * step), start + 1),
+      frameCount,
+    );
     const low = getMax(waveform.low, start, stop);
     const mid = getMax(waveform.mid, start, stop);
     const high = getMax(waveform.high, start, stop);

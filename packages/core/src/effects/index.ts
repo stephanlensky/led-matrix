@@ -11,6 +11,7 @@ import { trails } from "./trails.ts";
 import { vampireMouth } from "./vampire-mouth.ts";
 import { pumpkin } from "./pumpkin.ts";
 import { scareMeter } from "./scare-meter.ts";
+import { loading } from "./loading.ts";
 import { cat } from "./cat.ts";
 import { catBounce, catSpawn } from "./cat-duo.ts";
 import { demonHunters } from "./demon-hunters/index.ts";
@@ -35,6 +36,7 @@ export const effects: readonly Effect[] = [
   vampireMouth,
   pumpkin,
   scareMeter,
+  loading,
   cat,
   catSpawn,
   catBounce,

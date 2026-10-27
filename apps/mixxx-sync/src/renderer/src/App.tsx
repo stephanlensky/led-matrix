@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Daemon } from "./Daemon.tsx";
 import { Editor } from "./Editor.tsx";
 import { Settings } from "./Settings.tsx";
+import { useStoredState } from "./useStoredState.ts";
 
 type View = "daemon" | "editor" | "settings";
 
@@ -14,8 +15,12 @@ const views: readonly NavigationItem<View>[] = [
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
+function getView(value: unknown): View | undefined {
+  return views.find(({ id }) => id === value)?.id;
+}
+
 export function App() {
-  const [view, setView] = useState<View>("daemon");
+  const [view, setView] = useStoredState<View>("app.view", "daemon", getView);
   const [hasOpenedEditor, setHasOpenedEditor] = useState(false);
   if (view === "editor" && !hasOpenedEditor) {
     setHasOpenedEditor(true);

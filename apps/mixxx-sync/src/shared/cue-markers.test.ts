@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INTRO_OUTRO_COLOR, MAIN_CUE_COLOR, getCueMarkers } from "./cue-markers.ts";
+import { INTRO_OUTRO_COLOR, getCueMarkers } from "./cue-markers.ts";
 import type { MixxxCue } from "./library.ts";
 
 function createCue(changes: Partial<MixxxCue>): MixxxCue {
@@ -22,11 +22,10 @@ describe("getCueMarkers", () => {
     ]);
   });
 
-  it("marks the main cue", () => {
-    const { markers } = getCueMarkers([createCue({ type: "main", start: 1, color: 0 })]);
-    expect(markers).toEqual([
-      { position: 1, color: MAIN_CUE_COLOR, label: "C", title: "Main cue" },
-    ]);
+  it("skips the main cue", () => {
+    const { ranges, markers } = getCueMarkers([createCue({ type: "main", start: 1 })]);
+    expect(ranges).toEqual([]);
+    expect(markers).toEqual([]);
   });
 
   it("shades ranges and marks their edges", () => {

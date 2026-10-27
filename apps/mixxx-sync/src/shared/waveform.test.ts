@@ -44,6 +44,20 @@ describe("getWaveformColumns", () => {
     expect([...heights]).toEqual([0.2, 0.2, 1, 1].map(Math.fround));
   });
 
+  it("draws only the columns in the range", () => {
+    const { heights } = getWaveformColumns(
+      createWaveform([
+        [1, 1, 1, 51],
+        [1, 1, 1, 102],
+        [1, 1, 1, 153],
+        [1, 1, 1, 255],
+      ]),
+      2,
+      { start: 0.5, end: 1 },
+    );
+    expect([...heights]).toEqual([0.6, 1].map(Math.fround));
+  });
+
   it("leaves silent columns black", () => {
     const { colors } = getWaveformColumns(createWaveform([[0, 0, 0, 0]]), 1);
     expect([...colors]).toEqual([0, 0, 0]);

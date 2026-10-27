@@ -4,6 +4,7 @@ import {
   type DaemonStatus,
   type LogEntry,
   type Settings,
+  type UiState,
   channels,
 } from "../shared/api.ts";
 import type { MappingState } from "../shared/mapping.ts";
@@ -24,6 +25,8 @@ function subscribe<C extends keyof Events>(
   return () => ipcRenderer.off(channel, handler);
 }
 
+let uiState: UiState = ipcRenderer.sendSync(channels.getUiState);
+
 const api: Api = {
   getSettings: () => ipcRenderer.invoke(channels.getSettings),
   setSettings: (settings) => ipcRenderer.invoke(channels.setSettings, settings),
@@ -38,6 +41,11 @@ const api: Api = {
   getWaveform: (trackId, type) => ipcRenderer.invoke(channels.getWaveform, trackId, type),
   getMapping: () => ipcRenderer.invoke(channels.getMapping),
   setMapping: (mapping) => ipcRenderer.invoke(channels.setMapping, mapping),
+  getUiState: (key) => uiState[key],
+  setUiState(key, value) {
+    uiState = { ...uiState, [key]: value };
+    ipcRenderer.send(channels.setUiState, key, value);
+  },
   onSettings: (listener) => subscribe(channels.settings, listener),
   onStatus: (listener) => subscribe(channels.status, listener),
   onLog: (listener) => subscribe(channels.log, listener),

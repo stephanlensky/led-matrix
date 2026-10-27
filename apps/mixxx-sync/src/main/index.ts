@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { BrowserWindow, app, dialog, ipcMain, protocol } from "electron";
+import { z } from "zod";
 import {
   type FileSetting,
   LOG_LIMIT,
@@ -15,6 +16,7 @@ import { createMappingFile } from "./mapping-file.ts";
 import { createMixxxLibrary } from "./mixxx-library.ts";
 import { getDefaultSettings, getStoredSettings, setStoredSettings } from "./settings.ts";
 import { createTrackAudioHandler } from "./track-audio.ts";
+import { createUiStateFile } from "./ui-state.ts";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -28,6 +30,7 @@ let settings: Settings = await getStoredSettings(
   settingsPath,
   getDefaultSettings(app.getAppPath()),
 );
+const uiState = await createUiStateFile(join(app.getPath("userData"), "ui-state.json"));
 const logEntries: LogEntry[] = [];
 
 function send(channel: string, value: unknown): void {
@@ -93,21 +96,49 @@ ipcMain.handle(channels.getTrackDetails, (_event, trackId: number) =>
 ipcMain.handle(channels.getWaveform, (_event, trackId: number, type: WaveformType) =>
   library.getTrackWaveform(trackId, type),
 );
+ipcMain.on(channels.getUiState, (event) => {
+  event.returnValue = uiState.getState();
+});
+ipcMain.on(channels.setUiState, (_event, key: string, value: unknown) => uiState.set(key, value));
 ipcMain.handle(channels.getMapping, () => mappingFile.getMapping());
 ipcMain.handle(channels.setMapping, (_event, mapping: MappingFile) =>
   mappingFile.setMapping(mapping),
 );
 
+const WINDOW_STATE_KEY = "window";
+const windowStateSchema = z.object({
+  width: z.int().positive(),
+  height: z.int().positive(),
+  isMaximized: z.boolean(),
+});
+
+function getWindowState(): z.infer<typeof windowStateSchema> {
+  const result = windowStateSchema.safeParse(uiState.getState()[WINDOW_STATE_KEY]);
+  return result.success ? result.data : { width: 1600, height: 1000, isMaximized: false };
+}
+
+function setWindowState(window: BrowserWindow): void {
+  const { width, height } = window.getNormalBounds();
+  uiState.set(WINDOW_STATE_KEY, { width, height, isMaximized: window.isMaximized() });
+}
+
 function createWindow(): void {
+  const { width, height, isMaximized } = getWindowState();
   const window = new BrowserWindow({
-    width: 1600,
-    height: 1000,
+    width,
+    height,
     backgroundColor: "#0a0a0a",
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/index.cjs"),
     },
   });
+  if (isMaximized) {
+    window.maximize();
+  }
+  window.on("resize", () => setWindowState(window));
+  window.on("maximize", () => setWindowState(window));
+  window.on("unmaximize", () => setWindowState(window));
   const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
   if (rendererUrl) {
     void window.loadURL(rendererUrl);
@@ -134,5 +165,6 @@ app.on("window-all-closed", () => {
   daemon.stop();
   library.close();
   mappingFile.close();
+  uiState.flush();
   app.quit();
 });

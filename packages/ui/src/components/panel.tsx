@@ -4,6 +4,8 @@ import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 const OFF_LEVEL = 14;
 const GAP_RATIO = 0.2;
 const MIN_GRID_PITCH = 4;
+const colors = new Uint8ClampedArray(WIDTH * HEIGHT * RGBA_CHANNELS);
+const colorWords = new Uint32Array(colors.buffer);
 
 type PanelProps = {
   frame: Frame;
@@ -24,7 +26,7 @@ function getPitch(element: HTMLElement, insetX: number, insetY: number): number 
     (element.clientWidth - insetX) / WIDTH,
     (element.clientHeight - insetY) / HEIGHT,
   );
-  return Math.max(1, Math.floor(size * devicePixelRatio));
+  return Math.max(1, size * devicePixelRatio);
 }
 
 export function usePanelPitch(
@@ -48,64 +50,57 @@ export function usePanelPitch(
   return pitch;
 }
 
-function createGapMask(pitch: number, gap: number): OffscreenCanvas {
-  const mask = new OffscreenCanvas(WIDTH * pitch - gap, HEIGHT * pitch - gap);
-  const context = mask.getContext("2d");
-  if (context) {
-    for (let x = 1; x < WIDTH; x++) {
-      context.fillRect(x * pitch - gap, 0, gap, mask.height);
-    }
-    for (let y = 1; y < HEIGHT; y++) {
-      context.fillRect(0, y * pitch - gap, mask.width, gap);
-    }
+function getCellMap(count: number, pitch: number, gap: number): Int16Array {
+  const map = new Int16Array(Math.round(count * pitch) - gap).fill(-1);
+  for (let cell = 0; cell < count; cell++) {
+    map.fill(cell, Math.round(cell * pitch), Math.round((cell + 1) * pitch) - gap);
   }
-  return mask;
+  return map;
 }
 
 export function Panel({ frame, pitch, showGrid }: PanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pixelsRef = useRef<{ canvas: OffscreenCanvas; image: ImageData }>(null);
   const gap = getGap(pitch, showGrid);
-  const mask = useMemo(() => (gap > 0 ? createGapMask(pitch, gap) : undefined), [pitch, gap]);
+  const layout = useMemo(() => {
+    const columns = getCellMap(WIDTH, pitch, gap);
+    const rows = getCellMap(HEIGHT, pitch, gap);
+    return { columns, rows, image: new ImageData(columns.length, rows.length) };
+  }, [pitch, gap]);
 
   useEffect(() => {
     const context = canvasRef.current?.getContext("2d");
-    pixelsRef.current ??= {
-      canvas: new OffscreenCanvas(WIDTH, HEIGHT),
-      image: new ImageData(WIDTH, HEIGHT),
-    };
-    const { canvas, image } = pixelsRef.current;
-    const pixelContext = canvas.getContext("2d");
-    if (!context || !pixelContext) {
+    if (!context) {
       return;
     }
     for (let pixel = 0; pixel < WIDTH * HEIGHT; pixel++) {
       for (let channel = 0; channel < CHANNELS; channel++) {
-        image.data[pixel * RGBA_CHANNELS + channel] = getLevel(
-          frame[pixel * CHANNELS + channel] ?? 0,
-        );
+        colors[pixel * RGBA_CHANNELS + channel] = getLevel(frame[pixel * CHANNELS + channel] ?? 0);
       }
-      image.data[pixel * RGBA_CHANNELS + 3] = 255;
+      colors[pixel * RGBA_CHANNELS + 3] = 255;
     }
-    pixelContext.putImageData(image, 0, 0);
-    context.globalCompositeOperation = "copy";
-    context.imageSmoothingEnabled = false;
-    context.drawImage(canvas, 0, 0, WIDTH * pitch, HEIGHT * pitch);
-    if (mask) {
-      context.globalCompositeOperation = "destination-out";
-      context.drawImage(mask, 0, 0);
+    const { columns, rows, image } = layout;
+    const imageWords = new Uint32Array(image.data.buffer);
+    for (let y = 0; y < rows.length; y++) {
+      const row = rows[y] ?? -1;
+      const offset = y * columns.length;
+      for (let x = 0; x < columns.length; x++) {
+        const column = columns[x] ?? -1;
+        imageWords[offset + x] =
+          row < 0 || column < 0 ? 0 : (colorWords[row * WIDTH + column] ?? 0);
+      }
     }
-  }, [frame, pitch, mask]);
+    context.putImageData(image, 0, 0);
+  }, [frame, layout]);
 
   return (
     <canvas
       ref={canvasRef}
       className="block"
-      width={WIDTH * pitch - gap}
-      height={HEIGHT * pitch - gap}
+      width={layout.columns.length}
+      height={layout.rows.length}
       style={{
-        width: (WIDTH * pitch - gap) / devicePixelRatio,
-        height: (HEIGHT * pitch - gap) / devicePixelRatio,
+        width: layout.columns.length / devicePixelRatio,
+        height: layout.rows.length / devicePixelRatio,
       }}
     />
   );

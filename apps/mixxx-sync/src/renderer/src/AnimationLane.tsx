@@ -14,12 +14,16 @@ import {
 } from "react";
 import {
   type AnimationBlock,
+  type CueKeys,
   type LiveBlock,
   getAnimationLane,
   getBlockPosition,
+  getCueKeys,
+  getFitEnd,
   getLiveBlock,
+  isSameRender,
 } from "../../shared/animation-lane.ts";
-import { type Beats, getBeat, getPosition } from "../../shared/beats.ts";
+import { type Beats, getBeat, getBpm, getPosition } from "../../shared/beats.ts";
 import {
   type BeatRange,
   type LaneScale,
@@ -27,6 +31,7 @@ import {
   getClampedBeat,
   getDropRange,
   getEndRange,
+  getGap,
   getMoveRange,
   getMoveSnap,
   getSnap,
@@ -38,7 +43,7 @@ import type { MixxxCue } from "../../shared/library.ts";
 import type { CueStatus } from "../../shared/api.ts";
 import type { Cue, MappingFile } from "../../shared/mapping.ts";
 import { addCue, clearCueEnd, moveCue, resizeCue } from "../../shared/mapping-edits.ts";
-import { getFraction } from "../../shared/track-scale.ts";
+import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
 import { getCueDrag, getCurrentCueDrag, hasCueDrag } from "./cue-drag.ts";
 import type { MappingEditor } from "./useMapping.ts";
 
@@ -80,7 +85,13 @@ type Drag = {
 
 type Draft = { cues: readonly Cue[]; snap: number | undefined };
 
-type Ghost = { beat: number; stop: number; name: string; snap: number | undefined };
+type Ghost = {
+  beat: number;
+  stop: number;
+  end: number | undefined;
+  name: string;
+  snap: number | undefined;
+};
 
 const DRAG_DISTANCE = 3;
 const NO_CUES: readonly Cue[] = [];
@@ -126,6 +137,24 @@ function getSpanStyle(left: number, right: number) {
   return { left: `${left * 100}%`, width: `${Math.max(right - left, 0) * 100}%` };
 }
 
+function useCueKeys(cues: readonly Cue[]): number[] {
+  const [current, setCurrent] = useState<CueKeys>(() => getCueKeys(undefined, cues));
+  const next = getCueKeys(current, cues);
+  if (next !== current) {
+    setCurrent(next);
+  }
+  return next.keys;
+}
+
+function useRenderBlock(block: AnimationBlock): AnimationBlock {
+  const [current, setCurrent] = useState(block);
+  const isSame = isSameRender(current, block);
+  if (!isSame) {
+    setCurrent(block);
+  }
+  return isSame ? current : block;
+}
+
 function BlockFilmstrip({
   block,
   scale,
@@ -140,16 +169,17 @@ function BlockFilmstrip({
   source: AnimationSource;
 }) {
   const clipsVersion = useClipsVersion();
+  const renderBlock = useRenderBlock(block);
   const { renderer, fps } = source;
   const getFrame = useCallback(
     (progress: number) => {
       const seconds = (start + progress * (end - start)) * scale.duration;
-      const position = getBlockPosition(block, getBeat(scale.beats, seconds), fps);
+      const position = getBlockPosition(renderBlock, getBeat(scale.beats, seconds), fps);
       return position
-        ? renderer.render(block.animation, position.time, block.bpm, position.index)
+        ? renderer.render(renderBlock.animation, position.time, renderBlock.bpm, position.index)
         : blankFrame;
     },
-    [block, scale, start, end, renderer, fps],
+    [renderBlock, scale, start, end, renderer, fps],
   );
   return <Filmstrip getFrame={getFrame} version={clipsVersion} />;
 }
@@ -200,9 +230,49 @@ function Handle({
   );
 }
 
+function VisibleFilmstrip({
+  block,
+  scale,
+  range,
+  start,
+  end,
+  source,
+}: {
+  block: AnimationBlock;
+  scale: Scale;
+  range: TrackRange;
+  start: number;
+  end: number;
+  source: AnimationSource;
+}) {
+  const visibleStart = Math.max(start, range.start);
+  const visibleEnd = Math.min(end, range.end);
+  if (visibleEnd <= visibleStart) {
+    return null;
+  }
+  return (
+    <div
+      className="absolute inset-y-0"
+      style={getSpanStyle(
+        (visibleStart - start) / (end - start),
+        (visibleEnd - start) / (end - start),
+      )}
+    >
+      <BlockFilmstrip
+        block={block}
+        scale={scale}
+        start={visibleStart}
+        end={visibleEnd}
+        source={source}
+      />
+    </div>
+  );
+}
+
 function Block({
   block,
   scale,
+  range,
   source,
   isSelected,
   live,
@@ -210,6 +280,7 @@ function Block({
 }: {
   block: AnimationBlock;
   scale: Scale;
+  range: TrackRange;
   source: AnimationSource;
   isSelected: boolean;
   live: LiveBlock | undefined;
@@ -230,7 +301,14 @@ function Block({
         onClick={handlers && ((event) => handlers.onClick(event, block))}
       >
         {end > start && (
-          <BlockFilmstrip block={block} scale={scale} start={start} end={end} source={source} />
+          <VisibleFilmstrip
+            block={block}
+            scale={scale}
+            range={range}
+            start={start}
+            end={end}
+            source={source}
+          />
         )}
         {block.boundaries.map((boundary) => (
           <div
@@ -293,6 +371,7 @@ function LaneMessage({ children, title }: { children: string; title?: string }) 
 }
 
 export function AnimationLane({
+  range,
   duration,
   beats,
   cues,
@@ -302,6 +381,7 @@ export function AnimationLane({
   editor,
   liveCue,
 }: {
+  range: TrackRange;
   duration: number;
   beats: Beats | undefined;
   cues: readonly Cue[] | undefined;
@@ -319,6 +399,7 @@ export function AnimationLane({
   const [ghost, setGhost] = useState<Ghost>();
   const savedCues = cues ?? NO_CUES;
   const displayCues = draft?.cues ?? savedCues;
+  const cueKeys = useCueKeys(displayCues);
   const scale = useMemo(() => beats && { beats, duration }, [beats, duration]);
   const track = useMemo(() => beats && getTrackRange(beats, duration), [beats, duration]);
   const lane = useMemo(
@@ -438,13 +519,22 @@ export function AnimationLane({
     const snap = event.altKey
       ? { beat, target: undefined }
       : getSnap(beat, getSnapTargets(savedCues, undefined, mixxxCues, beats), measured.laneScale);
-    const ghostBeat = getClampedBeat(snap.beat, getDropRange(track));
-    const animationId = getCurrentCueDrag()?.animationId;
+    const pointerBeat = getClampedBeat(snap.beat, getDropRange(track));
+    const drag = getCurrentCueDrag();
+    const animation = drag && animationsById?.get(drag.animationId);
+    const section = drag?.section ?? 0;
+    const getEnd = (start: number, stop: number) =>
+      animation && getFitEnd(animation, section, start, stop, getBpm(beats, start), fps);
+    const gap = getGap(savedCues, pointerBeat, track);
+    const isGapFilled = gap !== undefined && getEnd(gap.min, gap.max) !== undefined;
+    const ghostBeat = isGapFilled ? gap.min : pointerBeat;
+    const stop = savedCues.find((cue) => cue.beat > ghostBeat)?.beat ?? track.max;
     return {
       beat: ghostBeat,
-      stop: savedCues.find((cue) => cue.beat > ghostBeat)?.beat ?? track.max,
-      name: (animationId && animationsById?.get(animationId)?.name) || "",
-      snap: ghostBeat === snap.beat ? snap.target : undefined,
+      stop,
+      end: getEnd(ghostBeat, stop),
+      name: animation?.name ?? "",
+      snap: isGapFilled ? ghostBeat : ghostBeat === snap.beat ? snap.target : undefined,
     };
   }
 
@@ -481,15 +571,14 @@ export function AnimationLane({
       drag.section === undefined
         ? undefined
         : (animation?.sections[drag.section]?.name ?? drag.section);
-    const { beat } = dropped;
+    const { beat, end } = dropped;
     editor.update((file) =>
-      addCue(
-        file,
-        location,
-        section === undefined
-          ? { beat, animation: drag.animationId }
-          : { beat, animation: drag.animationId, section },
-      ),
+      addCue(file, location, {
+        beat,
+        animation: drag.animationId,
+        ...(section === undefined ? {} : { section }),
+        ...(end === undefined ? {} : { end }),
+      }),
     );
     editor.onSelect({
       location,
@@ -548,9 +637,10 @@ export function AnimationLane({
       )}
       {lane.blocks.map((block) => (
         <Block
-          key={block.index}
+          key={cueKeys[block.index]}
           block={block}
           scale={scale}
+          range={range}
           source={source}
           isSelected={
             editor?.selection?.location === location && editor.selection.index === block.index

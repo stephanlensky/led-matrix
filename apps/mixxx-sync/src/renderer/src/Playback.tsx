@@ -1,4 +1,9 @@
-import { type Frame, createFrame } from "@led-matrix/core";
+import {
+  type Frame,
+  type StoredAnimation,
+  createFrame,
+  getSectionPosition,
+} from "@led-matrix/core";
 import { Button } from "@led-matrix/ui/components/button";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
 import { useClipsVersion } from "@led-matrix/ui/lib/clips";
@@ -14,6 +19,10 @@ import { type Player, usePlayerState } from "./player.ts";
 import { type TrackDataCache, useLoad } from "./useLibrary.ts";
 
 const blankFrame = createFrame();
+const FRAME_CLASS = "h-full min-h-0";
+const DEFAULT_BPM = 120;
+
+export type AnimationPreview = { animationId: string; section: number | undefined };
 
 export function PlayButton({ player, track }: { player: Player; track: Track }) {
   const { track: current, isPlaying, error } = usePlayerState(player);
@@ -110,7 +119,44 @@ function TrackSimulator({
     return () => cancelAnimationFrame(request);
   }, [beats, blocks, player, renderer, fps, clipsVersion]);
 
-  return <MatrixFrame frame={frame} showGrid />;
+  return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
+}
+
+function PreviewSimulator({
+  animation,
+  preview,
+  bpm,
+  source,
+}: {
+  animation: StoredAnimation;
+  preview: AnimationPreview;
+  bpm: number;
+  source: AnimationSource;
+}) {
+  const clipsVersion = useClipsVersion();
+  const { renderer, fps } = source;
+  const [frame, setFrame] = useState<Frame>(blankFrame);
+
+  useEffect(() => {
+    const frameDuration = 1000 / fps;
+    const current = { index: preview.section ?? 0, startedAt: performance.now() };
+    let request = 0;
+    let lastKey: string | undefined;
+    const update = (now: number) => {
+      request = requestAnimationFrame(update);
+      const position = getSectionPosition(animation, { current, next: undefined }, now, bpm, fps);
+      const frameTime = Math.floor(position.time / frameDuration) * frameDuration;
+      const key = `${position.index}:${frameTime}`;
+      if (key !== lastKey) {
+        lastKey = key;
+        setFrame(renderer.render(animation, frameTime, bpm, position.index));
+      }
+    };
+    request = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(request);
+  }, [animation, preview, bpm, renderer, fps, clipsVersion]);
+
+  return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
 }
 
 export function PlaybackSimulator({
@@ -118,21 +164,45 @@ export function PlaybackSimulator({
   mapping,
   cache,
   source,
+  preview,
+  onPreviewChange,
 }: {
   player: Player;
   mapping: MappingFile | undefined;
   cache: TrackDataCache;
   source: AnimationSource;
+  preview: AnimationPreview | undefined;
+  onPreviewChange: (preview: AnimationPreview | undefined) => void;
 }) {
-  const { track } = usePlayerState(player);
+  const { track, isPlaying } = usePlayerState(player);
+  const cues = track && mapping?.tracks[track.location];
+  const isTrackActive = isPlaying && cues !== undefined && cues.length > 0;
+  const previewAnimation = preview && source.animationsById?.get(preview.animationId);
+
+  useEffect(() => {
+    if (isTrackActive) {
+      onPreviewChange(undefined);
+    }
+  }, [isTrackActive, onPreviewChange]);
+
+  if (previewAnimation && !isTrackActive) {
+    return (
+      <PreviewSimulator
+        animation={previewAnimation}
+        preview={preview}
+        bpm={track?.bpm || DEFAULT_BPM}
+        source={source}
+      />
+    );
+  }
   if (!track) {
-    return <MatrixFrame frame={blankFrame} showGrid />;
+    return <MatrixFrame frame={blankFrame} showGrid className={FRAME_CLASS} />;
   }
   return (
     <TrackSimulator
       key={track.id}
       track={track}
-      cues={mapping?.tracks[track.location]}
+      cues={cues}
       player={player}
       cache={cache}
       source={source}

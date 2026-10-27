@@ -3,6 +3,7 @@ import type { Playlist, Track, TrackDetails, Waveform } from "../../shared/libra
 import { getErrorMessage } from "./errors.ts";
 
 const CACHE_LIMIT = 500;
+const FULL_WAVEFORM_CACHE_LIMIT = 8;
 const LOAD_DELAY = 100;
 
 export type LibrarySelection = { type: "all" } | { type: "playlist"; playlistId: number };
@@ -19,32 +20,50 @@ export type TrackData = {
 
 export type TrackDataCache = {
   get: (trackId: number) => Promise<TrackData>;
+  getFullWaveform: (trackId: number) => Promise<Waveform | undefined>;
 };
+
+function getCached<T>(
+  entries: Map<number, Promise<T>>,
+  key: number,
+  limit: number,
+  load: () => Promise<T>,
+): Promise<T> {
+  const entry = entries.get(key);
+  if (entry) {
+    entries.delete(key);
+    entries.set(key, entry);
+    return entry;
+  }
+  const promise = load();
+  promise.catch(() => entries.delete(key));
+  entries.set(key, promise);
+  for (const oldKey of entries.keys()) {
+    if (entries.size <= limit) {
+      break;
+    }
+    entries.delete(oldKey);
+  }
+  return promise;
+}
 
 export function createTrackDataCache(): TrackDataCache {
   const entries = new Map<number, Promise<TrackData>>();
+  const fullWaveforms = new Map<number, Promise<Waveform | undefined>>();
 
   return {
     get(trackId) {
-      const entry = entries.get(trackId);
-      if (entry) {
-        entries.delete(trackId);
-        entries.set(trackId, entry);
-        return entry;
-      }
-      const promise = Promise.all([
-        window.api.getTrackDetails(trackId),
-        window.api.getWaveform(trackId, "summary"),
-      ]).then(([details, waveform]) => ({ details, waveform }));
-      promise.catch(() => entries.delete(trackId));
-      entries.set(trackId, promise);
-      for (const key of entries.keys()) {
-        if (entries.size <= CACHE_LIMIT) {
-          break;
-        }
-        entries.delete(key);
-      }
-      return promise;
+      return getCached(entries, trackId, CACHE_LIMIT, () =>
+        Promise.all([
+          window.api.getTrackDetails(trackId),
+          window.api.getWaveform(trackId, "summary"),
+        ]).then(([details, waveform]) => ({ details, waveform })),
+      );
+    },
+    getFullWaveform(trackId) {
+      return getCached(fullWaveforms, trackId, FULL_WAVEFORM_CACHE_LIMIT, () =>
+        window.api.getWaveform(trackId, "full"),
+      );
     },
   };
 }

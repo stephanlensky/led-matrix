@@ -1,6 +1,5 @@
 import type { MixxxCue, MixxxCueType } from "./library.ts";
 
-export const MAIN_CUE_COLOR = 0xff7a01;
 export const INTRO_OUTRO_COLOR = 0x2c5c9a;
 
 export type CueRange = {
@@ -28,9 +27,6 @@ const RANGE_LABELS: Partial<Record<MixxxCueType, string>> = {
 };
 
 function getCueColor(cue: MixxxCue): number {
-  if (cue.type === "main") {
-    return MAIN_CUE_COLOR;
-  }
   if (cue.type === "intro" || cue.type === "outro") {
     return INTRO_OUTRO_COLOR;
   }
@@ -63,8 +59,6 @@ export function getCueMarkers(cues: readonly MixxxCue[]): CueMarkers {
         label: String(number),
         title: getHotcueTitle(cue, number),
       });
-    } else if (cue.type === "main" && cue.start !== undefined) {
-      markers.push({ position: cue.start, color, label: "C", title: "Main cue" });
     } else if (rangeLabel !== undefined) {
       for (const [position, suffix] of [
         [cue.start, "start"],

@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   getAnimationLane,
   getBlockPosition,
+  getCueKeys,
+  getFitEnd,
   getLanePosition,
   getLiveBlock,
+  isSameRender,
 } from "./animation-lane.ts";
 import type { Beats } from "./beats.ts";
 
@@ -109,6 +112,61 @@ describe("getAnimationLane", () => {
       blocks: [],
       errors: ['beat 4: animation "missing" not found'],
     });
+  });
+});
+
+describe("isSameRender", () => {
+  it("ignores the blank gap after an end", () => {
+    const touching = getLane([
+      { beat: 0, end: 16, animation: "intro" },
+      { beat: 16, animation: "plasma" },
+    ]);
+    const apart = getLane([
+      { beat: 0, end: 16, animation: "intro" },
+      { beat: 20, animation: "plasma" },
+    ]);
+    expect(isSameRender(touching.blocks[0]!, apart.blocks[0]!)).toBe(true);
+    expect(isSameRender(touching.blocks[1]!, apart.blocks[1]!)).toBe(false);
+  });
+});
+
+describe("getCueKeys", () => {
+  const cues = [
+    { beat: 0, animation: "plasma" },
+    { beat: 32, animation: "intro" },
+  ];
+  const initial = getCueKeys(undefined, cues);
+
+  it("keeps keys when a cue is inserted before others", () => {
+    expect(getCueKeys(initial, [{ beat: -8, animation: "intro" }, ...cues]).keys).toEqual([
+      2, 0, 1,
+    ]);
+  });
+
+  it("keeps keys when a cue is removed", () => {
+    expect(getCueKeys(initial, [cues[1]!]).keys).toEqual([1]);
+  });
+
+  it("keeps the key of a moved cue", () => {
+    expect(getCueKeys(initial, [cues[0]!, { beat: 36, animation: "intro" }]).keys).toEqual([0, 1]);
+  });
+});
+
+describe("getFitEnd", () => {
+  const intro = animationsById.get("intro")!;
+  const plasma = animationsById.get("plasma")!;
+
+  it("fits a once section to a smaller space", () => {
+    expect(getFitEnd(intro, 0, 16, 20, 120, FPS)).toBe(20);
+  });
+
+  it("keeps a once section that fits", () => {
+    expect(getFitEnd(intro, 0, 16, 24, 120, FPS)).toBeUndefined();
+  });
+
+  it("ignores loop sections", () => {
+    expect(getFitEnd(intro, 2, 16, 18, 120, FPS)).toBeUndefined();
+    expect(getFitEnd(plasma, 0, 16, 18, 120, FPS)).toBeUndefined();
   });
 });
 

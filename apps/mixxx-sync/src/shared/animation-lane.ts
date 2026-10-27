@@ -54,6 +54,18 @@ function getBoundaries(
   return boundaries;
 }
 
+export function getFitEnd(
+  animation: StoredAnimation,
+  section: number,
+  beat: number,
+  stop: number,
+  bpm: number,
+  fps: number,
+): number | undefined {
+  const isOnce = animation.sections[section]?.mode.type === "once";
+  return isOnce && getSectionBeats(animation, section, bpm, fps) > stop - beat ? stop : undefined;
+}
+
 export function getAnimationLane(
   cues: readonly Cue[],
   animationsById: ReadonlyMap<string, StoredAnimation>,
@@ -97,6 +109,36 @@ export function getAnimationLane(
     ];
   });
   return { blocks, errors: [] };
+}
+
+export function isSameRender(a: AnimationBlock, b: AnimationBlock): boolean {
+  return (
+    a.animation === b.animation &&
+    a.section === b.section &&
+    a.bpm === b.bpm &&
+    a.beat === b.beat &&
+    a.end === b.end &&
+    a.fit?.section === b.fit?.section &&
+    a.fit?.beats === b.fit?.beats
+  );
+}
+
+export type CueKeys = { cues: readonly Cue[]; keys: number[] };
+
+export function getCueKeys(previous: CueKeys | undefined, cues: readonly Cue[]): CueKeys {
+  if (!previous) {
+    return { cues, keys: cues.map((_cue, index) => index) };
+  }
+  if (previous.cues === cues) {
+    return previous;
+  }
+  const keysByBeat = new Map(previous.cues.map((cue, index) => [cue.beat, previous.keys[index]]));
+  const matched = cues.map((cue) => keysByBeat.get(cue.beat));
+  const used = new Set(matched);
+  const unused = previous.keys.filter((key) => !used.has(key));
+  let nextKey = Math.max(-1, ...previous.keys) + 1;
+  const keys = matched.map((key) => key ?? unused.shift() ?? nextKey++);
+  return { cues, keys };
 }
 
 export function getBlockPosition(

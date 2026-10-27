@@ -17,6 +17,8 @@ export const daemonSettingKeys = [
   "mappingFile",
 ] as const satisfies readonly (keyof Settings)[];
 
+export type UiState = Record<string, unknown>;
+
 export type FileSetting = "mappingFile" | "mixxxDatabasePath";
 
 export type CueStatus =
@@ -55,6 +57,8 @@ export type Api = {
   getWaveform(trackId: number, type: WaveformType): Promise<Waveform | undefined>;
   getMapping(): Promise<MappingState>;
   setMapping(mapping: MappingFile): Promise<MappingFile>;
+  getUiState(key: string): unknown;
+  setUiState(key: string, value: unknown): void;
   onSettings(listener: (settings: Settings) => void): () => void;
   onStatus(listener: (status: DaemonStatus) => void): () => void;
   onLog(listener: (entry: LogEntry) => void): () => void;
@@ -79,4 +83,6 @@ export const channels = {
   getMapping: "mapping:get",
   setMapping: "mapping:set",
   mapping: "mapping:changed",
+  getUiState: "ui-state:get",
+  setUiState: "ui-state:set",
 } as const;

@@ -1,5 +1,6 @@
 import type { Frame } from "@led-matrix/core";
 import { type ReactNode, useRef } from "react";
+import { cn } from "cn";
 import { Panel, usePanelPitch } from "./panel.tsx";
 
 const FRAME_INSET = 26;
@@ -11,6 +12,7 @@ type MatrixFrameProps = {
   footer?: ReactNode;
   footerHeight?: number;
   overlay?: ReactNode;
+  className?: string;
 };
 
 export function MatrixFrame({
@@ -19,6 +21,7 @@ export function MatrixFrame({
   footer,
   footerHeight = 0,
   overlay,
+  className,
 }: MatrixFrameProps) {
   const containerRef = useRef<HTMLElement>(null);
   const pitch = usePanelPitch(
@@ -28,7 +31,7 @@ export function MatrixFrame({
   );
 
   return (
-    <section ref={containerRef} className="relative min-h-[50svh] min-w-0">
+    <section ref={containerRef} className={cn("relative min-h-[50svh] min-w-0", className)}>
       <div className="absolute inset-0 grid place-items-center">
         <div className="flex flex-col gap-3">
           <div className="relative rounded-xl border bg-neutral-900 p-3">

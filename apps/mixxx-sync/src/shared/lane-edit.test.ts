@@ -4,6 +4,7 @@ import type { MixxxCue } from "./library.ts";
 import {
   type LaneScale,
   getEndRange,
+  getGap,
   getMoveRange,
   getMoveSnap,
   getNudgedBeat,
@@ -51,6 +52,21 @@ describe("getNudgedBeat", () => {
     expect(getNudgedBeat(cues, 1, 32, track)).toBe(48);
     expect(getNudgedBeat(cues, 0, -4, track)).toBe(-1);
     expect(getNudgedBeat(cues, 3, 1, track)).toBeUndefined();
+  });
+});
+
+describe("getGap", () => {
+  it("spans a blank gap after a cue end", () => {
+    expect(getGap(cues, 50, track)).toEqual({ min: 48, max: 64 });
+  });
+
+  it("spans the space before the first cue", () => {
+    expect(getGap(cues.slice(1), 10, track)).toEqual({ min: -1, max: 32 });
+  });
+
+  it("is undefined inside a block", () => {
+    expect(getGap(cues, 40, track)).toBeUndefined();
+    expect(getGap(cues, 80, track)).toBeUndefined();
   });
 });
 

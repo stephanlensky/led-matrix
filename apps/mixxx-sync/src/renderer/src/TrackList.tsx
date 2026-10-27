@@ -2,10 +2,11 @@ import { Button } from "@led-matrix/ui/components/button";
 import { Input } from "@led-matrix/ui/components/input";
 import { Label } from "@led-matrix/ui/components/label";
 import { ListEmpty } from "@led-matrix/ui/components/list-row";
+import { Slider } from "@led-matrix/ui/components/slider";
 import { Switch } from "@led-matrix/ui/components/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@led-matrix/ui/components/tooltip";
 import { TruncatedText } from "@led-matrix/ui/components/truncated-text";
-import { KeyboardIcon, RadioIcon, SearchIcon } from "lucide-react";
+import { KeyboardIcon, RadioIcon, SearchIcon, ZoomInIcon } from "lucide-react";
 import {
   Fragment,
   type MouseEvent,
@@ -18,7 +19,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { getPosition } from "../../shared/beats.ts";
 import type { MixxxCue, Track } from "../../shared/library.ts";
+import type { BeatSelection } from "../../shared/loop.ts";
 import type { CueStatus } from "../../shared/api.ts";
 import type { Cue, MappingFile } from "../../shared/mapping.ts";
 import {
@@ -28,14 +31,22 @@ import {
   getFilteredTracks,
   getTrackNumberLabel,
 } from "../../shared/track-list.ts";
-import { getFraction } from "../../shared/track-scale.ts";
+import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
 import { type AnimationSource, type LaneEditor, AnimationLane } from "./AnimationLane.tsx";
 import { PlayButton, Playhead } from "./Playback.tsx";
+import { TrackScrollbar } from "./TrackScrollbar.tsx";
 import { type Player, usePlayerState } from "./player.ts";
 import { type LoadState, type TrackDataCache, useTrackData } from "./useLibrary.ts";
+import {
+  MAX_ZOOM,
+  type TrackViews,
+  createTrackViews,
+  usePlayheadFollow,
+  useTrackZoom,
+} from "./useTrackZoom.ts";
 import { WaveformLane } from "./WaveformLane.tsx";
 
-const ROW_HEIGHT = 112;
+const ROW_HEIGHT = 172;
 const OVERSCAN = 4;
 const NO_CUES: readonly MixxxCue[] = [];
 const SHORTCUTS = [
@@ -43,11 +54,14 @@ const SHORTCUTS = [
   ["← →", "Move the selected block by a beat"],
   ["Shift + ← →", "Move the selected block by a bar"],
   ["Delete", "Remove the selected block"],
-  ["Escape", "Clear the selection"],
+  ["Escape", "Clear the selection or loop"],
   ["Ctrl + Z", "Undo"],
   ["Ctrl + Shift + Z", "Redo"],
   ["Ctrl + F", "Search"],
-  ["Alt + drag", "Place without snapping"],
+  ["Drag waveform", "Loop a selection"],
+  ["Alt + drag", "Place or select without snapping"],
+  ["Ctrl + scroll", "Zoom the track"],
+  ["Shift + scroll", "Scroll the zoomed track"],
 ] as const;
 
 export type LiveTrack = { location: string; cue: CueStatus | undefined };
@@ -70,9 +84,29 @@ type LaneProps = {
   liveCue: CueStatus | undefined;
 };
 
-type RowProps = LaneProps & { track: Track; player: Player; isLive: boolean };
+type RowProps = LaneProps & {
+  track: Track;
+  player: Player;
+  isLive: boolean;
+  views: TrackViews;
+};
 
-function TrackLanes({ track, cache, cues, source, editor, liveCue }: LaneProps & { track: Track }) {
+function TrackLanes({
+  track,
+  range,
+  player,
+  selection,
+  cache,
+  cues,
+  source,
+  editor,
+  liveCue,
+}: LaneProps & {
+  track: Track;
+  range: TrackRange;
+  player: Player;
+  selection: BeatSelection | undefined;
+}) {
   const data = useTrackData(cache, track.id);
 
   if (data.status === "error") {
@@ -84,22 +118,39 @@ function TrackLanes({ track, cache, cues, source, editor, liveCue }: LaneProps &
   }
   const { details, waveform } = data.status === "loaded" ? data.value : {};
   const isLoaded = data.status === "loaded";
+  const beats = details?.beats;
+
+  function setSelection(next: BeatSelection | undefined) {
+    if (next && beats) {
+      const loop = { start: getPosition(beats, next.start), end: getPosition(beats, next.end) };
+      player.setLoop(track, loop, next);
+    } else {
+      player.clearLoop();
+    }
+  }
+
   return (
     <>
       {isLoaded ? (
         <WaveformLane
+          trackId={track.id}
+          cache={cache}
+          range={range}
           duration={track.duration}
           waveform={waveform}
-          beats={details?.beats}
+          beats={beats}
           cues={details?.cues ?? NO_CUES}
+          selection={selection}
+          onSelectionChange={setSelection}
         />
       ) : (
-        <Lane className="h-10" />
+        <Lane className="mt-2 h-20" />
       )}
       {isLoaded ? (
         <AnimationLane
+          range={range}
           duration={track.duration}
-          beats={details?.beats}
+          beats={beats}
           cues={cues}
           mixxxCues={details?.cues ?? NO_CUES}
           location={track.location}
@@ -114,8 +165,14 @@ function TrackLanes({ track, cache, cues, source, editor, liveCue }: LaneProps &
   );
 }
 
-function TrackRow({ track, player, isLive, ...props }: RowProps) {
-  const isCurrent = usePlayerState(player).track?.id === track.id;
+function TrackRow({ track, player, isLive, views, ...props }: RowProps) {
+  const { track: current, loop } = usePlayerState(player);
+  const isCurrent = current?.id === track.id;
+  const selection = loop?.trackId === track.id ? loop.beats : undefined;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const { zoom, range, setZoom } = useTrackZoom(scrollRef, thumbRef, views, track.id);
+  usePlayheadFollow(scrollRef, player, track.id, track.duration);
 
   function seek(event: MouseEvent<HTMLDivElement>) {
     const { left, width } = event.currentTarget.getBoundingClientRect();
@@ -127,6 +184,12 @@ function TrackRow({ track, player, isLive, ...props }: RowProps) {
   return (
     <div
       className={`flex h-full flex-col gap-1.5 border-b border-l-2 px-3 py-2 ${isLive ? "border-l-emerald-400 bg-emerald-400/5" : "border-l-transparent"}`}
+      onPointerDownCapture={() => player.focus(track)}
+      onWheelCapture={(event) => {
+        if (event.ctrlKey || event.shiftKey || event.deltaX !== 0) {
+          player.focus(track);
+        }
+      }}
     >
       <div className="flex h-5 items-center gap-3 text-sm">
         <PlayButton player={player} track={track} />
@@ -151,6 +214,17 @@ function TrackRow({ track, player, isLive, ...props }: RowProps) {
         )}
         <TruncatedText className="max-w-[25%] text-muted-foreground">{track.artist}</TruncatedText>
         <TruncatedText className="flex-1 text-muted-foreground">{track.album}</TruncatedText>
+        <div className="flex w-28 shrink-0 items-center gap-1.5 text-muted-foreground">
+          <ZoomInIcon className="size-3.5 shrink-0" />
+          <Slider
+            aria-label="Zoom"
+            min={0}
+            max={Math.log2(MAX_ZOOM)}
+            step={0.01}
+            value={Math.log2(zoom)}
+            onValueChange={(value) => setZoom(2 ** Number(value))}
+          />
+        </div>
         <span className="w-12 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
           {getBpmLabel(track.bpm)}
         </span>
@@ -159,9 +233,24 @@ function TrackRow({ track, player, isLive, ...props }: RowProps) {
         </span>
       </div>
       <div className="flex flex-1 flex-col pl-20">
-        <div className="relative flex flex-1 cursor-text flex-col gap-1" onClick={seek}>
-          <TrackLanes track={track} {...props} />
-          {isCurrent && <Playhead player={player} duration={track.duration} />}
+        <div ref={scrollRef} className="overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
+          <div
+            className="relative flex cursor-text flex-col gap-1"
+            style={{ width: `${zoom * 100}%` }}
+            onClick={seek}
+          >
+            <TrackLanes
+              track={track}
+              range={range}
+              player={player}
+              selection={selection}
+              {...props}
+            />
+            {isCurrent && <Playhead player={player} duration={track.duration} />}
+          </div>
+        </div>
+        <div className="mt-1 h-2.5">
+          {zoom > 1 && <TrackScrollbar scrollRef={scrollRef} thumbRef={thumbRef} />}
         </div>
       </div>
     </div>
@@ -199,6 +288,7 @@ function VirtualTrackList({
   player,
   editor,
   live,
+  views,
 }: {
   scrollRef: RefObject<HTMLDivElement | null>;
   tracks: readonly Track[];
@@ -208,6 +298,7 @@ function VirtualTrackList({
   player: Player;
   editor: LaneEditor;
   live: LiveTrack | undefined;
+  views: TrackViews;
 }) {
   const { top, height } = useViewport(scrollRef);
   const start = Math.max(0, Math.floor(top / ROW_HEIGHT) - OVERSCAN);
@@ -235,6 +326,7 @@ function VirtualTrackList({
                 player={player}
                 editor={editor}
                 isLive={isLive}
+                views={views}
                 liveCue={isLive ? live?.cue : undefined}
               />
             </div>
@@ -292,6 +384,7 @@ export function TrackList({
 }) {
   const id = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [views] = useState(createTrackViews);
   const [search, setSearch] = useState("");
   const [isMappedOnly, setIsMappedOnly] = useState(false);
   const deferredSearch = useDeferredValue(search);
@@ -344,6 +437,7 @@ export function TrackList({
         source={source}
         player={player}
         editor={editor}
+        views={views}
       />
     );
   }

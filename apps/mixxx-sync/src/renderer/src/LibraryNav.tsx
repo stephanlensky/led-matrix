@@ -46,7 +46,7 @@ export function LibraryNav({
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <nav className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r p-2 scrollbar-thin">
+    <nav className="flex w-full min-w-0 flex-col gap-1 overflow-y-auto border-r p-2 scrollbar-thin">
       <NavItem
         icon={ListMusicIcon}
         label="Tracks"
