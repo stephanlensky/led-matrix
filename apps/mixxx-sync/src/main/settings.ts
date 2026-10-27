@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { outputSchema } from "@led-matrix/core";
 import { z } from "zod";
@@ -9,6 +10,7 @@ export const settingsSchema = z.object({
   output: outputSchema,
   socketPath: z.string().min(1),
   mappingFile: z.string().min(1),
+  mixxxDatabasePath: z.string().min(1),
 });
 
 export function getDefaultSettings(appPath: string): Settings {
@@ -19,6 +21,7 @@ export function getDefaultSettings(appPath: string): Settings {
       process.env["MIXXX_SOCKET"] ??
       join(process.env["XDG_RUNTIME_DIR"] ?? "/tmp", "mixxx-deck-state.sock"),
     mappingFile: join(appPath, "mapping.json"),
+    mixxxDatabasePath: process.env["MIXXX_DATABASE"] ?? join(homedir(), ".mixxx", "mixxxdb.sqlite"),
   };
 }
 

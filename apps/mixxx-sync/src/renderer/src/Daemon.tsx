@@ -1,7 +1,6 @@
-import type { Output } from "@led-matrix/core";
-import { FolderOpenIcon, PlayIcon, SquareIcon } from "lucide-react";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
-import type { DaemonStatus, Settings } from "../../shared/api.ts";
+import { PlayIcon, SquareIcon } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { DaemonStatus } from "../../shared/api.ts";
 import { Badge } from "@led-matrix/ui/components/badge";
 import { Button } from "@led-matrix/ui/components/button";
 import {
@@ -11,23 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@led-matrix/ui/components/card";
-import { Input } from "@led-matrix/ui/components/input";
-import { Label } from "@led-matrix/ui/components/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@led-matrix/ui/components/select";
+import { getErrorMessage } from "./errors.ts";
 import { useDaemonStatus, useLog } from "./useDaemon.ts";
-
-const outputs: readonly Output[] = ["device", "simulator"];
-
-const outputLabels: Record<Output, string> = {
-  device: "Device",
-  simulator: "Simulator",
-};
 
 const SCROLL_THRESHOLD = 16;
 
@@ -37,11 +21,6 @@ const timeFormat = new Intl.DateTimeFormat(undefined, {
   second: "2-digit",
   hour12: false,
 });
-
-function getErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
-}
 
 function StatusRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -126,88 +105,6 @@ function StatusCard({
   );
 }
 
-function SettingsCard({
-  settings,
-  isDisabled,
-  onChange,
-}: {
-  settings: Settings;
-  isDisabled: boolean;
-  onChange: (settings: Settings) => void;
-}) {
-  const id = useId();
-
-  async function showMappingFileDialog() {
-    const mappingFile = await window.api.showMappingFileDialog();
-    if (mappingFile) {
-      onChange({ ...settings, mappingFile });
-    }
-  }
-
-  return (
-    <Card className="shrink-0">
-      <CardHeader>
-        <CardTitle>Settings</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-3">
-        <Label htmlFor={`${id}-server`}>Server</Label>
-        <Input
-          id={`${id}-server`}
-          value={settings.serverUrl}
-          disabled={isDisabled}
-          onChange={(event) => onChange({ ...settings, serverUrl: event.target.value })}
-        />
-        <Label htmlFor={`${id}-output`}>Output</Label>
-        <Select
-          value={settings.output}
-          disabled={isDisabled}
-          onValueChange={(output: Output | null) => {
-            if (output) {
-              onChange({ ...settings, output });
-            }
-          }}
-        >
-          <SelectTrigger id={`${id}-output`} className="w-full">
-            <SelectValue>{(output: Output) => outputLabels[output]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {outputs.map((output) => (
-              <SelectItem key={output} value={output}>
-                {outputLabels[output]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Label htmlFor={`${id}-socket`}>Mixxx socket</Label>
-        <Input
-          id={`${id}-socket`}
-          value={settings.socketPath}
-          disabled={isDisabled}
-          onChange={(event) => onChange({ ...settings, socketPath: event.target.value })}
-        />
-        <Label htmlFor={`${id}-mapping`}>Mapping file</Label>
-        <div className="flex gap-2">
-          <Input
-            id={`${id}-mapping`}
-            value={settings.mappingFile}
-            disabled={isDisabled}
-            onChange={(event) => onChange({ ...settings, mappingFile: event.target.value })}
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Choose mapping file"
-            disabled={isDisabled}
-            onClick={() => void showMappingFileDialog()}
-          >
-            <FolderOpenIcon />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function LogCard() {
   const entries = useLog();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -251,19 +148,10 @@ function LogCard() {
 
 export function Daemon() {
   const status = useDaemonStatus();
-  const [settings, setSettings] = useState<Settings>();
   const [error, setError] = useState<string>();
 
-  useEffect(() => {
-    void window.api.getSettings().then(setSettings);
-  }, []);
-
   async function start() {
-    if (!settings) {
-      return;
-    }
     try {
-      setSettings(await window.api.setSettings(settings));
       await window.api.start();
       setError(undefined);
     } catch (startError) {
@@ -271,7 +159,7 @@ export function Daemon() {
     }
   }
 
-  if (!status || !settings) {
+  if (!status) {
     return null;
   }
 
@@ -283,7 +171,6 @@ export function Daemon() {
         onStart={() => void start()}
         onStop={() => void window.api.stop()}
       />
-      <SettingsCard settings={settings} isDisabled={status.isRunning} onChange={setSettings} />
       <LogCard />
     </div>
   );

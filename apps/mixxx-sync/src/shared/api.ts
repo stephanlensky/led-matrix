@@ -5,7 +5,17 @@ export type Settings = {
   output: Output;
   socketPath: string;
   mappingFile: string;
+  mixxxDatabasePath: string;
 };
+
+export const daemonSettingKeys = [
+  "serverUrl",
+  "output",
+  "socketPath",
+  "mappingFile",
+] as const satisfies readonly (keyof Settings)[];
+
+export type FileSetting = "mappingFile" | "mixxxDatabasePath";
 
 export type CueStatus = {
   beat: number;
@@ -34,11 +44,12 @@ export type LogEntry = {
 export type Api = {
   getSettings(): Promise<Settings>;
   setSettings(settings: Settings): Promise<Settings>;
-  showMappingFileDialog(): Promise<string | undefined>;
+  showFileDialog(setting: FileSetting): Promise<string | undefined>;
   getStatus(): Promise<DaemonStatus>;
   getLog(): Promise<LogEntry[]>;
   start(): Promise<void>;
   stop(): Promise<void>;
+  onSettings(listener: (settings: Settings) => void): () => void;
   onStatus(listener: (status: DaemonStatus) => void): () => void;
   onLog(listener: (entry: LogEntry) => void): () => void;
 };
@@ -46,7 +57,8 @@ export type Api = {
 export const channels = {
   getSettings: "settings:get",
   setSettings: "settings:set",
-  showMappingFileDialog: "mapping-file:show-dialog",
+  settings: "settings:changed",
+  showFileDialog: "file:show-dialog",
   getStatus: "daemon:get-status",
   getLog: "daemon:get-log",
   start: "daemon:start",

@@ -1,6 +1,13 @@
 import { join } from "node:path";
 import { BrowserWindow, app, dialog, ipcMain } from "electron";
-import { LOG_LIMIT, type LogEntry, type Settings, channels } from "../shared/api.ts";
+import {
+  type FileSetting,
+  LOG_LIMIT,
+  type LogEntry,
+  type Settings,
+  channels,
+  daemonSettingKeys,
+} from "../shared/api.ts";
 import { createDaemon } from "./daemon.ts";
 import { getDefaultSettings, getStoredSettings, setStoredSettings } from "./settings.ts";
 
@@ -28,15 +35,27 @@ function log(message: string): void {
 const daemon = createDaemon({ log, onStatus: (status) => send(channels.status, status) });
 
 ipcMain.handle(channels.getSettings, () => settings);
+const fileFilters: Record<FileSetting, Electron.FileFilter[]> = {
+  mappingFile: [{ name: "Mapping", extensions: ["json"] }],
+  mixxxDatabasePath: [{ name: "Mixxx database", extensions: ["sqlite"] }],
+};
+
 ipcMain.handle(channels.setSettings, async (_event, value: Settings) => {
+  if (
+    daemon.getStatus().isRunning &&
+    daemonSettingKeys.some((key) => value[key] !== settings[key])
+  ) {
+    throw new Error("Stop the daemon to change the daemon settings");
+  }
   settings = await setStoredSettings(settingsPath, value);
+  send(channels.settings, settings);
   return settings;
 });
-ipcMain.handle(channels.showMappingFileDialog, async (event) => {
+ipcMain.handle(channels.showFileDialog, async (event, setting: FileSetting) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   const options = {
-    defaultPath: settings.mappingFile,
-    filters: [{ name: "Mapping", extensions: ["json"] }],
+    defaultPath: settings[setting],
+    filters: fileFilters[setting],
     properties: ["openFile" as const],
   };
   const result = window
@@ -51,8 +70,8 @@ ipcMain.handle(channels.stop, () => daemon.stop());
 
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 960,
-    height: 840,
+    width: 1600,
+    height: 1000,
     backgroundColor: "#0a0a0a",
     autoHideMenuBar: true,
     webPreferences: {

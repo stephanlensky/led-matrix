@@ -1,14 +1,16 @@
 import { Navigation, type NavigationItem } from "@led-matrix/ui/components/navigation";
 import { TooltipProvider } from "@led-matrix/ui/components/tooltip";
-import { PencilRulerIcon, RadioTowerIcon } from "lucide-react";
+import { PencilRulerIcon, RadioTowerIcon, SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import { Daemon } from "./Daemon.tsx";
+import { Settings } from "./Settings.tsx";
 
-type View = "daemon" | "editor";
+type View = "daemon" | "editor" | "settings";
 
 const views: readonly NavigationItem<View>[] = [
   { id: "daemon", label: "Daemon", icon: RadioTowerIcon },
   { id: "editor", label: "Editor", icon: PencilRulerIcon },
+  { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
 export function App() {
@@ -21,6 +23,9 @@ export function App() {
         <main className="min-w-0 flex-1 overflow-y-auto scrollbar-thin">
           <div className={view === "daemon" ? "contents" : "hidden"}>
             <Daemon />
+          </div>
+          <div className={view === "settings" ? "contents" : "hidden"}>
+            <Settings />
           </div>
         </main>
       </div>
