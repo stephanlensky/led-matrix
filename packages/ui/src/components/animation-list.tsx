@@ -1,9 +1,10 @@
 import { type StoredAnimation, getEffect } from "@led-matrix/core";
 import { MoveRightIcon, PlayIcon, RepeatIcon } from "lucide-react";
-import { ListEmpty, ListRow } from "./ListRow.tsx";
-import { getLengthLabel, getSectionName } from "./sectionLabels.ts";
-import { TruncatedText } from "./TruncatedText.tsx";
-import { cn } from "@led-matrix/ui/lib/utils";
+import type { DragEvent } from "react";
+import { ListEmpty, ListRow } from "./list-row.tsx";
+import { getLengthLabel, getSectionName } from "../lib/section-labels.ts";
+import { TruncatedText } from "./truncated-text.tsx";
+import { cn } from "../lib/utils.ts";
 
 type AnimationListProps = {
   animations: readonly StoredAnimation[];
@@ -11,7 +12,14 @@ type AnimationListProps = {
   activeSection: number | undefined;
   onPlay: (id: string) => void;
   onSelectSection: (index: number) => void;
+  onDragStart?: AnimationDragHandler;
 };
+
+export type AnimationDragHandler = (
+  event: DragEvent<HTMLElement>,
+  animationId: string,
+  section: number | undefined,
+) => void;
 
 function getDetailLabel({ sections }: StoredAnimation): string {
   const [first] = sections;
@@ -32,9 +40,16 @@ type SectionListProps = {
   isExpanded: boolean;
   activeSection: number | undefined;
   onSelect: (index: number) => void;
+  onDragStart: AnimationDragHandler | undefined;
 };
 
-function SectionList({ animation, isExpanded, activeSection, onSelect }: SectionListProps) {
+function SectionList({
+  animation,
+  isExpanded,
+  activeSection,
+  onSelect,
+  onDragStart,
+}: SectionListProps) {
   return (
     <div
       inert={!isExpanded}
@@ -53,6 +68,8 @@ function SectionList({ animation, isExpanded, activeSection, onSelect }: Section
                 type="button"
                 aria-pressed={isActive}
                 onClick={() => onSelect(index)}
+                draggable={onDragStart !== undefined}
+                onDragStart={(event) => onDragStart?.(event, animation.id, index)}
                 className={cn(
                   "flex w-full items-center gap-2 border-l-2 border-foreground py-1.5 pr-3 pl-9 text-left text-xs text-muted-foreground outline-none hover:bg-muted focus-visible:bg-muted",
                   isActive && "text-foreground",
@@ -76,6 +93,7 @@ export function AnimationList({
   activeSection,
   onPlay,
   onSelectSection,
+  onDragStart,
 }: AnimationListProps) {
   if (animations.length === 0) {
     return <ListEmpty>No animations</ListEmpty>;
@@ -93,6 +111,7 @@ export function AnimationList({
               subtitle={getEffectsLabel(animation)}
               detail={getDetailLabel(animation)}
               onClick={() => onPlay(animation.id)}
+              onDragStart={onDragStart && ((event) => onDragStart(event, animation.id, undefined))}
             />
             {animation.sections.length > 1 && (
               <SectionList
@@ -100,6 +119,7 @@ export function AnimationList({
                 isExpanded={isActive}
                 activeSection={isActive ? activeSection : undefined}
                 onSelect={onSelectSection}
+                onDragStart={onDragStart}
               />
             )}
           </li>

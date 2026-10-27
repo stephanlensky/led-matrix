@@ -11,10 +11,14 @@ import {
 } from "@led-matrix/core";
 import { Grid3x3Icon, PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { browserCanvas } from "./browserCanvas.ts";
-import { browserClips, subscribeClips } from "./clipLibrary.ts";
-import { MatrixFrame } from "./MatrixFrame.tsx";
-import { Timeline, type TimelinePosition } from "./Timeline.tsx";
+import { browserCanvas } from "@led-matrix/ui/lib/browser-canvas";
+import { useBrowserClips } from "@led-matrix/ui/lib/clips";
+import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
+import {
+  TIMELINE_HEIGHT,
+  Timeline,
+  type TimelinePosition,
+} from "@led-matrix/ui/components/timeline";
 import { Button } from "@led-matrix/ui/components/button";
 
 type PreviewProps = {
@@ -46,9 +50,8 @@ export function Preview({
     nextIndex: undefined,
   });
   const [isPlaying, setIsPlaying] = useState(true);
-  const [renderer] = useState(() =>
-    createRenderer({ fps, canvas: browserCanvas, clips: browserClips }),
-  );
+  const { clips, subscribe } = useBrowserClips();
+  const [renderer] = useState(() => createRenderer({ fps, canvas: browserCanvas, clips }));
   const clockRef = useRef(0);
   const playbackRef = useRef(INITIAL_PLAYBACK);
   const isPlayingRef = useRef(isPlaying);
@@ -64,7 +67,7 @@ export function Preview({
     let lastRendered: { animation: Animation; index: number; frameTime: number } | undefined;
     let lastTime = performance.now();
     let requestId = 0;
-    const unsubscribe = subscribeClips(() => {
+    const unsubscribe = subscribe(() => {
       lastRendered = undefined;
     });
 
@@ -111,7 +114,7 @@ export function Preview({
       cancelAnimationFrame(requestId);
       unsubscribe();
     };
-  }, [renderer, bpm, fps]);
+  }, [renderer, subscribe, bpm, fps]);
 
   function seek(index: number, progress: number) {
     const current = animationRef.current;
@@ -146,6 +149,7 @@ export function Preview({
     <MatrixFrame
       frame={frame}
       showGrid={showGrid}
+      footerHeight={TIMELINE_HEIGHT}
       footer={
         <Timeline
           animation={animation}

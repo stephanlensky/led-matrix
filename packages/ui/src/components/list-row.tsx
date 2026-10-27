@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
-import { TruncatedText } from "./TruncatedText.tsx";
-import { cn } from "@led-matrix/ui/lib/utils";
+import type { DragEvent, ReactNode } from "react";
+import { TruncatedText } from "./truncated-text.tsx";
+import { cn } from "../lib/utils.ts";
 
 type ListRowProps = {
   icon: ReactNode;
@@ -9,6 +9,7 @@ type ListRowProps = {
   detail: string;
   isActive?: boolean;
   onClick?: () => void;
+  onDragStart?: (event: DragEvent<HTMLElement>) => void;
 };
 
 export function ListRow({
@@ -18,6 +19,7 @@ export function ListRow({
   detail,
   isActive = false,
   onClick,
+  onDragStart,
 }: ListRowProps) {
   return (
     <button
@@ -25,6 +27,8 @@ export function ListRow({
       aria-pressed={onClick ? isActive : undefined}
       disabled={!onClick}
       onClick={onClick}
+      draggable={onDragStart !== undefined}
+      onDragStart={onDragStart}
       className={cn(
         "flex w-full items-center gap-3 border-l-2 border-transparent px-3 py-2 text-left outline-none hover:bg-muted/60 focus-visible:bg-muted disabled:cursor-default disabled:hover:bg-transparent",
         isActive && "border-foreground bg-muted hover:bg-muted",

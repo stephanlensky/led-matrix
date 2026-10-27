@@ -8,10 +8,10 @@ import {
   type SectionPlayback,
   type SectionState,
   createFrame,
-  getAnimationLength,
   getCurrentPlayback,
   getFittedAnimation,
   getNextSection,
+  getRenderPosition,
   getSectionCursor,
   getSectionPosition,
 } from "@led-matrix/core";
@@ -125,16 +125,15 @@ export function createPlaybackEngine({
       return createFrame();
     }
     try {
-      const { index, time, length } = getSectionPosition(
-        active.animation,
+      const { index, time } = getRenderPosition(
+        active.source,
+        active.fit,
         active.sections,
         getRenderTime(),
         bpm,
         fps,
       );
-      const mode = active.source.sections[index]?.mode;
-      const scale = mode ? getAnimationLength(mode, bpm, fps) / length : 1;
-      return renderer.render(active.source, time * scale, bpm, index);
+      return renderer.render(active.source, time, bpm, index);
     } catch (error) {
       if (!active.failed) {
         active.failed = true;

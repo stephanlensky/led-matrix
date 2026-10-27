@@ -1,8 +1,8 @@
 import type { Output, PlaybackState, StoredAnimation } from "@led-matrix/core";
 import { SearchIcon } from "lucide-react";
 import { useRef, useState } from "react";
-import { AnimationList } from "./AnimationList.tsx";
-import { play, seek, setBpm } from "./api.ts";
+import { AnimationList } from "@led-matrix/ui/components/animation-list";
+import { api } from "./api.ts";
 import { Input } from "@led-matrix/ui/components/input";
 import { Label } from "@led-matrix/ui/components/label";
 import { Separator } from "@led-matrix/ui/components/separator";
@@ -49,7 +49,7 @@ export function PlaybackControls({
   function commitBpm(value: string) {
     const bpm = getValidBpm(value);
     if (bpm !== undefined && bpm !== state?.bpm) {
-      run(() => setBpm(output, bpm));
+      run(() => api.setBpm(output, bpm));
     }
   }
 
@@ -105,8 +105,8 @@ export function PlaybackControls({
             animations={getMatches(animations, query)}
             activeId={state?.animationId}
             activeSection={state?.section?.index}
-            onPlay={(id) => run(() => play(output, id))}
-            onSelectSection={(index) => run(() => seek(output, index, 0))}
+            onPlay={(id) => run(() => api.play(output, id))}
+            onSelectSection={(index) => run(() => api.seek(output, index, 0))}
           />
         </div>
       </div>

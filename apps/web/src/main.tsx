@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
-import { loadCanvasFonts } from "./browserCanvas.ts";
+import { loadCanvasFonts } from "@led-matrix/ui/lib/browser-canvas";
 import "./styles.css";
 
 const root = document.getElementById("root");

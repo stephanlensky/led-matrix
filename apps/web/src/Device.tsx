@@ -1,8 +1,9 @@
 import { DeviceMode, type DeviceStatus, type StoredAnimation } from "@led-matrix/core";
 import { useState } from "react";
-import { setBrightness } from "./api.ts";
+import { api } from "./api.ts";
 import { LiveTimeline } from "./LiveTimeline.tsx";
-import { MatrixFrame } from "./MatrixFrame.tsx";
+import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
+import { TIMELINE_HEIGHT } from "@led-matrix/ui/components/timeline";
 import { PlaybackControls } from "./PlaybackControls.tsx";
 import type { Stream } from "./useStream.ts";
 import { Badge } from "@led-matrix/ui/components/badge";
@@ -82,7 +83,8 @@ export function Device({ stream, animations, showGrid, onShowGridChange }: Devic
   const address = device?.address;
 
   function commitBrightness(value: number) {
-    setBrightness(value)
+    api
+      .setBrightness(value)
       .then(() => setError(undefined))
       .catch((cause: unknown) => setError(String(cause)))
       .finally(() => setDraftBrightness(undefined));
@@ -141,6 +143,7 @@ export function Device({ stream, animations, showGrid, onShowGridChange }: Devic
       <MatrixFrame
         frame={frame}
         showGrid={showGrid}
+        footerHeight={TIMELINE_HEIGHT}
         footer={<LiveTimeline output="device" state={state} animations={animations} />}
         overlay={!device?.connected && <Badge variant="destructive">Board offline</Badge>}
       />

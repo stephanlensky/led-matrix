@@ -13,13 +13,13 @@ import {
 } from "@led-matrix/core";
 import { PlayIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { createAnimation, deleteAnimation, play, updateAnimation } from "./api.ts";
+import { api } from "./api.ts";
 import { EffectSelectItems } from "./EffectItems.tsx";
 import { LayerList } from "./LayerList.tsx";
-import { TruncatedText } from "./TruncatedText.tsx";
+import { TruncatedText } from "@led-matrix/ui/components/truncated-text";
 import { ParamControl } from "./ParamControl.tsx";
 import { Preview } from "./Preview.tsx";
-import { getSectionName } from "./sectionLabels.ts";
+import { getSectionName } from "@led-matrix/ui/lib/section-labels";
 import { navigate } from "./usePathname.ts";
 import {
   AlertDialog,
@@ -287,8 +287,8 @@ export function Editor({
   async function save({ shouldNavigate = true } = {}): Promise<string> {
     const animation = animationSchema.parse(draft);
     const stored = selectedId
-      ? await updateAnimation(selectedId, animation)
-      : await createAnimation(animation);
+      ? await api.updateAnimation(selectedId, animation)
+      : await api.createAnimation(animation);
     setSelectedId(stored.id);
     if (shouldNavigate) {
       navigate(getEditorPathname(stored.id), { replace: true });
@@ -302,7 +302,7 @@ export function Editor({
     if (!selectedId) {
       return;
     }
-    await deleteAnimation(selectedId);
+    await api.deleteAnimation(selectedId);
     load(undefined);
     navigate(getEditorPathname(undefined), { replace: true });
     onSaved();
@@ -597,7 +597,7 @@ export function Editor({
               disabled={issues.size > 0}
               onClick={() =>
                 run(async () =>
-                  play("simulator", isDirty || !selectedId ? await save() : selectedId),
+                  api.play("simulator", isDirty || !selectedId ? await save() : selectedId),
                 )
               }
             >

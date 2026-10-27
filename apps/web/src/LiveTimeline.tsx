@@ -8,8 +8,8 @@ import {
 } from "@led-matrix/core";
 import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { advance, pause, resume, seek, stop } from "./api.ts";
-import { Timeline, type TimelinePosition } from "./Timeline.tsx";
+import { api } from "./api.ts";
+import { Timeline, type TimelinePosition } from "@led-matrix/ui/components/timeline";
 import { Button } from "@led-matrix/ui/components/button";
 
 type LiveTimelineProps = {
@@ -83,7 +83,7 @@ export function LiveTimeline({ output, state, animations }: LiveTimelineProps) {
     while (pendingSeek.current) {
       const { index, progress } = pendingSeek.current;
       pendingSeek.current = undefined;
-      await run(() => seek(output, index, progress));
+      await run(() => api.seek(output, index, progress));
     }
     isSeeking.current = false;
   }
@@ -109,7 +109,7 @@ export function LiveTimeline({ output, state, animations }: LiveTimelineProps) {
               size="icon-sm"
               aria-label={isPaused ? "Resume" : "Pause"}
               disabled={!animation}
-              onClick={() => void run(() => (isPaused ? resume(output) : pause(output)))}
+              onClick={() => void run(() => (isPaused ? api.resume(output) : api.pause(output)))}
             >
               {isPaused || !animation ? <PlayIcon /> : <PauseIcon />}
             </Button>
@@ -118,14 +118,14 @@ export function LiveTimeline({ output, state, animations }: LiveTimelineProps) {
               size="icon-sm"
               aria-label="Stop"
               disabled={!state?.animationId}
-              onClick={() => void run(() => stop(output))}
+              onClick={() => void run(() => api.stop(output))}
             >
               <SquareIcon />
             </Button>
           </>
         }
         onSeek={seekTo}
-        onAdvance={() => void run(() => advance(output))}
+        onAdvance={() => void run(() => api.advance(output))}
       />
       {error && <p className="absolute top-full text-xs text-destructive">{error}</p>}
     </div>

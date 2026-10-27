@@ -102,3 +102,19 @@ export function getFittedAnimation(animation: Animation, fit: SectionFit | null)
   });
   return { ...animation, sections };
 }
+
+export type RenderPosition = { index: number; time: number };
+
+export function getRenderPosition(
+  source: Animation,
+  fit: SectionFit | null,
+  playback: SectionPlayback,
+  time: number,
+  bpm: number,
+  fps: number,
+): RenderPosition {
+  const position = getSectionPosition(getFittedAnimation(source, fit), playback, time, bpm, fps);
+  const mode = source.sections[position.index]?.mode;
+  const scale = mode ? getAnimationLength(mode, bpm, fps) / position.length : 1;
+  return { index: position.index, time: position.time * scale };
+}

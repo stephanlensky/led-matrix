@@ -4,6 +4,7 @@ import {
   type SectionPlayback,
   getCurrentPlayback,
   getNextSection,
+  getRenderPosition,
   getSectionCursor,
   getSectionPosition,
 } from "./sections.ts";
@@ -93,6 +94,31 @@ describe("getSectionCursor", () => {
     expect(getSectionCursor(animation, 3, 0.25, 10_000, 120, 30)).toEqual({
       index: 3,
       startedAt: 9000,
+    });
+  });
+});
+
+describe("getRenderPosition", () => {
+  it("returns the natural section time without a fit", () => {
+    expect(getRenderPosition(animation, null, getPlayback(0), 1500, 120, 30)).toEqual({
+      index: 0,
+      time: 1500,
+    });
+  });
+
+  it("scales a fitted section to its natural length", () => {
+    const fit = { section: 1, beats: 4 };
+    expect(getRenderPosition(animation, fit, getPlayback(1), 1000, 120, 30)).toEqual({
+      index: 1,
+      time: 500,
+    });
+  });
+
+  it("plays the following sections at their natural length after a fitted section", () => {
+    const fit = { section: 1, beats: 4 };
+    expect(getRenderPosition(animation, fit, getPlayback(1), 2250, 120, 30)).toEqual({
+      index: 2,
+      time: 250,
     });
   });
 });

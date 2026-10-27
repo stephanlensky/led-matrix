@@ -8,17 +8,13 @@ import {
   type Renderer,
   getAnimationLength,
 } from "@led-matrix/core";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const RENDER_DELAY_MS = 150;
 
 type FilmstripProps = {
-  animation: Animation;
-  section: number;
-  bpm: number;
-  fps: number;
-  renderer: Renderer;
-  clipsVersion: number;
+  getFrame: (progress: number) => Frame;
+  version: unknown;
 };
 
 type Size = { width: number; height: number };
@@ -36,14 +32,7 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function Filmstrip({
-  animation,
-  section,
-  bpm,
-  fps,
-  renderer,
-  clipsVersion,
-}: FilmstripProps) {
+export function Filmstrip({ getFrame, version }: FilmstripProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState<Size>();
 
@@ -64,14 +53,12 @@ export function Filmstrip({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const current = animation.sections[section];
-    if (!canvas || !size || !current || size.width === 0 || size.height === 0) {
+    if (!canvas || !size || size.width === 0 || size.height === 0) {
       return undefined;
     }
     let isCancelled = false;
     const tile = size.height;
     const count = Math.ceil(size.width / tile);
-    const length = getAnimationLength(current.mode, bpm, fps);
     const pixels = new OffscreenCanvas(WIDTH, HEIGHT);
     const pixelContext = pixels.getContext("2d");
 
@@ -89,8 +76,7 @@ export function Filmstrip({
           return;
         }
         const progress = Math.min(((index + 0.5) * tile) / strip.width, 1);
-        const frame = renderer.render(animation, progress * length, bpm, section);
-        pixelContext.putImageData(getImageData(frame), 0, 0);
+        pixelContext.putImageData(getImageData(getFrame(progress)), 0, 0);
         stripContext.drawImage(pixels, index * tile, 0, tile, tile);
         await wait(0);
       }
@@ -105,7 +91,35 @@ export function Filmstrip({
     return () => {
       isCancelled = true;
     };
-  }, [animation, section, bpm, fps, renderer, size, clipsVersion]);
+  }, [getFrame, version, size]);
 
   return <canvas ref={canvasRef} className="absolute inset-0 size-full" />;
+}
+
+type SectionFilmstripProps = {
+  animation: Animation;
+  section: number;
+  bpm: number;
+  fps: number;
+  renderer: Renderer;
+  clipsVersion: number;
+};
+
+export function SectionFilmstrip({
+  animation,
+  section,
+  bpm,
+  fps,
+  renderer,
+  clipsVersion,
+}: SectionFilmstripProps) {
+  const getFrame = useCallback(
+    (progress: number) => {
+      const current = animation.sections[section];
+      const length = current ? getAnimationLength(current.mode, bpm, fps) : 0;
+      return renderer.render(animation, progress * length, bpm, section);
+    },
+    [animation, section, bpm, fps, renderer],
+  );
+  return <Filmstrip getFrame={getFrame} version={clipsVersion} />;
 }

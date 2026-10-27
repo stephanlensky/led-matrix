@@ -21,9 +21,8 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { type DragEvent, useMemo, useRef, useState } from "react";
-import { createAnimation, deleteClip, importClip, renameClip } from "./api.ts";
-import { removeClip } from "./clipLibrary.ts";
-import { ListEmpty, ListRow } from "./ListRow.tsx";
+import { api, browserClips } from "./api.ts";
+import { ListEmpty, ListRow } from "@led-matrix/ui/components/list-row";
 import { Preview } from "./Preview.tsx";
 import { navigate } from "./usePathname.ts";
 import { Button } from "@led-matrix/ui/components/button";
@@ -233,7 +232,7 @@ export function Clips({
   async function submitImport() {
     setIsImporting(true);
     try {
-      const imported = await importClip(files, {
+      const imported = await api.importClip(files, {
         fit: settings.fit,
         resample: settings.resample,
         ...(hasVideo || isSequence ? { fps: settings.fps } : {}),
@@ -249,7 +248,7 @@ export function Clips({
 
   async function rename(name: string) {
     if (clip && name && name !== clip.name) {
-      await renameClip(clip.id, name);
+      await api.renameClip(clip.id, name);
       onClipsChanged();
     }
   }
@@ -258,7 +257,7 @@ export function Clips({
     if (!clip) {
       return;
     }
-    const animation = await createAnimation({
+    const animation = await api.createAnimation({
       name: clip.name,
       sections: [
         {
@@ -285,8 +284,8 @@ export function Clips({
     if (!clip) {
       return;
     }
-    await deleteClip(clip.id);
-    removeClip(clip.id);
+    await api.deleteClip(clip.id);
+    browserClips.remove(clip.id);
     setIsConfirmingDelete(false);
     onClipsChanged();
     navigate(getClipPathname(undefined), { replace: true });

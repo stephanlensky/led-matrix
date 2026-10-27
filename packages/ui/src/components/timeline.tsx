@@ -1,19 +1,12 @@
 import { type Animation, createRenderer, getAnimationLength } from "@led-matrix/core";
 import { RepeatIcon, SkipForwardIcon } from "lucide-react";
-import {
-  type KeyboardEvent,
-  type PointerEvent,
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { browserCanvas } from "./browserCanvas.ts";
-import { browserClips, subscribeClips } from "./clipLibrary.ts";
-import { Filmstrip } from "./Filmstrip.tsx";
-import { getPositionLabel, getSectionName } from "./sectionLabels.ts";
-import { Button } from "@led-matrix/ui/components/button";
-import { cn } from "@led-matrix/ui/lib/utils";
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react";
+import { browserCanvas } from "../lib/browser-canvas.ts";
+import { useBrowserClips, useClipsVersion } from "../lib/clips.ts";
+import { getPositionLabel, getSectionName } from "../lib/section-labels.ts";
+import { cn } from "../lib/utils.ts";
+import { Button } from "./button.tsx";
+import { SectionFilmstrip } from "./filmstrip.tsx";
 
 const STRIP_HEIGHT = 56;
 const CONTROLS_HEIGHT = 32;
@@ -44,12 +37,6 @@ function clamp(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-function useClipsVersion(): number {
-  const [version, setVersion] = useState(0);
-  useEffect(() => subscribeClips(() => setVersion((current) => current + 1)), []);
-  return version;
-}
-
 export function Timeline({
   animation,
   position,
@@ -61,9 +48,8 @@ export function Timeline({
   onAdvance,
 }: TimelineProps) {
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [renderer] = useState(() =>
-    createRenderer({ fps, canvas: browserCanvas, clips: browserClips }),
-  );
+  const { clips } = useBrowserClips();
+  const [renderer] = useState(() => createRenderer({ fps, canvas: browserCanvas, clips }));
   const clipsVersion = useClipsVersion();
   const sections = animation?.sections ?? [];
   const current = position && sections[position.index];
@@ -134,7 +120,7 @@ export function Timeline({
                 style={{ flexGrow: getAnimationLength(section.mode, bpm, fps) }}
                 className="relative min-w-14 basis-0 overflow-hidden rounded-md bg-neutral-900"
               >
-                <Filmstrip
+                <SectionFilmstrip
                   animation={animation}
                   section={index}
                   bpm={bpm}

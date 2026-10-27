@@ -1,6 +1,7 @@
 import type { StoredAnimation } from "@led-matrix/core";
 import { LiveTimeline } from "./LiveTimeline.tsx";
-import { MatrixFrame } from "./MatrixFrame.tsx";
+import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
+import { TIMELINE_HEIGHT } from "@led-matrix/ui/components/timeline";
 import { PlaybackControls } from "./PlaybackControls.tsx";
 import type { Stream } from "./useStream.ts";
 import { Badge } from "@led-matrix/ui/components/badge";
@@ -41,6 +42,7 @@ export function Simulator({
       <MatrixFrame
         frame={frame}
         showGrid={showGrid}
+        footerHeight={TIMELINE_HEIGHT}
         footer={<LiveTimeline output="simulator" state={state} animations={animations} />}
       />
     </>
