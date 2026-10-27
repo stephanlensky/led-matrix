@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cats } from "./scene.ts";
 import { LEVEL_WIDTH, PERIOD_TICKS, simulateTicks } from "./simulation.ts";
 
 function getSnapshot(ticks: number, offset: number) {
@@ -19,9 +20,12 @@ describe("demon hunters simulation", () => {
     }
   });
 
-  it("clears every demon before it reaches the hunters", () => {
+  it.each([
+    ["hunters", undefined],
+    ["cats", cats],
+  ])("clears every demon before it reaches the %s", (_name, players) => {
     for (let ticks = PERIOD_TICKS; ticks < PERIOD_TICKS * 2; ticks++) {
-      const state = simulateTicks(ticks);
+      const state = simulateTicks(ticks, players);
       expect(state.hunters.every((hunter) => hunter.hurtTicks === 0)).toBe(true);
     }
   });

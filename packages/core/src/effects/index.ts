@@ -34,6 +34,12 @@ import {
 import { loading } from "./loading.ts";
 import { cat } from "./cat.ts";
 import { catBounce, catSpawn } from "./cat-duo.ts";
+import { catDance } from "./cat-dance.ts";
+import { catBloodSpray, catExplode } from "./cat-explode.ts";
+import { catPairSpawn } from "./cat-pair-spawn.ts";
+import { catEyes } from "./cat-eyes.ts";
+import { catBroom, catGhosts } from "./cat-halloween.ts";
+import { catHyperspace } from "./cat-hyperspace.ts";
 import { demonHunters } from "./demon-hunters/index.ts";
 import { bigText } from "./big-text.ts";
 import { clip } from "./clip.ts";
@@ -83,6 +89,14 @@ export const effects: readonly Effect[] = [
   cat,
   catSpawn,
   catBounce,
+  catPairSpawn,
+  catHyperspace,
+  catExplode,
+  catBloodSpray,
+  catDance,
+  catBroom,
+  catGhosts,
+  catEyes,
   demonHunters,
   emboss,
   tilt,

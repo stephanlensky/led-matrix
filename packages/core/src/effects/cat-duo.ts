@@ -14,21 +14,21 @@ import {
 } from "../mesh.ts";
 import { type Coat, drawCat, getSolidCoat, getTabbyCoat } from "./cat-model.ts";
 
-type CatState = { x: number; y: number; yaw: number };
+export type CatState = { x: number; y: number; yaw: number };
 
-const TAU = Math.PI * 2;
-const CAT_SIZE = 8;
-const CAT_RADIUS = 10;
+export const TAU = Math.PI * 2;
+export const CAT_SIZE = 8;
+export const CAT_RADIUS = 10;
 const STARING_CAT_SIZE = 15;
 const IMPACT_ANGLE = -0.00813;
 const IMPACT_DIRECTION = [Math.cos(IMPACT_ANGLE), Math.sin(IMPACT_ANGLE)] as const;
-const TABBY_IMPACT = [20.5373, 34.70652] as const;
-const BLACK_IMPACT = [
+export const TABBY_IMPACT = [20.5373, 34.70652] as const;
+export const BLACK_IMPACT = [
   TABBY_IMPACT[0] + 2 * CAT_RADIUS * IMPACT_DIRECTION[0],
   TABBY_IMPACT[1] + 2 * CAT_RADIUS * IMPACT_DIRECTION[1],
 ] as const;
-const BLACK_TILT = [20, 18].map(toRadians);
-const TABBY_TILT = [-35, -40].map(toRadians);
+export const BLACK_TILT = [20, 18].map(toRadians);
+export const TABBY_TILT = [-35, -40].map(toRadians);
 const BLACK_TURNS = 4;
 const TABBY_TURNS = -6;
 const KICK_DURATION = 14;
@@ -67,15 +67,15 @@ const impacts: Pick<Collision, "time" | "x" | "y">[] = [
     .toReversed(),
 ];
 
-function toRadians(degrees: number): number {
+export function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
-function clamp(value: number): number {
+export function clamp(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-function getSpan(progress: number, start: number, end: number): number {
+export function getSpan(progress: number, start: number, end: number): number {
   return clamp((progress - start) / (end - start));
 }
 
@@ -87,7 +87,7 @@ function getImpactAges(time: number): { age: number; index: number }[] {
   );
 }
 
-function getBounceState(time: number): [tabby: CatState, black: CatState] {
+export function getBounceState(time: number): [tabby: CatState, black: CatState] {
   const pathTime = Math.min(time, loopTime - time);
   const kicks = getImpactAges(time)
     .filter(({ age }) => age < KICK_DURATION)
@@ -126,19 +126,23 @@ function drawSparks(raster: Raster, time: number, color: Color): void {
   }
 }
 
-const coatParams = {
+export const furParams = {
   color: colorSchema.default("#4b1d7a"),
   eyeColor: colorSchema.default("#30e830"),
   tabbyColor: colorSchema.default("#8c8e94"),
   tabbyStripeColor: colorSchema.default("#2a2b30"),
   tabbyLightColor: colorSchema.default("#d0d0d4"),
   tabbyEyeColor: colorSchema.default("#f0b020"),
+};
+
+export const coatParams = {
+  ...furParams,
   sparkColor: colorSchema.default("#ffe060"),
 };
 
-type CoatParams = { [K in keyof typeof coatParams]: string };
+export type FurParams = { [K in keyof typeof furParams]: string };
 
-function getCoats(params: CoatParams): [tabby: Coat, black: Coat] {
+export function getCoats(params: FurParams): [tabby: Coat, black: Coat] {
   return [
     getTabbyCoat(
       parseColor(params.tabbyColor),
@@ -191,7 +195,7 @@ const WINDUP_DISTANCE = 2.5;
 const SPAWN_TURNS = 9;
 const BLACK_SPAWN_TURNS = 3;
 
-function getSpawnVisibility(spawn: number): boolean {
+export function getSpawnVisibility(spawn: number): boolean {
   if (spawn <= 0) {
     return false;
   }
@@ -202,7 +206,13 @@ function getSpawnVisibility(spawn: number): boolean {
   return (spawn * blinks) % 1 < 0.25 + 0.6 * spawn;
 }
 
-function drawSpawnRing(raster: Raster, x: number, y: number, spawn: number, color: Color): void {
+export function drawSpawnRing(
+  raster: Raster,
+  x: number,
+  y: number,
+  spawn: number,
+  color: Color,
+): void {
   if (spawn <= 0 || spawn >= 0.5) {
     return;
   }
@@ -222,7 +232,7 @@ function drawSpawnRing(raster: Raster, x: number, y: number, spawn: number, colo
   }
 }
 
-function drawChargeParticles(
+export function drawChargeParticles(
   raster: Raster,
   x: number,
   y: number,

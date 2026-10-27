@@ -76,6 +76,23 @@ export const hunters: readonly Hunter[] = [
   },
 ];
 
+export const cats: readonly Hunter[] = [
+  {
+    name: "Tabby",
+    hair: "bob",
+    x: 6,
+    fireOffset: 0.25,
+    palette: { ...gun, h: [140, 142, 148], H: [240, 176, 32], c: [255, 190, 60] },
+  },
+  {
+    name: "Black",
+    hair: "bob",
+    x: 22,
+    fireOffset: 0,
+    palette: { ...gun, h: [75, 29, 122], H: [48, 232, 48], c: [120, 255, 90] },
+  },
+];
+
 export const TILE_SIZE = 4;
 export const LEVEL_TOP = 8;
 export const SCROLL_SPEED = 12;

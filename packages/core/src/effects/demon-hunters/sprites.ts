@@ -210,21 +210,6 @@ export const digitSprites: Readonly<Record<string, Sprite>> = {
   P: createSprite(["##.", "#.#", "##.", "#..", "#.."]),
 };
 
-export const towerSprite = createSprite([
-  "..t..",
-  "..t..",
-  "..t..",
-  ".lTl.",
-  "..T..",
-  "..T..",
-  "..T..",
-  ".TTT.",
-  "..T..",
-  "..T..",
-  "..T..",
-  "..T..",
-]);
-
 export const tileSprites: Readonly<Record<string, readonly Sprite[]>> = {
   "=": [
     createSprite(["gGgG", "GGGG", "dGdd", "rRrr"]),

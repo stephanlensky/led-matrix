@@ -387,12 +387,12 @@ function step(state: GameState): void {
   });
 }
 
-function createState(tick: number): GameState {
+function createState(tick: number, players: readonly Hunter[]): GameState {
   const scroll = getScroll(tick);
   return {
     tick,
     scroll,
-    hunters: hunters.map((hunter) => ({
+    hunters: players.map((hunter) => ({
       hunter,
       x: scroll + hunter.x,
       y: LEVEL_TOP,
@@ -410,16 +410,16 @@ function createState(tick: number): GameState {
   };
 }
 
-export function simulateTicks(ticks: number): GameState {
-  const state = createState(0);
+export function simulateTicks(ticks: number, players: readonly Hunter[] = hunters): GameState {
+  const state = createState(0, players);
   while (state.tick < ticks) {
     step(state);
   }
   return state;
 }
 
-export function simulate(beat: number): GameState {
+export function simulate(beat: number, players: readonly Hunter[] = hunters): GameState {
   const tick = Math.floor(beat * TICKS_PER_BEAT);
   const cycle = Math.floor(tick / PERIOD_TICKS);
-  return simulateTicks(tick - (cycle - 1) * PERIOD_TICKS);
+  return simulateTicks(tick - (cycle - 1) * PERIOD_TICKS, players);
 }

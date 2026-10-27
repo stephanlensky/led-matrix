@@ -419,6 +419,22 @@ function getRamp(from: number, to: number, easing?: string): { keyframes: unknow
   };
 }
 
+const blackCatParameter = getValueParameter(
+  "Black cat",
+  "color",
+  { Purple: "#4b1d7a", Midnight: "#24243a", Ginger: "#c0601c", Ghost: "#b0c8d8" },
+  "Purple",
+);
+
+const catColorParams = getReferences(["color"]);
+
+const hyperspaceCatLayer: LayerInput = {
+  effect: "hyperspace",
+  params: { ...paletteParams, period: 8, ...getReferences(["perBeat", "life", "trail"]) },
+};
+
+const sprayReferences = { period: 8, ...getReferences(["perStep", "beatBurst", "power"]) };
+
 const bloodAnimations: Record<string, AnimationInput> = {
   "blood-drip": getLoop(
     "Blood drip",
@@ -844,6 +860,128 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         { name: "Bounce", mode: { type: "loop", beats: 16 }, layers: [{ effect: "cat-bounce" }] },
       ],
     },
+    "cat-hyperspace": {
+      name: "Cat hyperspace",
+      parameters: [
+        getLightColorParameter("White"),
+        getParameter(
+          "Speed",
+          {
+            Cruise: { perBeat: 6, life: 2, trail: 0.3 },
+            Warp: { perBeat: 10, life: 1, trail: 0.5 },
+            Drift: { perBeat: 3, life: 4, trail: 0.2 },
+          },
+          "Cruise",
+        ),
+        getParameter(
+          "Orbit",
+          {
+            Slow: { orbits: 1, turns: 2 },
+            Medium: { orbits: 2, turns: 4 },
+            Fast: { orbits: 4, turns: 8 },
+          },
+          "Medium",
+        ),
+        blackCatParameter,
+      ],
+      sections: [
+        {
+          name: "Spawn",
+          mode: { type: "once", beats: 16 },
+          layers: [hyperspaceCatLayer, { effect: "cat-pair-spawn", params: catColorParams }],
+        },
+        {
+          name: "Hyperspace",
+          mode: { type: "loop", beats: 16 },
+          layers: [
+            hyperspaceCatLayer,
+            {
+              effect: "cat-hyperspace",
+              params: { ...catColorParams, ...getReferences(["orbits", "turns"]) },
+            },
+          ],
+        },
+      ],
+    },
+    "cat-explosion": {
+      name: "Cat explosion",
+      parameters: [
+        getParameter(
+          "Spray",
+          {
+            Steady: { perStep: 24, beatBurst: 0, power: 0.9 },
+            Pulse: { perStep: 12, beatBurst: 48, power: 1 },
+            Gush: { perStep: 44, beatBurst: 0, power: 1.1 },
+          },
+          "Pulse",
+        ),
+        blackCatParameter,
+      ],
+      sections: [
+        {
+          name: "Spawn",
+          mode: { type: "once", beats: 16 },
+          layers: [{ effect: "cat-pair-spawn", params: catColorParams }],
+        },
+        {
+          name: "Explode",
+          mode: { type: "once", beats: 8 },
+          layers: [
+            { effect: "cat-explode", params: catColorParams },
+            {
+              effect: "cat-blood-spray",
+              params: {
+                ...sprayReferences,
+                stains: false,
+                intensity: {
+                  keyframes: [
+                    { at: 0, value: 0 },
+                    { at: 0.5, value: 0, easing: "easeOutCubic" },
+                    { at: 1, value: 1 },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+        {
+          name: "Spray",
+          mode: { type: "loop", beats: 8 },
+          layers: [{ effect: "cat-blood-spray", params: sprayReferences }],
+        },
+      ],
+    },
+    "cat-headbang": getLoop(
+      "Cat headbang",
+      8,
+      [{ effect: "cat-dance", params: { move: "headbang", ...getReferences(["offbeat"]) } }],
+      [getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together")],
+    ),
+    "cat-dance": getLoop(
+      "Cat dance",
+      16,
+      [{ effect: "cat-dance", params: getReferences(["move", "offbeat"]) }],
+      [
+        getValueParameter(
+          "Move",
+          "move",
+          { Sway: "sway", Hop: "hop", "Paws up": "paws-up", Twist: "twist", Conga: "conga" },
+          "Sway",
+        ),
+        getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
+      ],
+    ),
+    "cat-hunters": getLoop("Cat hunters", 32, [
+      { effect: "demon-hunters", params: { players: "cats" } },
+    ]),
+  }),
+  ...getFolder("Cats/Halloween", {
+    "witch-cats": getLoop("Witch cats", 16, [{ effect: "cat-broom" }]),
+    "ghost-cats": getLoop("Ghost cats", 16, [
+      { effect: "cat-eyes", params: { count: 3, glow: 0.15 }, opacity: 0.5 },
+      { effect: "cat-ghosts" },
+    ]),
+    "cat-eyes": getLoop("Eyes in the dark", 32, [{ effect: "cat-eyes" }]),
   }),
   ...getFolder("KPop Demon Hunters", {
     "demon-hunters": {

@@ -212,6 +212,38 @@ export function resolveRaster(raster: Raster, image: RgbaImage): void {
   }
 }
 
+export function compositeRaster(raster: Raster, image: RgbaImage): void {
+  const { samples, width, color } = raster;
+  const count = samples * samples;
+  for (let y = 0; y < HEIGHT; y++) {
+    for (let x = 0; x < WIDTH; x++) {
+      let [r, g, b, a] = [0, 0, 0, 0];
+      for (let sampleY = 0; sampleY < samples; sampleY++) {
+        for (let sampleX = 0; sampleX < samples; sampleX++) {
+          const offset = ((y * samples + sampleY) * width + x * samples + sampleX) * RGBA_CHANNELS;
+          r += color[offset] ?? 0;
+          g += color[offset + 1] ?? 0;
+          b += color[offset + 2] ?? 0;
+          a += color[offset + 3] ?? 0;
+        }
+      }
+      if (a === 0) {
+        continue;
+      }
+      const coverage = a / count;
+      const offset = (y * WIDTH + x) * RGBA_CHANNELS;
+      const below = (image[offset + 3] ?? 0) / 255;
+      const alpha = coverage + below * (1 - coverage);
+      for (const [channel, value] of [r, g, b].entries()) {
+        image[offset + channel] =
+          ((value / a) * coverage + (image[offset + channel] ?? 0) * below * (1 - coverage)) /
+          alpha;
+      }
+      image[offset + 3] = alpha * 255;
+    }
+  }
+}
+
 export function fillRasterCircle(
   raster: Raster,
   centerX: number,

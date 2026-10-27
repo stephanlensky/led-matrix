@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { defineEffect } from "../../effect.ts";
-import { type Color, type RgbaImage, HEIGHT, WIDTH, setRgbaPixel } from "../../frame.ts";
+import { type Color, type RgbaImage, WIDTH, setRgbaPixel } from "../../frame.ts";
 import { hashSeed } from "../../random.ts";
 import { type Palette, drawSprite, getAnimationFrame } from "../../sprite.ts";
-import { LEVEL_TOP, TILE_SIZE, hunters, level } from "./scene.ts";
+import { compositeRaster, createRaster, getRotation } from "../../mesh.ts";
+import { getSolidCoat, getTabbyCoat, drawCat } from "../cat-model.ts";
+import { type Hunter, LEVEL_TOP, TILE_SIZE, cats, hunters, level } from "./scene.ts";
 import {
   EXPLOSION_TICKS,
   type GameState,
@@ -28,33 +30,20 @@ import {
   muzzleFlash,
   tilePalette,
   tileSprites,
-  towerSprite,
 } from "./sprites.ts";
 
-const SKY_TOP: Color = [4, 2, 18];
-const SKY_BOTTOM: Color = [28, 8, 52];
-const HORIZON = 48;
-const STAR_SEED = 0xdea0;
-const STAR_COUNT = 22;
-const SKYLINE_SEED = 0xdea1;
-const SKYLINE_PARALLAX = 0.5;
-const SKYLINE_WIDTH = 96;
-const BUILDING_WIDTH = 6;
-const BUILDING_COLOR: Color = [46, 22, 86];
-const WINDOW_COLOR: Color = [150, 105, 40];
-const HILL_COLOR: Color = [38, 16, 72];
-const TOWER_X = 40;
-const MOON_X = 53;
-const MOON_Y = 13;
-const MOON_RADIUS = 4.5;
-const MOON_COLOR: Color = [255, 240, 210];
-const MOON_SHADE: Color = [200, 180, 170];
 const HUD_TEXT: Color = [255, 255, 255];
 const HUD_RIBBON: Color = [235, 235, 245];
 const HUD_SPACING = 21;
 const HUNTER_HEIGHT = 12;
 const RUN_TICKS = 4;
 const WHITE: Color = [255, 255, 255];
+const CAT_SIZE = 4;
+const CAT_FEET = 1.14;
+const CAT_YAW = Math.PI / 2 - 0.45;
+const CAT_FLIP_TICKS = 12;
+const tabbyCoat = getTabbyCoat([140, 142, 148], [42, 43, 48], [208, 208, 212], [240, 176, 32]);
+const blackCoat = getSolidCoat([75, 29, 122], [48, 232, 48]);
 
 const demonPalette: Palette = {
   r: [200, 30, 110],
@@ -66,85 +55,6 @@ const demonPalette: Palette = {
 };
 
 const demonFrames = { imp: impFrames, bat: batFrames, brute: bruteFrames };
-
-const towerPalette: Palette = {
-  t: [255, 50, 70],
-  T: [120, 85, 180],
-  l: [210, 180, 255],
-};
-
-function getMix(from: Color, to: Color, amount: number): Color {
-  return [
-    from[0] + (to[0] - from[0]) * amount,
-    from[1] + (to[1] - from[1]) * amount,
-    from[2] + (to[2] - from[2]) * amount,
-  ];
-}
-
-function getScaledColor([r, g, b]: Color, scale: number): Color {
-  return [r * scale, g * scale, b * scale];
-}
-
-function drawSky(image: RgbaImage, beat: number): void {
-  for (let y = 0; y < HEIGHT; y++) {
-    const color = getMix(SKY_TOP, SKY_BOTTOM, Math.min(1, y / HORIZON));
-    for (let x = 0; x < WIDTH; x++) {
-      setRgbaPixel(image, x, y, color);
-    }
-  }
-  for (let index = 0; index < STAR_COUNT; index++) {
-    const x = hashSeed(STAR_SEED, index, 0) % WIDTH;
-    const y = 8 + (hashSeed(STAR_SEED, index, 1) % 32);
-    const twinkle = (hashSeed(STAR_SEED, index, Math.floor(beat)) % 4) / 3;
-    setRgbaPixel(image, x, y, getScaledColor([200, 200, 255], 0.3 + 0.5 * twinkle));
-  }
-  for (let y = -5; y <= 5; y++) {
-    for (let x = -5; x <= 5; x++) {
-      const distance = Math.hypot(x, y);
-      if (distance > MOON_RADIUS) {
-        continue;
-      }
-      const isShade = Math.hypot(x + 1.5, y - 1) < 1.3 || Math.hypot(x - 1.5, y + 2) < 1;
-      setRgbaPixel(image, MOON_X + x, MOON_Y + y, isShade ? MOON_SHADE : MOON_COLOR);
-    }
-  }
-}
-
-function drawSkyline(image: RgbaImage, scroll: number, beat: number): void {
-  const offset = Math.round(scroll * SKYLINE_PARALLAX);
-  for (let x = 0; x < WIDTH; x++) {
-    const column = (((x + offset) % SKYLINE_WIDTH) + SKYLINE_WIDTH) % SKYLINE_WIDTH;
-    const hill = Math.round(HORIZON - 14 + ((column - TOWER_X - 2) / 14) ** 2 * 14);
-    for (let y = Math.max(hill, HORIZON - 14); y < HEIGHT; y++) {
-      setRgbaPixel(image, x, y, HILL_COLOR);
-    }
-  }
-  const towerColumn = (((TOWER_X - offset) % SKYLINE_WIDTH) + SKYLINE_WIDTH) % SKYLINE_WIDTH;
-  const isBlinking = Math.floor(beat) % 2 === 0;
-  for (const left of [towerColumn, towerColumn - SKYLINE_WIDTH]) {
-    drawSprite(image, towerSprite, left, HORIZON - 14 - towerSprite.height + 1, {
-      ...towerPalette,
-      t: isBlinking ? (towerPalette.t ?? WHITE) : (towerPalette.T ?? WHITE),
-    });
-  }
-  for (let x = 0; x < WIDTH; x++) {
-    const column = (((x + offset) % SKYLINE_WIDTH) + SKYLINE_WIDTH) % SKYLINE_WIDTH;
-    const building = Math.floor(column / BUILDING_WIDTH);
-    const within = column % BUILDING_WIDTH;
-    if (within === 0) {
-      continue;
-    }
-    const height = 5 + (hashSeed(SKYLINE_SEED, building) % 14);
-    const top = HORIZON - height;
-    for (let y = top; y < HEIGHT; y++) {
-      const isWindow =
-        within % 2 === 1 &&
-        (y - top) % 3 === 1 &&
-        hashSeed(SKYLINE_SEED, building, within, y) % 3 === 0;
-      setRgbaPixel(image, x, y, isWindow ? WINDOW_COLOR : BUILDING_COLOR);
-    }
-  }
-}
 
 function drawLevel(image: RgbaImage, state: GameState): void {
   const scroll = Math.round(state.scroll);
@@ -183,7 +93,7 @@ function drawLevel(image: RgbaImage, state: GameState): void {
 }
 
 function drawHunter(image: RgbaImage, state: HunterState, tick: number, scroll: number): void {
-  if (state.hurtTicks > 0 && Math.floor(state.hurtTicks / 2) % 2 === 1) {
+  if (isBlinking(state)) {
     return;
   }
   const left = Math.round(state.x - scroll);
@@ -204,8 +114,69 @@ function drawHunter(image: RgbaImage, state: HunterState, tick: number, scroll: 
   if (hairSprite) {
     drawSprite(image, hairSprite, left + style.offsetX, top + (runFrame === 1 ? 0 : 1), palette);
   }
+  drawGun(image, state, left, top + (runFrame === 1 ? 0 : 1));
+}
+
+function drawDemons(image: RgbaImage, state: GameState): void {
+  for (const demon of state.demons) {
+    const box = getDemonBox(demon);
+    const sprite = getAnimationFrame(demonFrames[demon.type], demon.age, 1 / 8);
+    drawSprite(image, sprite, box.left - state.scroll, box.top, demonPalette, {
+      tint: demon.hitTicks > 0 ? WHITE : undefined,
+    });
+  }
+}
+
+function isBlinking(state: HunterState): boolean {
+  return state.hurtTicks > 0 && Math.floor(state.hurtTicks / 2) % 2 === 1;
+}
+
+function drawCats(image: RgbaImage, state: GameState): void {
+  const raster = createRaster();
+  for (const [index, player] of state.hunters.entries()) {
+    if (isBlinking(player)) {
+      continue;
+    }
+    const stride = Math.sin((state.tick / (RUN_TICKS * 2)) * Math.PI) * 0.7;
+    const flip = player.isGrounded ? 0 : (player.airTicks / CAT_FLIP_TICKS) * Math.PI * 2;
+    const tuck = player.isGrounded ? 0 : 1.1;
+    const bob = player.isGrounded ? Math.abs(stride) * 0.6 : 0;
+    drawCat(
+      raster,
+      {
+        x: player.x - state.scroll + 4,
+        y: player.y - CAT_FEET * CAT_SIZE - bob - (player.isGrounded ? 0 : 1.5),
+        size: CAT_SIZE,
+        rotate: getRotation(0.2, CAT_YAW, -flip),
+        pose: {
+          frontLeftLeg: getRotation(stride - tuck, 0, 0),
+          frontRightLeg: getRotation(-stride - tuck, 0, 0),
+          backLeftLeg: getRotation(-stride + tuck, 0, 0),
+          backRightLeg: getRotation(stride + tuck, 0, 0),
+          tail: getRotation(-0.9 + stride * 0.3, 0, 0),
+        },
+      },
+      index === 0 ? tabbyCoat : blackCoat,
+    );
+  }
+  compositeRaster(raster, image);
+  for (const player of state.hunters) {
+    if (isBlinking(player) || !player.isGrounded) {
+      continue;
+    }
+    drawGun(
+      image,
+      player,
+      Math.round(player.x - state.scroll),
+      Math.round(player.y) - HUNTER_HEIGHT + 2,
+    );
+  }
+}
+
+function drawGun(image: RgbaImage, state: HunterState, left: number, top: number): void {
   const gun = gunSprites[state.aim];
-  drawSprite(image, gun.sprite, left + gun.x, top + gun.y + (runFrame === 1 ? 0 : 1), palette);
+  const { palette } = state.hunter;
+  drawSprite(image, gun.sprite, left + gun.x, top + gun.y, palette);
   if (state.flashTicks > 0) {
     drawSprite(
       image,
@@ -217,18 +188,8 @@ function drawHunter(image: RgbaImage, state: HunterState, tick: number, scroll: 
   }
 }
 
-function drawEntities(image: RgbaImage, state: GameState): void {
+function drawProjectiles(image: RgbaImage, state: GameState): void {
   const scroll = state.scroll;
-  for (const demon of state.demons) {
-    const box = getDemonBox(demon);
-    const sprite = getAnimationFrame(demonFrames[demon.type], demon.age, 1 / 8);
-    drawSprite(image, sprite, box.left - scroll, box.top, demonPalette, {
-      tint: demon.hitTicks > 0 ? WHITE : undefined,
-    });
-  }
-  for (const hunter of state.hunters) {
-    drawHunter(image, hunter, state.tick, scroll);
-  }
   for (const bullet of state.bullets) {
     drawSprite(image, bulletSprite, bullet.x - scroll - 1, bullet.y - 1, {
       c: bullet.hunter.palette.c ?? WHITE,
@@ -247,8 +208,8 @@ function drawEntities(image: RgbaImage, state: GameState): void {
   }
 }
 
-function drawHud(image: RgbaImage): void {
-  for (const [index, hunter] of hunters.entries()) {
+function drawHud(image: RgbaImage, players: readonly Hunter[]): void {
+  for (const [index, hunter] of players.entries()) {
     const left = 1 + index * HUD_SPACING;
     const digit = digitSprites[String(index + 1)];
     const player = digitSprites.P;
@@ -272,15 +233,23 @@ export const demonHunters = defineEffect({
   kind: "pixel",
   params: z.object({
     hud: z.boolean().default(true),
+    players: z.enum(["hunters", "cats"]).default("hunters"),
   }),
   render(image, { params, beat }) {
-    const state = simulate(beat);
-    drawSky(image, beat);
-    drawSkyline(image, state.scroll, beat);
+    const players = params.players === "cats" ? cats : hunters;
+    const state = simulate(beat, players);
     drawLevel(image, state);
-    drawEntities(image, state);
+    drawDemons(image, state);
+    if (params.players === "cats") {
+      drawCats(image, state);
+    } else {
+      for (const hunter of state.hunters) {
+        drawHunter(image, hunter, state.tick, state.scroll);
+      }
+    }
+    drawProjectiles(image, state);
     if (params.hud) {
-      drawHud(image);
+      drawHud(image, players);
     }
   },
 });

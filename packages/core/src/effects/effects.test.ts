@@ -83,6 +83,9 @@ describe("cat sequence", () => {
     ["cat", "cat-spawn"],
     ["cat-spawn", "cat-bounce"],
     ["cat-bounce", "cat-bounce"],
+    ["cat-pair-spawn", "cat-hyperspace"],
+    ["cat-hyperspace", "cat-hyperspace"],
+    ["cat-pair-spawn", "cat-explode"],
   ])("%s ends where %s starts", (from, to) => {
     expect(getMeanDifference(renderEffect(from, 1 - 1e-6), renderEffect(to, 0))).toBeLessThan(0.5);
   });

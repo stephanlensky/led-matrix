@@ -8,14 +8,14 @@ import { drawCat, getSolidCoat } from "./cat-model.ts";
 
 const MAX_ZOOM = 10;
 
-const EYE_OFFSET = 15.5;
-const EYE_HALF_WIDTH = 15;
-const EYE_HALF_HEIGHT = 11;
+export const EYE_OFFSET = 15.5;
+export const EYE_HALF_WIDTH = 15;
+export const EYE_HALF_HEIGHT = 11;
 const EYE_SLANT = 0.18;
 const PUPIL_HALF_WIDTH = 2.6;
 const HIGHLIGHT_RADIUS = 1.8;
 
-function getEyeColor(
+export function getEyeColor(
   x: number,
   y: number,
   blink: number,
