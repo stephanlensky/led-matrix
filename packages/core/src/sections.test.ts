@@ -126,11 +126,15 @@ describe("getRenderPosition", () => {
     });
   });
 
-  it("does not fit loop sections", () => {
-    const fit = { section: 0, beats: 2 };
+  it("scales each iteration of a fitted loop section", () => {
+    const fit = { section: 0, beats: 8 };
     expect(getRenderPosition(animation, fit, getPlayback(0), 1500, 120, 30)).toEqual({
       index: 0,
-      time: 1500,
+      time: 750,
+    });
+    expect(getRenderPosition(animation, fit, getPlayback(0), 5000, 120, 30)).toEqual({
+      index: 0,
+      time: 500,
     });
   });
 });

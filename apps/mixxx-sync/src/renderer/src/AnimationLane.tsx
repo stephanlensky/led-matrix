@@ -1,4 +1,15 @@
 import { type Renderer, type StoredAnimation, createFrame } from "@led-matrix/core";
+import {
+  ContextMenu,
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@led-matrix/ui/components/context-menu";
 import { Filmstrip } from "@led-matrix/ui/components/filmstrip";
 import { getSectionName } from "@led-matrix/ui/lib/section-labels";
 import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from "lucide-react";
@@ -20,6 +31,7 @@ import {
   getCueKeys,
   getDropEnd,
   getLiveBlock,
+  getLoopCount,
   getNaturalBeats,
   isSameRender,
 } from "../../shared/animation-lane.ts";
@@ -42,7 +54,14 @@ import {
 import type { MixxxCue } from "../../shared/library.ts";
 import type { CueStatus } from "../../shared/api.ts";
 import type { Cue, MappingFile } from "../../shared/mapping.ts";
-import { addCue, clearCueEnd, moveCue, resizeCue } from "../../shared/mapping-edits.ts";
+import {
+  addCue,
+  clearCueEnd,
+  moveCue,
+  resizeCue,
+  setCueLoops,
+  setCuePreset,
+} from "../../shared/mapping-edits.ts";
 import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
 import { getCueDrag, getCurrentCueDrag, hasCueDrag } from "./cue-drag.ts";
 import type { MappingEditor } from "./useMapping.ts";
@@ -200,6 +219,9 @@ type BlockHandlers = {
   onPointerDown: (event: PointerEvent<HTMLElement>, kind: DragKind, block: AnimationBlock) => void;
   onClick: (event: MouseEvent<HTMLElement>, block: AnimationBlock) => void;
   onClearEnd: (block: AnimationBlock) => void;
+  onContextMenu: (block: AnimationBlock) => void;
+  onSetStretch: (block: AnimationBlock, isStretched: boolean) => void;
+  onSetPreset: (block: AnimationBlock, preset: string) => void;
 };
 
 function Handle({
@@ -289,59 +311,64 @@ function Block({
   const end = getBeatFraction(scale, block.end);
   const stop = getBeatFraction(scale, block.stop);
   const hasSections = block.animation.sections.length > 1;
+  const hasMenu = handlers !== undefined && (block.isLoop || block.preset !== null);
 
   return (
     <>
-      <div
-        className={`group absolute inset-y-0 overflow-hidden border-l-2 border-white/80 bg-neutral-900 ${handlers ? "cursor-grab active:cursor-grabbing" : ""} ${isSelected ? "z-[5] outline-2 -outline-offset-2 outline-sky-400" : ""}`}
-        style={getSpanStyle(start, end)}
-        title={block.animation.name}
-        onPointerDown={handlers && ((event) => handlers.onPointerDown(event, "move", block))}
-        onClick={handlers && ((event) => handlers.onClick(event, block))}
-      >
-        {end > start && (
-          <VisibleFilmstrip
-            block={block}
-            scale={scale}
-            range={range}
-            start={start}
-            end={end}
-            source={source}
-          />
-        )}
-        {block.boundaries.map((boundary) => (
-          <div
-            key={boundary.beat}
-            className="absolute inset-y-0 flex border-l border-white/60"
-            style={{
-              left: `${((getBeatFraction(scale, boundary.beat) - start) / (end - start)) * 100}%`,
-            }}
-          >
-            <div className="mt-auto pb-0.5 pl-0.5">
-              <SectionLabel block={block} section={boundary.section} />
-            </div>
-          </div>
-        ))}
-        <div className="pointer-events-none absolute top-0.5 left-0.5 flex max-w-[calc(100%-0.25rem)] gap-1">
-          <span className="truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 font-medium text-white">
-            {block.animation.name}
-          </span>
-          {hasSections && <SectionLabel block={block} section={block.section} />}
-          {block.preset !== null && (
-            <span className="truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 text-white/80">
-              {block.preset}
-            </span>
+      <ContextMenu disabled={!hasMenu}>
+        <ContextMenuTrigger
+          className={`group absolute inset-y-0 overflow-hidden border-l-2 border-white/80 bg-neutral-900 ${handlers ? "cursor-grab active:cursor-grabbing" : ""} ${isSelected ? "z-[5] outline-2 -outline-offset-2 outline-sky-400" : ""}`}
+          style={getSpanStyle(start, end)}
+          title={block.animation.name}
+          onPointerDown={handlers && ((event) => handlers.onPointerDown(event, "move", block))}
+          onClick={handlers && ((event) => handlers.onClick(event, block))}
+          onContextMenu={handlers && (() => handlers.onContextMenu(block))}
+        >
+          {end > start && (
+            <VisibleFilmstrip
+              block={block}
+              scale={scale}
+              range={range}
+              start={start}
+              end={end}
+              source={source}
+            />
           )}
-        </div>
-        {block.hasEnd && <div className="absolute inset-y-0 right-0 w-0.5 bg-white/80" />}
-        {live && !live.isBlank && <LiveOutline />}
-        {handlers && (
-          <>
-            <Handle side="start" block={block} isSelected={isSelected} handlers={handlers} />
-            <Handle side="end" block={block} isSelected={isSelected} handlers={handlers} />
-          </>
-        )}
-      </div>
+          {block.boundaries.map((boundary) => (
+            <div
+              key={boundary.beat}
+              className="absolute inset-y-0 flex border-l border-white/60"
+              style={{
+                left: `${((getBeatFraction(scale, boundary.beat) - start) / (end - start)) * 100}%`,
+              }}
+            >
+              <div className="mt-auto pb-0.5 pl-0.5">
+                <SectionLabel block={block} section={boundary.section} />
+              </div>
+            </div>
+          ))}
+          <div className="pointer-events-none absolute top-0.5 left-0.5 flex max-w-[calc(100%-0.25rem)] gap-1">
+            <span className="truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 font-medium text-white">
+              {block.animation.name}
+            </span>
+            {hasSections && <SectionLabel block={block} section={block.section} />}
+            {block.preset !== null && (
+              <span className="truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 text-white/80">
+                {block.preset}
+              </span>
+            )}
+          </div>
+          {block.hasEnd && <div className="absolute inset-y-0 right-0 w-0.5 bg-white/80" />}
+          {live && !live.isBlank && <LiveOutline />}
+          {handlers && (
+            <>
+              <Handle side="start" block={block} isSelected={isSelected} handlers={handlers} />
+              <Handle side="end" block={block} isSelected={isSelected} handlers={handlers} />
+            </>
+          )}
+        </ContextMenuTrigger>
+        {hasMenu && <BlockMenu block={block} handlers={handlers} />}
+      </ContextMenu>
       {stop > end && (
         <div
           className="absolute inset-y-0 border-y border-dashed border-white/15 bg-black/40"
@@ -351,6 +378,38 @@ function Block({
         </div>
       )}
     </>
+  );
+}
+
+function BlockMenu({ block, handlers }: { block: AnimationBlock; handlers: BlockHandlers }) {
+  const presets = block.preset === null ? [] : (block.source.presets ?? []);
+  return (
+    <ContextMenuContent>
+      {block.isLoop && (
+        <ContextMenuCheckboxItem
+          checked={block.loops !== undefined}
+          onCheckedChange={(checked) => handlers.onSetStretch(block, checked)}
+        >
+          Stretch loop to fit
+        </ContextMenuCheckboxItem>
+      )}
+      {block.isLoop && presets.length > 0 && <ContextMenuSeparator />}
+      {presets.length > 0 && (
+        <ContextMenuGroup>
+          <ContextMenuLabel>Preset</ContextMenuLabel>
+          <ContextMenuRadioGroup
+            value={block.preset}
+            onValueChange={(preset: string) => handlers.onSetPreset(block, preset)}
+          >
+            {presets.map(({ name }) => (
+              <ContextMenuRadioItem key={name} value={name}>
+                {name}
+              </ContextMenuRadioItem>
+            ))}
+          </ContextMenuRadioGroup>
+        </ContextMenuGroup>
+      )}
+    </ContextMenuContent>
   );
 }
 
@@ -472,6 +531,18 @@ export function AnimationLane({
       if (savedCues[block.index]?.end !== undefined) {
         editor?.update((file) => clearCueEnd(file, location, block.index));
       }
+    },
+    onContextMenu(block) {
+      if (editor && track) {
+        editor.onSelect({ location, index: block.index, trackRange: track });
+      }
+    },
+    onSetStretch(block, isStretched) {
+      const loops = isStretched ? { end: block.end, count: getLoopCount(block, fps) } : undefined;
+      editor?.update((file) => setCueLoops(file, location, block.index, loops));
+    },
+    onSetPreset(block, preset) {
+      editor?.update((file) => setCuePreset(file, location, block.index, preset));
     },
   };
 

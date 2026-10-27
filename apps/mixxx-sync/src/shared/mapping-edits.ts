@@ -57,7 +57,20 @@ export function addCue(file: MappingFile, location: string, cue: AnimationCue): 
 
 export function clearCueEnd(file: MappingFile, location: string, index: number): MappingFile {
   const cues = getTrackCues(file, location);
-  cues[index] = getCueWithEnd(getCueAt(cues, index), undefined);
+  const { loops: _loops, ...cue } = getCueAt(cues, index);
+  cues[index] = getCueWithEnd(cue, undefined);
+  return setTrackCues(file, location, cues);
+}
+
+export function setCueLoops(
+  file: MappingFile,
+  location: string,
+  index: number,
+  loops: { end: number; count: number } | undefined,
+): MappingFile {
+  const cues = getTrackCues(file, location);
+  const { loops: _loops, ...cue } = getCueAt(cues, index);
+  cues[index] = loops === undefined ? cue : { ...cue, end: loops.end, loops: loops.count };
   return setTrackCues(file, location, cues);
 }
 

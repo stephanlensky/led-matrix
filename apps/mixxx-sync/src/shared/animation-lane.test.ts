@@ -7,6 +7,7 @@ import {
   getDropEnd,
   getLanePosition,
   getLiveBlock,
+  getLoopCount,
   isSameRender,
 } from "./animation-lane.ts";
 import type { Beats } from "./beats.ts";
@@ -149,6 +150,26 @@ describe("getCueKeys", () => {
 
   it("keeps the key of a moved cue", () => {
     expect(getCueKeys(initial, [cues[0]!, { beat: 36, animation: "intro" }]).keys).toEqual([0, 1]);
+  });
+});
+
+describe("getLoopCount", () => {
+  it("rounds the block length to whole loops of the section", () => {
+    const [block] = getLane([{ beat: 0, end: 27, animation: "plasma" }]).blocks;
+    expect(block && getLoopCount(block, FPS)).toBe(3);
+  });
+
+  it("counts at least one loop", () => {
+    const [block] = getLane([{ beat: 0, end: 2, animation: "plasma" }]).blocks;
+    expect(block && getLoopCount(block, FPS)).toBe(1);
+  });
+});
+
+describe("stretched loops", () => {
+  it("fits each loop between the cue and its end", () => {
+    const [block] = getLane([{ beat: 0, end: 24, animation: "plasma", loops: 2 }]).blocks;
+    expect(block?.fit).toEqual({ section: 0, beats: 12 });
+    expect(block && getBlockPosition(block, 18, FPS)).toEqual({ index: 0, time: 2000 });
   });
 });
 

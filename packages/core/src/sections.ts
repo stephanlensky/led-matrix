@@ -108,6 +108,14 @@ export function getFittedAnimation(
   if (!fit) {
     return animation;
   }
+  if (animation.sections[fit.section]?.mode.type === "loop") {
+    const sections = animation.sections.map((section, index) =>
+      index === fit.section
+        ? { ...section, mode: { type: "loop" as const, beats: fit.beats } }
+        : section,
+    );
+    return { ...animation, sections };
+  }
   const lengths = getOnceSections(animation, fit.section).map((index) => {
     const mode = animation.sections[index]?.mode;
     return mode ? getAnimationLength(mode, bpm, fps) : 0;

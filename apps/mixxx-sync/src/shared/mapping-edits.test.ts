@@ -6,6 +6,7 @@ import {
   moveCue,
   removeCue,
   resizeCue,
+  setCueLoops,
   setCuePreset,
 } from "./mapping-edits.ts";
 
@@ -124,6 +125,34 @@ describe("clearCueEnd", () => {
       beat: 32,
       animation: "cat",
       section: "Spawn",
+    });
+  });
+});
+
+describe("setCueLoops", () => {
+  it("sets the loop count and end of a cue", () => {
+    expect(setCueLoops(file, location, 0, { end: 24, count: 3 }).tracks[location]?.[0]).toEqual({
+      beat: 0,
+      end: 24,
+      animation: "cat",
+      loops: 3,
+    });
+  });
+
+  it("removes the loop count and keeps the end", () => {
+    const looped = setCueLoops(file, location, 0, { end: 24, count: 3 });
+    expect(setCueLoops(looped, location, 0, undefined).tracks[location]?.[0]).toEqual({
+      beat: 0,
+      end: 24,
+      animation: "cat",
+    });
+  });
+
+  it("is removed with the cue end", () => {
+    const looped = setCueLoops(file, location, 0, { end: 24, count: 3 });
+    expect(clearCueEnd(looped, location, 0).tracks[location]?.[0]).toEqual({
+      beat: 0,
+      animation: "cat",
     });
   });
 });

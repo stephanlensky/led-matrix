@@ -130,7 +130,19 @@ describe("cue end", () => {
     ]);
   });
 
-  it("does not fit loop sections", () => {
+  it("fits each loop of a stretched loop section between the cue and its end beat", () => {
+    const file = mappingSchema.parse({
+      tracks: { a: [{ beat: 8, end: 40, animation: "plasma", loops: 4 }] },
+    });
+    expect(getResolvedMapping(file, animations).mapping.get("a")?.[0]).toEqual({
+      beat: 8,
+      animationId: "plasma",
+      section: 0,
+      beats: 8,
+    });
+  });
+
+  it("does not fit loop sections without loops", () => {
     const file = mappingSchema.parse({
       tracks: { a: [{ beat: 8, end: 696, animation: "plasma" }] },
     });

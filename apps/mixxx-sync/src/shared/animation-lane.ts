@@ -27,6 +27,8 @@ export type AnimationBlock = {
   end: number;
   stop: number;
   hasEnd: boolean;
+  isLoop: boolean;
+  loops: number | undefined;
   fit: SectionFit | null;
   boundaries: SectionBoundary[];
 };
@@ -73,6 +75,11 @@ export function getNaturalBeats(
     : once.reduce((sum, index) => sum + getSectionBeats(animation, index, bpm, fps), 0);
 }
 
+export function getLoopCount(block: AnimationBlock, fps: number): number {
+  const beats = getSectionBeats(block.animation, block.section, block.bpm, fps);
+  return Math.max(Math.round((block.end - block.beat) / beats), 1);
+}
+
 export function getDropEnd(
   animation: StoredAnimation,
   section: number,
@@ -105,6 +112,7 @@ export function getAnimationLane(
     const animation = getPresetAnimation(source, cue.preset);
     const stop = Math.max(sectionCues[index + 1]?.beat ?? trackEnd, cue.beat);
     const cueEnd = cues[index]?.end;
+    const loops = cues[index]?.loops;
     const hasEnd = cueEnd !== undefined && cueEnd < stop;
     const end = hasEnd ? cueEnd : stop;
     const bpm = getBpm(beats, cue.beat);
@@ -121,6 +129,8 @@ export function getAnimationLane(
         end,
         stop,
         hasEnd,
+        isLoop: animation.sections[cue.section]?.mode.type === "loop",
+        loops,
         fit,
         boundaries: getBoundaries(
           getFittedAnimation(animation, fit, bpm, fps),

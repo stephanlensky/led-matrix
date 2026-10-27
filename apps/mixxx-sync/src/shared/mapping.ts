@@ -1,4 +1,9 @@
-import { type StoredAnimation, animationIdSchema, getPreset } from "@led-matrix/core";
+import {
+  type ModeType,
+  type StoredAnimation,
+  animationIdSchema,
+  getPreset,
+} from "@led-matrix/core";
 import { z } from "zod";
 
 export const cueSchema = z
@@ -8,6 +13,7 @@ export const cueSchema = z
     animation: animationIdSchema.optional(),
     section: z.union([z.string(), z.int().min(0)]).optional(),
     preset: z.string().min(1).optional(),
+    loops: z.int().positive().optional(),
   })
   .refine(({ beat, end }) => end === undefined || end > beat, {
     path: ["end"],
@@ -83,6 +89,16 @@ export function getExplicitCues(cues: readonly Cue[]): ExplicitCue[] {
   });
 }
 
+function getFitBeats(cue: Cue, type: ModeType | undefined): number | undefined {
+  if (cue.end === undefined) {
+    return undefined;
+  }
+  if (type === "once") {
+    return cue.end - cue.beat;
+  }
+  return type === "loop" && cue.loops !== undefined ? (cue.end - cue.beat) / cue.loops : undefined;
+}
+
 export function getResolvedCues(
   cues: readonly Cue[],
   animationsById: ReadonlyMap<string, StoredAnimation>,
@@ -107,8 +123,7 @@ export function getResolvedCues(
       errors.push(`beat ${cue.beat}: preset "${preset}" not found in "${animationId}"`);
       continue;
     }
-    const isOnce = animation.sections[section]?.mode.type === "once";
-    const beats = cue.end === undefined || !isOnce ? undefined : cue.end - cue.beat;
+    const beats = getFitBeats(cue, animation.sections[section]?.mode.type);
     resolved.push({ beat: cue.beat, animationId, section, preset, beats });
     const next = cues[index + 1];
     if (cue.end !== undefined && (next === undefined || cue.end < next.beat)) {
