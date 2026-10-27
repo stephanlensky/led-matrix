@@ -140,8 +140,12 @@ export function WaveformLane({
 
   return (
     <div className="relative h-10 overflow-hidden rounded-sm bg-black">
-      {ranges.map((range, index) => (
-        <CueRangeShade key={index} range={range} duration={duration} />
+      {ranges.map((range) => (
+        <CueRangeShade
+          key={`${range.start}-${range.end}-${range.color}`}
+          range={range}
+          duration={duration}
+        />
       ))}
       <canvas ref={canvasRef} className="absolute inset-0 size-full" />
       {!waveform && (
@@ -149,8 +153,12 @@ export function WaveformLane({
           No analysis
         </span>
       )}
-      {markers.map((marker, index) => (
-        <CueMarkerLine key={index} marker={marker} duration={duration} />
+      {markers.map((marker) => (
+        <CueMarkerLine
+          key={`${marker.position}-${marker.title}`}
+          marker={marker}
+          duration={duration}
+        />
       ))}
     </div>
   );
