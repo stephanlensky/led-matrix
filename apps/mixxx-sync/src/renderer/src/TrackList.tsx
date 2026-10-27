@@ -60,6 +60,8 @@ const SHORTCUTS = [
   ["Ctrl + F", "Search"],
   ["Drag waveform", "Loop a selection"],
   ["Alt + drag", "Place or select without snapping"],
+  ["Shift + drag block", "Duplicate the block"],
+  ["Drop on a block", "Replace its animation"],
   ["Ctrl + scroll", "Zoom the track"],
   ["Shift + scroll", "Scroll the zoomed track"],
 ] as const;

@@ -81,6 +81,43 @@ export function getGap(
     : undefined;
 }
 
+export function getGapRange(
+  cues: readonly Cue[],
+  beat: number,
+  length: number | undefined,
+  track: BeatRange,
+): BeatRange | undefined {
+  const gap = getGap(cues, beat, track);
+  return gap && { min: gap.min, max: gap.max - Math.max(length ?? 0, MIN_CUE_BEATS) };
+}
+
+export function getGapRanges(
+  cues: readonly Cue[],
+  length: number | undefined,
+  track: BeatRange,
+): BeatRange[] {
+  const space = Math.max(length ?? 0, MIN_CUE_BEATS);
+  const first = cues[0]?.beat ?? track.max;
+  const gaps = [
+    { min: track.min, max: first - space },
+    ...cues.flatMap(({ end }, index) =>
+      end === undefined ? [] : [{ min: end, max: getNextBeat(cues, index, track) - space }],
+    ),
+  ];
+  return gaps.filter(({ min, max }) => max >= min);
+}
+
+function getNearestBeat(beat: number, ranges: readonly BeatRange[]) {
+  let nearest: { beat: number; range: BeatRange } | undefined;
+  for (const range of ranges) {
+    const candidate = getClampedBeat(beat, range);
+    if (!nearest || Math.abs(candidate - beat) < Math.abs(nearest.beat - beat)) {
+      nearest = { beat: candidate, range };
+    }
+  }
+  return nearest;
+}
+
 export function getSnapTargets(
   cues: readonly Cue[],
   exclude: number | undefined,
@@ -131,6 +168,29 @@ export function getSnap(
   }
   const whole = Math.round(beat);
   return { beat: whole, target: undefined, distance: Math.abs(getX(scale, whole) - x) };
+}
+
+export type CopySnap = { beat: number; target: number | undefined; isValid: boolean };
+
+export function getCopySnap(
+  beat: number,
+  length: number | undefined,
+  targets: readonly number[],
+  gaps: readonly BeatRange[],
+  scale: LaneScale,
+  isFree: boolean,
+): CopySnap {
+  const snap = isFree ? { beat, target: undefined } : getMoveSnap(beat, length, targets, scale);
+  if (gaps.some(({ min, max }) => snap.beat >= min && snap.beat <= max)) {
+    return { beat: snap.beat, target: snap.target, isValid: true };
+  }
+  const nearest = isFree ? undefined : getNearestBeat(beat, gaps);
+  if (!nearest || Math.abs(getX(scale, nearest.beat) - getX(scale, beat)) > SNAP_DISTANCE) {
+    return { beat: snap.beat, target: undefined, isValid: false };
+  }
+  const isStart = nearest.beat === nearest.range.min;
+  const target = isStart ? nearest.beat : length === undefined ? undefined : nearest.beat + length;
+  return { beat: nearest.beat, target, isValid: true };
 }
 
 export function getMoveSnap(

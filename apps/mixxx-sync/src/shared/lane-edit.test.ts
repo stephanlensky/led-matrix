@@ -5,6 +5,9 @@ import {
   type LaneScale,
   getEndRange,
   getGap,
+  getGapRange,
+  getGapRanges,
+  getCopySnap,
   getMoveRange,
   getMoveSnap,
   getNudgedBeat,
@@ -67,6 +70,73 @@ describe("getGap", () => {
   it("is undefined inside a block", () => {
     expect(getGap(cues, 40, track)).toBeUndefined();
     expect(getGap(cues, 80, track)).toBeUndefined();
+  });
+});
+
+describe("getGapRange", () => {
+  it("fits the length inside the gap", () => {
+    expect(getGapRange(cues, 50, 8, track)).toEqual({ min: 48, max: 56 });
+  });
+
+  it("keeps room for the shortest cue without a length", () => {
+    expect(getGapRange(cues, 50, undefined, track)).toEqual({ min: 48, max: 63 });
+  });
+
+  it("is undefined inside a block", () => {
+    expect(getGapRange(cues, 40, 8, track)).toBeUndefined();
+  });
+});
+
+describe("getGapRanges", () => {
+  it("lists the gaps the length fits into", () => {
+    expect(getGapRanges(cues.slice(1), 8, track)).toEqual([
+      { min: -1, max: 24 },
+      { min: 48, max: 56 },
+    ]);
+  });
+
+  it("skips gaps that are too short", () => {
+    expect(getGapRanges(cues, 20, track)).toEqual([]);
+  });
+});
+
+describe("getCopySnap", () => {
+  const gaps = [
+    { min: -1, max: 24 },
+    { min: 48, max: 56 },
+  ];
+
+  it("keeps a snapped beat that fits a gap", () => {
+    expect(getCopySnap(50.2, 8, [], gaps, scale, false)).toEqual({
+      beat: 50,
+      target: undefined,
+      isValid: true,
+    });
+  });
+
+  it("pulls a beat just past a gap against the block edge", () => {
+    expect(getCopySnap(46.6, 8, [], gaps, scale, false)).toEqual({
+      beat: 48,
+      target: 48,
+      isValid: true,
+    });
+    expect(getCopySnap(25.2, 8, [], gaps, scale, false)).toEqual({
+      beat: 24,
+      target: 32,
+      isValid: true,
+    });
+  });
+
+  it("is invalid over a block", () => {
+    expect(getCopySnap(36.2, 8, [], gaps, scale, false)).toEqual({
+      beat: 36,
+      target: undefined,
+      isValid: false,
+    });
+  });
+
+  it("does not pull a free beat", () => {
+    expect(getCopySnap(47.5, 8, [], gaps, scale, true).isValid).toBe(false);
   });
 });
 

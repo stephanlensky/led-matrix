@@ -3,8 +3,10 @@ import type { MappingFile } from "./mapping.ts";
 import {
   addCue,
   clearCueEnd,
+  copyCue,
   moveCue,
   removeCue,
+  replaceCue,
   resizeCue,
   setCueLoops,
   setCuePreset,
@@ -71,6 +73,60 @@ describe("moveCue", () => {
 
   it("rejects a move onto another cue", () => {
     expect(() => moveCue(file, location, 0, 64)).toThrow("Cue beats must increase");
+  });
+});
+
+describe("copyCue", () => {
+  it("keeps the original and shifts the copy's end", () => {
+    expect(copyCue(file, location, 1, 48).tracks[location]).toEqual([
+      { beat: 0, animation: "cat" },
+      { beat: 32, end: 48, animation: "cat", section: "Spawn" },
+      { beat: 48, end: 64, animation: "cat", section: "Spawn" },
+      { beat: 64, animation: "plasma" },
+    ]);
+  });
+
+  it("ends the copy at the next cue and drops its loop count", () => {
+    const looped = setCueLoops(file, location, 1, { end: 48, count: 2 });
+    expect(copyCue(looped, location, 1, 56).tracks[location]?.[2]).toEqual({
+      beat: 56,
+      end: 64,
+      animation: "cat",
+      section: "Spawn",
+    });
+    expect(copyCue(looped, location, 1, 8).tracks[location]?.[1]).toEqual({
+      beat: 8,
+      end: 24,
+      animation: "cat",
+      section: "Spawn",
+      loops: 2,
+    });
+  });
+});
+
+describe("replaceCue", () => {
+  it("keeps the position and duration", () => {
+    const looped = setCueLoops(file, location, 1, { end: 48, count: 2 });
+    expect(
+      replaceCue(looped, location, 1, { animation: "strobe", preset: "White" }).tracks[location],
+    ).toEqual([
+      { beat: 0, animation: "cat" },
+      { beat: 32, end: 48, animation: "strobe", preset: "White" },
+      { beat: 64, animation: "plasma" },
+    ]);
+  });
+
+  it("keeps the following cues on their animation", () => {
+    const cues = [
+      { beat: 0, animation: "cat" },
+      { beat: 16, section: 1 },
+    ];
+    expect(
+      replaceCue({ tracks: { a: cues } }, "a", 0, { animation: "plasma" }).tracks["a"],
+    ).toEqual([
+      { beat: 0, animation: "plasma" },
+      { beat: 16, animation: "cat", section: 1 },
+    ]);
   });
 });
 
