@@ -1,6 +1,6 @@
 import type { PlaybackState } from "@led-matrix/core";
 import { describe, expect, it } from "vitest";
-import type { Mapping } from "./mapping.ts";
+import type { Mapping } from "../shared/mapping.ts";
 import type { Deck, MixxxState, Track } from "./mixxx.ts";
 import type { PlayRequest, ServerClient } from "./server.ts";
 import { type SyncStatus, createSync, getPhaseDrift } from "./sync.ts";

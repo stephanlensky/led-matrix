@@ -6,11 +6,13 @@ import {
   type Settings,
   channels,
 } from "../shared/api.ts";
+import type { MappingState } from "../shared/mapping.ts";
 
 type Events = {
   [channels.settings]: Settings;
   [channels.status]: DaemonStatus;
   [channels.log]: LogEntry;
+  [channels.mapping]: MappingState;
 };
 
 function subscribe<C extends keyof Events>(
@@ -34,9 +36,12 @@ const api: Api = {
   getTracks: (playlistId) => ipcRenderer.invoke(channels.getTracks, playlistId),
   getTrackDetails: (trackId) => ipcRenderer.invoke(channels.getTrackDetails, trackId),
   getWaveform: (trackId, type) => ipcRenderer.invoke(channels.getWaveform, trackId, type),
+  getMapping: () => ipcRenderer.invoke(channels.getMapping),
+  setMapping: (mapping) => ipcRenderer.invoke(channels.setMapping, mapping),
   onSettings: (listener) => subscribe(channels.settings, listener),
   onStatus: (listener) => subscribe(channels.status, listener),
   onLog: (listener) => subscribe(channels.log, listener),
+  onMapping: (listener) => subscribe(channels.mapping, listener),
 };
 
 contextBridge.exposeInMainWorld("api", api);

@@ -1,8 +1,8 @@
 import { type FSWatcher, watch } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { basename, dirname } from "node:path";
 import type { DaemonStatus, Settings } from "../shared/api.ts";
-import { type Mapping, getResolvedMapping, mappingSchema } from "./mapping.ts";
+import { type Mapping, getResolvedMapping } from "../shared/mapping.ts";
+import { readMappingFile } from "./mapping-file.ts";
 import { connectToMixxx } from "./mixxx.ts";
 import { createServerClient } from "./server.ts";
 import { createSync } from "./sync.ts";
@@ -50,7 +50,7 @@ export function createDaemon({ log, onStatus }: DaemonOptions) {
     let reloadTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function loadMapping(): Promise<void> {
-      const file = mappingSchema.parse(JSON.parse(await readFile(mappingFile, "utf8")));
+      const file = await readMappingFile(mappingFile);
       const resolved = getResolvedMapping(file, await server.getAnimations());
       if (isStopped) {
         return;

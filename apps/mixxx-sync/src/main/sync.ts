@@ -1,6 +1,6 @@
 import type { PlaybackState } from "@led-matrix/core";
 import { getAudibleBeat, getBeatDelta, getLiveDeck } from "./decks.ts";
-import { type Mapping, type ResolvedCue, getCue } from "./mapping.ts";
+import { type Mapping, type ResolvedCue, getCue } from "../shared/mapping.ts";
 import type { MixxxState } from "./mixxx.ts";
 import type { ServerClient } from "./server.ts";
 

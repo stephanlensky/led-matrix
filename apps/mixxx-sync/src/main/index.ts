@@ -9,7 +9,9 @@ import {
   daemonSettingKeys,
 } from "../shared/api.ts";
 import type { WaveformType } from "../shared/library.ts";
+import type { MappingFile } from "../shared/mapping.ts";
 import { createDaemon } from "./daemon.ts";
+import { createMappingFile } from "./mapping-file.ts";
 import { createMixxxLibrary } from "./mixxx-library.ts";
 import { getDefaultSettings, getStoredSettings, setStoredSettings } from "./settings.ts";
 
@@ -35,6 +37,10 @@ function log(message: string): void {
 }
 
 const library = createMixxxLibrary(() => settings.mixxxDatabasePath);
+const mappingFile = createMappingFile({
+  getPath: () => settings.mappingFile,
+  onChange: (state) => send(channels.mapping, state),
+});
 const daemon = createDaemon({ log, onStatus: (status) => send(channels.status, status) });
 
 ipcMain.handle(channels.getSettings, () => settings);
@@ -52,6 +58,7 @@ ipcMain.handle(channels.setSettings, async (_event, value: Settings) => {
   }
   settings = await setStoredSettings(settingsPath, value);
   send(channels.settings, settings);
+  void mappingFile.updatePath();
   return settings;
 });
 ipcMain.handle(channels.showFileDialog, async (event, setting: FileSetting) => {
@@ -77,6 +84,10 @@ ipcMain.handle(channels.getTrackDetails, (_event, trackId: number) =>
 );
 ipcMain.handle(channels.getWaveform, (_event, trackId: number, type: WaveformType) =>
   library.getTrackWaveform(trackId, type),
+);
+ipcMain.handle(channels.getMapping, () => mappingFile.getMapping());
+ipcMain.handle(channels.setMapping, (_event, mapping: MappingFile) =>
+  mappingFile.setMapping(mapping),
 );
 
 function createWindow(): void {
@@ -108,5 +119,6 @@ app.on("activate", () => {
 app.on("window-all-closed", () => {
   daemon.stop();
   library.close();
+  mappingFile.close();
   app.quit();
 });

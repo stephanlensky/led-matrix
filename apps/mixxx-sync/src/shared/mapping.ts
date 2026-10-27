@@ -108,3 +108,7 @@ export function getCue(cues: readonly ResolvedCue[], beat: number): ResolvedCue 
   }
   return found;
 }
+
+export type MappingState = { mapping: MappingFile } | { error: string };
+
+export const emptyMapping: MappingFile = { tracks: {} };

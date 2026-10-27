@@ -1,5 +1,6 @@
 import type { Output } from "@led-matrix/core";
 import type { Playlist, Track, TrackDetails, Waveform, WaveformType } from "./library.ts";
+import type { MappingFile, MappingState } from "./mapping.ts";
 
 export type Settings = {
   serverUrl: string;
@@ -54,9 +55,12 @@ export type Api = {
   getTracks(playlistId?: number): Promise<Track[]>;
   getTrackDetails(trackId: number): Promise<TrackDetails | undefined>;
   getWaveform(trackId: number, type: WaveformType): Promise<Waveform | undefined>;
+  getMapping(): Promise<MappingState>;
+  setMapping(mapping: MappingFile): Promise<MappingFile>;
   onSettings(listener: (settings: Settings) => void): () => void;
   onStatus(listener: (status: DaemonStatus) => void): () => void;
   onLog(listener: (entry: LogEntry) => void): () => void;
+  onMapping(listener: (state: MappingState) => void): () => void;
 };
 
 export const channels = {
@@ -74,4 +78,7 @@ export const channels = {
   getTracks: "library:get-tracks",
   getTrackDetails: "library:get-track-details",
   getWaveform: "library:get-waveform",
+  getMapping: "mapping:get",
+  setMapping: "mapping:set",
+  mapping: "mapping:changed",
 } as const;
