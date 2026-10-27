@@ -658,11 +658,11 @@ export function AnimationLane({
       : getSnap(beat, getSnapTargets(savedCues, undefined, mixxxCues, beats), measured.laneScale);
     const section = drag?.section ?? 0;
     const length = animation && getNaturalBeats(animation, section, getBpm(beats, beat), fps);
-    const range = getGapRange(savedCues, beat, length, track);
-    if (!range) {
+    const gap = getGapRange(savedCues, beat, length, track);
+    if (!gap) {
       return undefined;
     }
-    const ghostBeat = getClampedBeat(snap.beat, range);
+    const ghostBeat = getClampedBeat(snap.beat, gap);
     const stop = savedCues.find((cue) => cue.beat > ghostBeat)?.beat ?? track.max;
     const end =
       animation && getDropEnd(animation, section, ghostBeat, stop, getBpm(beats, ghostBeat), fps);
@@ -671,7 +671,7 @@ export function AnimationLane({
       stop,
       end,
       name,
-      snap: ghostBeat === snap.beat ? snap.target : ghostBeat === range.min ? ghostBeat : end,
+      snap: ghostBeat === snap.beat ? snap.target : ghostBeat === gap.min ? ghostBeat : end,
       replace: undefined,
     };
   }
