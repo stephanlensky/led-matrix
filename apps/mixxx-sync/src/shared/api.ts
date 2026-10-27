@@ -1,4 +1,5 @@
 import type { Output } from "@led-matrix/core";
+import type { Playlist, Track, TrackDetails, Waveform, WaveformType } from "./library.ts";
 
 export type Settings = {
   serverUrl: string;
@@ -49,6 +50,10 @@ export type Api = {
   getLog(): Promise<LogEntry[]>;
   start(): Promise<void>;
   stop(): Promise<void>;
+  getPlaylists(): Promise<Playlist[]>;
+  getTracks(playlistId?: number): Promise<Track[]>;
+  getTrackDetails(trackId: number): Promise<TrackDetails | undefined>;
+  getWaveform(trackId: number, type: WaveformType): Promise<Waveform | undefined>;
   onSettings(listener: (settings: Settings) => void): () => void;
   onStatus(listener: (status: DaemonStatus) => void): () => void;
   onLog(listener: (entry: LogEntry) => void): () => void;
@@ -65,4 +70,8 @@ export const channels = {
   stop: "daemon:stop",
   status: "daemon:status",
   log: "daemon:log",
+  getPlaylists: "library:get-playlists",
+  getTracks: "library:get-tracks",
+  getTrackDetails: "library:get-track-details",
+  getWaveform: "library:get-waveform",
 } as const;

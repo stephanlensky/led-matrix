@@ -8,7 +8,9 @@ import {
   channels,
   daemonSettingKeys,
 } from "../shared/api.ts";
+import type { WaveformType } from "../shared/library.ts";
 import { createDaemon } from "./daemon.ts";
+import { createMixxxLibrary } from "./mixxx-library.ts";
 import { getDefaultSettings, getStoredSettings, setStoredSettings } from "./settings.ts";
 
 const settingsPath = join(app.getPath("userData"), "settings.json");
@@ -32,6 +34,7 @@ function log(message: string): void {
   send(channels.log, entry);
 }
 
+const library = createMixxxLibrary(() => settings.mixxxDatabasePath);
 const daemon = createDaemon({ log, onStatus: (status) => send(channels.status, status) });
 
 ipcMain.handle(channels.getSettings, () => settings);
@@ -67,6 +70,14 @@ ipcMain.handle(channels.getStatus, () => daemon.getStatus());
 ipcMain.handle(channels.getLog, () => logEntries);
 ipcMain.handle(channels.start, () => daemon.start(settings));
 ipcMain.handle(channels.stop, () => daemon.stop());
+ipcMain.handle(channels.getPlaylists, () => library.getPlaylists());
+ipcMain.handle(channels.getTracks, (_event, playlistId?: number) => library.getTracks(playlistId));
+ipcMain.handle(channels.getTrackDetails, (_event, trackId: number) =>
+  library.getTrackDetails(trackId),
+);
+ipcMain.handle(channels.getWaveform, (_event, trackId: number, type: WaveformType) =>
+  library.getTrackWaveform(trackId, type),
+);
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -96,5 +107,6 @@ app.on("activate", () => {
 
 app.on("window-all-closed", () => {
   daemon.stop();
+  library.close();
   app.quit();
 });
