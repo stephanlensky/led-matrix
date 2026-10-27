@@ -128,11 +128,11 @@ function createWindow(): void {
     width,
     height,
     backgroundColor: "#0a0a0a",
-    autoHideMenuBar: true,
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/index.cjs"),
     },
   });
+  window.setMenuBarVisibility(false);
   if (isMaximized) {
     window.maximize();
   }
