@@ -326,6 +326,11 @@ function Block({
             {block.animation.name}
           </span>
           {hasSections && <SectionLabel block={block} section={block.section} />}
+          {block.preset !== null && (
+            <span className="truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 text-white/80">
+              {block.preset}
+            </span>
+          )}
         </div>
         {block.hasEnd && <div className="absolute inset-y-0 right-0 w-0.5 bg-white/80" />}
         {live && !live.isBlank && <LiveOutline />}
@@ -575,6 +580,7 @@ export function AnimationLane({
         beat,
         animation: drag.animationId,
         ...(section === undefined ? {} : { section }),
+        ...(drag.preset === undefined ? {} : { preset: drag.preset }),
         ...(end === undefined ? {} : { end }),
       }),
     );

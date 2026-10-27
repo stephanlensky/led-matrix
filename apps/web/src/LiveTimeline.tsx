@@ -4,10 +4,11 @@ import {
   type SectionPlayback,
   type StoredAnimation,
   getFittedAnimation,
+  getPresetAnimation,
   getSectionPosition,
 } from "@led-matrix/core";
 import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api.ts";
 import { Timeline, type TimelinePosition } from "@led-matrix/ui/components/timeline";
 import { Button } from "@led-matrix/ui/components/button";
@@ -38,7 +39,9 @@ export function LiveTimeline({ output, state, animations }: LiveTimelineProps) {
   const [error, setError] = useState<string>();
   const pendingSeek = useRef<SeekTarget>(undefined);
   const isSeeking = useRef(false);
-  const animation = animations.find(({ id }) => id === state?.animationId);
+  const source = animations.find(({ id }) => id === state?.animationId);
+  const preset = state?.preset;
+  const animation = useMemo(() => source && getPresetAnimation(source, preset), [source, preset]);
   const isPaused = state?.paused ?? false;
 
   useEffect(() => {

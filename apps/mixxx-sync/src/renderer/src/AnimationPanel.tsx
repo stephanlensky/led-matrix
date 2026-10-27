@@ -1,4 +1,12 @@
 import type { StoredAnimation } from "@led-matrix/core";
+import { Label } from "@led-matrix/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@led-matrix/ui/components/select";
 import { AnimationList } from "@led-matrix/ui/components/animation-list";
 import { ListEmpty } from "@led-matrix/ui/components/list-row";
 import type { ApiClient } from "@led-matrix/ui/lib/api";
@@ -15,15 +23,53 @@ export function useAnimations(api: ApiClient): LoadState<StoredAnimation[]> {
   return useLoad(load);
 }
 
+export type CuePreset = {
+  animation: StoredAnimation;
+  preset: string | undefined;
+  onChange: (preset: string) => void;
+};
+
+function CuePresetSelect({ animation, preset, onChange }: CuePreset) {
+  const value = preset ?? animation.presets?.[0]?.name ?? null;
+  return (
+    <div className="flex items-center gap-3 border-t px-3 py-2">
+      <Label htmlFor="cue-preset" className="shrink-0 text-xs text-muted-foreground">
+        Cue preset
+      </Label>
+      <Select
+        value={value}
+        onValueChange={(next: string | null) => {
+          if (next !== null) {
+            onChange(next);
+          }
+        }}
+      >
+        <SelectTrigger id="cue-preset" size="sm" className="min-w-0 flex-1">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {animation.presets?.map(({ name }) => (
+            <SelectItem key={name} value={name}>
+              {name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 export function AnimationPanel({
   animations,
   simulator,
   preview,
+  cuePreset,
   onPreviewChange,
 }: {
   animations: LoadState<StoredAnimation[]>;
   simulator: ReactNode;
   preview: AnimationPreview | undefined;
+  cuePreset: CuePreset | undefined;
   onPreviewChange: (preview: AnimationPreview | undefined) => void;
 }) {
   const asideRef = useRef<HTMLElement>(null);
@@ -48,12 +94,18 @@ export function AnimationPanel({
         animations={animations.value}
         activeId={preview?.animationId}
         activeSection={preview?.section}
-        onPlay={(animationId) => onPreviewChange({ animationId, section: undefined })}
-        onSelectSection={(section) =>
-          preview && onPreviewChange({ animationId: preview.animationId, section })
+        activePreset={preview?.preset}
+        onPlay={(animationId) =>
+          onPreviewChange({ animationId, section: undefined, preset: undefined })
         }
-        onDragStart={(event, animationId, section) =>
-          setCueDrag(event, section === undefined ? { animationId } : { animationId, section })
+        onSelectSection={(section) => preview && onPreviewChange({ ...preview, section })}
+        onSelectPreset={(preset) => preview && onPreviewChange({ ...preview, preset })}
+        onDragStart={(event, { animationId, section, preset }) =>
+          setCueDrag(event, {
+            animationId,
+            ...(section === undefined ? {} : { section }),
+            ...(preset === undefined ? {} : { preset }),
+          })
         }
       />
     );
@@ -76,6 +128,7 @@ export function AnimationPanel({
           className="bottom-0 translate-y-1/2"
         />
       </div>
+      {cuePreset && <CuePresetSelect {...cuePreset} />}
       <h3 className="border-y px-3 py-2 text-sm font-medium">Animations</h3>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{getList()}</div>
     </aside>

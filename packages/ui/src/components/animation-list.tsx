@@ -5,6 +5,7 @@ import {
   getEffect,
   getFolderAncestors,
   getFolderTree,
+  getPresetColors,
 } from "@led-matrix/core";
 import { ChevronRightIcon, FolderIcon, MoveRightIcon, PlayIcon, RepeatIcon } from "lucide-react";
 import { type DragEvent, type ReactNode, useMemo, useState } from "react";
@@ -17,17 +18,21 @@ type AnimationListProps = {
   animations: readonly StoredAnimation[];
   activeId: string | null | undefined;
   activeSection: number | undefined;
+  activePreset?: string | null | undefined;
   onPlay: (id: string) => void;
   onSelectSection: (index: number) => void;
+  onSelectPreset?: (name: string) => void;
   onDragStart?: AnimationDragHandler;
   isExpanded?: boolean;
 };
 
-export type AnimationDragHandler = (
-  event: DragEvent<HTMLElement>,
-  animationId: string,
-  section: number | undefined,
-) => void;
+export type AnimationDrag = {
+  animationId: string;
+  section: number | undefined;
+  preset: string | undefined;
+};
+
+export type AnimationDragHandler = (event: DragEvent<HTMLElement>, drag: AnimationDrag) => void;
 
 function getDetailLabel({ sections }: StoredAnimation): string {
   const [first] = sections;
@@ -69,6 +74,7 @@ type SectionListProps = {
   depth: number;
   isExpanded: boolean;
   activeSection: number | undefined;
+  preset: string | undefined;
   onSelect: (index: number) => void;
   onDragStart: AnimationDragHandler | undefined;
 };
@@ -78,6 +84,7 @@ function SectionList({
   depth,
   isExpanded,
   activeSection,
+  preset,
   onSelect,
   onDragStart,
 }: SectionListProps) {
@@ -94,7 +101,9 @@ function SectionList({
                 aria-pressed={isActive}
                 onClick={() => onSelect(index)}
                 draggable={onDragStart !== undefined}
-                onDragStart={(event) => onDragStart?.(event, animation.id, index)}
+                onDragStart={(event) =>
+                  onDragStart?.(event, { animationId: animation.id, section: index, preset })
+                }
                 style={{ paddingLeft: getIndent(depth, 2.25) }}
                 className={cn(
                   "flex w-full items-center gap-2 border-l-2 border-foreground py-1.5 pr-3 text-left text-xs text-muted-foreground outline-none hover:bg-muted focus-visible:bg-muted",
@@ -109,6 +118,66 @@ function SectionList({
           );
         })}
       </ol>
+    </Collapse>
+  );
+}
+
+type PresetListProps = {
+  animation: StoredAnimation;
+  depth: number;
+  isExpanded: boolean;
+  activePreset: string | undefined;
+  onSelect: ((name: string) => void) | undefined;
+  onDragStart: AnimationDragHandler | undefined;
+};
+
+function PresetList({
+  animation,
+  depth,
+  isExpanded,
+  activePreset,
+  onSelect,
+  onDragStart,
+}: PresetListProps) {
+  return (
+    <Collapse isExpanded={isExpanded}>
+      <div
+        className="flex flex-wrap gap-1 border-l-2 border-foreground bg-muted/40 py-1.5 pr-3"
+        style={{ paddingLeft: getIndent(depth, 2.25) }}
+      >
+        {animation.presets?.map((preset) => (
+          <button
+            key={preset.name}
+            type="button"
+            aria-pressed={preset.name === activePreset}
+            disabled={!onSelect}
+            onClick={() => onSelect?.(preset.name)}
+            draggable={onDragStart !== undefined}
+            onDragStart={(event) =>
+              onDragStart?.(event, {
+                animationId: animation.id,
+                section: undefined,
+                preset: preset.name,
+              })
+            }
+            className={cn(
+              "flex items-center gap-1.5 rounded-sm border border-transparent px-1.5 py-0.5 text-xs text-muted-foreground outline-none hover:bg-muted focus-visible:bg-muted",
+              preset.name === activePreset && "border-border bg-background text-foreground",
+            )}
+          >
+            <span className="flex">
+              {getPresetColors(preset).map((color) => (
+                <span
+                  key={color}
+                  className="-ml-0.5 size-2.5 rounded-full border border-foreground/20 first:ml-0"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </span>
+            {preset.name}
+          </button>
+        ))}
+      </div>
     </Collapse>
   );
 }
@@ -128,8 +197,10 @@ function FolderContents(props: FolderContentsProps) {
     onToggleFolder,
     activeId,
     activeSection,
+    activePreset,
     onPlay,
     onSelectSection,
+    onSelectPreset,
     onDragStart,
   } = props;
   return (
@@ -165,6 +236,7 @@ function FolderContents(props: FolderContentsProps) {
       })}
       {folder.animations.map((animation) => {
         const isActive = animation.id === activeId;
+        const preset = isActive ? (activePreset ?? undefined) : undefined;
         return (
           <li key={animation.id}>
             <ListRow
@@ -175,14 +247,29 @@ function FolderContents(props: FolderContentsProps) {
               subtitle={getEffectsLabel(animation)}
               detail={getDetailLabel(animation)}
               onClick={() => onPlay(animation.id)}
-              onDragStart={onDragStart && ((event) => onDragStart(event, animation.id, undefined))}
+              onDragStart={
+                onDragStart &&
+                ((event) =>
+                  onDragStart(event, { animationId: animation.id, section: undefined, preset }))
+              }
             />
+            {(animation.presets?.length ?? 0) > 1 && (
+              <PresetList
+                animation={animation}
+                depth={depth}
+                isExpanded={isActive}
+                activePreset={preset ?? animation.presets?.[0]?.name}
+                onSelect={onSelectPreset}
+                onDragStart={onDragStart}
+              />
+            )}
             {animation.sections.length > 1 && (
               <SectionList
                 animation={animation}
                 depth={depth}
                 isExpanded={isActive}
                 activeSection={isActive ? activeSection : undefined}
+                preset={preset}
                 onSelect={onSelectSection}
                 onDragStart={onDragStart}
               />

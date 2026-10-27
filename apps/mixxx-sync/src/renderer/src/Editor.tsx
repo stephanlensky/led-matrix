@@ -1,16 +1,17 @@
-import { createRenderer } from "@led-matrix/core";
+import { type StoredAnimation, createRenderer } from "@led-matrix/core";
 import { createApiClient } from "@led-matrix/ui/lib/api";
 import { browserCanvas } from "@led-matrix/ui/lib/browser-canvas";
 import { ClipsContext, createBrowserClips } from "@led-matrix/ui/lib/clips";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { Settings } from "../../shared/api.ts";
 import type { AnimationSource, CueSelection, LaneEditor } from "./AnimationLane.tsx";
-import { AnimationPanel, useAnimations } from "./AnimationPanel.tsx";
+import { AnimationPanel, type CuePreset, useAnimations } from "./AnimationPanel.tsx";
 import { LibraryNav } from "./LibraryNav.tsx";
 import { type AnimationPreview, PlaybackSimulator } from "./Playback.tsx";
 import { ResizeHandle, useStoredSize } from "./ResizeHandle.tsx";
 import { getNudgedBeat } from "../../shared/lane-edit.ts";
-import { moveCue, removeCue } from "../../shared/mapping-edits.ts";
+import { type MappingFile, getExplicitCues } from "../../shared/mapping.ts";
+import { moveCue, removeCue, setCuePreset } from "../../shared/mapping-edits.ts";
 import { BEATS_PER_BAR } from "../../shared/track-scale.ts";
 import { type Player, createPlayer } from "./player.ts";
 import { type LiveTrack, TrackList } from "./TrackList.tsx";
@@ -62,6 +63,7 @@ function useEditorKeys(
 
 type EditorActions = {
   remove: () => void;
+  setPreset: (preset: string) => void;
   nudge: (delta: number) => void;
   undo: () => boolean;
   redo: () => boolean;
@@ -79,6 +81,11 @@ function useLaneEditor(mapping: MappingEditor): LaneEditor & EditorActions {
         if (selection) {
           update((current) => removeCue(current, selection.location, selection.index));
           setSelection(undefined);
+        }
+      },
+      setPreset(preset) {
+        if (selection) {
+          update((current) => setCuePreset(current, selection.location, selection.index, preset));
         }
       },
       nudge(delta) {
@@ -99,6 +106,21 @@ function useLaneEditor(mapping: MappingEditor): LaneEditor & EditorActions {
     }),
     [file, update, undo, redo, selection],
   );
+}
+
+function getCuePreset(
+  editor: LaneEditor & EditorActions,
+  file: MappingFile | undefined,
+  animationsById: ReadonlyMap<string, StoredAnimation> | undefined,
+): CuePreset | undefined {
+  const { selection, setPreset } = editor;
+  const cues = selection && file?.tracks[selection.location];
+  const cue = cues && getExplicitCues(cues)[selection.index];
+  const animation = cue && animationsById?.get(cue.animation);
+  if (!cue || !animation || (animation.presets?.length ?? 0) < 2) {
+    return undefined;
+  }
+  return { animation, preset: cue.preset, onChange: setPreset };
 }
 
 function useLiveTrack(): LiveTrack | undefined {
@@ -178,6 +200,7 @@ function EditorContent({ settings }: { settings: Settings }) {
   const player = usePlayer();
   const editor = useLaneEditor(mapping);
   const [preview, setPreview] = useState<AnimationPreview>();
+  const cuePreset = getCuePreset(editor, mapping.mapping, source.animationsById);
   const live = useLiveTrack();
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -253,6 +276,7 @@ function EditorContent({ settings }: { settings: Settings }) {
         <AnimationPanel
           animations={animations}
           preview={preview}
+          cuePreset={cuePreset}
           onPreviewChange={setPreview}
           simulator={
             <PlaybackSimulator

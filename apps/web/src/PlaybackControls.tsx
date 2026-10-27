@@ -109,8 +109,10 @@ export const PlaybackControls = memo(function PlaybackControls({
             isExpanded={query.trim() !== ""}
             activeId={state?.animationId}
             activeSection={state?.section?.index}
+            activePreset={state?.preset}
             onPlay={(id) => run(() => api.play(output, id))}
             onSelectSection={(index) => run(() => api.seek(output, index, 0))}
+            onSelectPreset={(preset) => run(() => api.setPreset(output, preset))}
           />
         </div>
       </div>

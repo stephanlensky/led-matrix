@@ -1,7 +1,13 @@
 import { z } from "zod";
-import { type Cue, type MappingFile, cuesSchema } from "./mapping.ts";
+import {
+  type Cue,
+  type ExplicitCue,
+  type MappingFile,
+  cuesSchema,
+  getExplicitCues,
+} from "./mapping.ts";
 
-export type AnimationCue = Cue & { animation: string };
+export type AnimationCue = ExplicitCue;
 
 export type CueRange = {
   beat: number;
@@ -11,14 +17,6 @@ export type CueRange = {
 function getCueWithEnd(cue: AnimationCue, end: number | undefined): AnimationCue {
   const { end: _end, ...rest } = cue;
   return end === undefined ? rest : { ...rest, end };
-}
-
-function getExplicitCues(cues: readonly Cue[]): AnimationCue[] {
-  let animation = "";
-  return cues.map((cue) => {
-    animation = cue.animation ?? animation;
-    return { ...cue, animation };
-  });
 }
 
 function getTrackCues(file: MappingFile, location: string): AnimationCue[] {
@@ -84,6 +82,18 @@ export function resizeCue(
 ): MappingFile {
   const cues = getTrackCues(file, location);
   cues[index] = getCueWithEnd({ ...getCueAt(cues, index), beat }, end);
+  return setTrackCues(file, location, cues);
+}
+
+export function setCuePreset(
+  file: MappingFile,
+  location: string,
+  index: number,
+  preset: string | undefined,
+): MappingFile {
+  const cues = getTrackCues(file, location);
+  const { preset: _preset, ...cue } = getCueAt(cues, index);
+  cues[index] = preset === undefined ? cue : { ...cue, preset };
   return setTrackCues(file, location, cues);
 }
 

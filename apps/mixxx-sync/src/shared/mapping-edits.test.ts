@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { MappingFile } from "./mapping.ts";
-import { addCue, clearCueEnd, moveCue, removeCue, resizeCue } from "./mapping-edits.ts";
+import {
+  addCue,
+  clearCueEnd,
+  moveCue,
+  removeCue,
+  resizeCue,
+  setCuePreset,
+} from "./mapping-edits.ts";
 
 const location = "/music/a.flac";
 
@@ -118,5 +125,31 @@ describe("clearCueEnd", () => {
       animation: "cat",
       section: "Spawn",
     });
+  });
+});
+
+describe("setCuePreset", () => {
+  it("sets the preset and keeps it on cues that inherited it", () => {
+    const presets: MappingFile = {
+      tracks: {
+        [location]: [
+          { beat: 0, animation: "strobe", preset: "White" },
+          { beat: 16, section: 1 },
+        ],
+      },
+    };
+    expect(setCuePreset(presets, location, 0, "Orange").tracks[location]).toEqual([
+      { beat: 0, animation: "strobe", preset: "Orange" },
+      { beat: 16, animation: "strobe", section: 1, preset: "White" },
+    ]);
+  });
+
+  it("removes the preset", () => {
+    const presets: MappingFile = {
+      tracks: { [location]: [{ beat: 0, animation: "strobe", preset: "White" }] },
+    };
+    expect(setCuePreset(presets, location, 0, undefined).tracks[location]).toEqual([
+      { beat: 0, animation: "strobe" },
+    ]);
   });
 });

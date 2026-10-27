@@ -29,7 +29,32 @@ const strobe = animationSchema.parse({
   layers: [{ effect: "strobe", params: { duty: 0.5 } }],
 });
 
+const presetStrobe = animationSchema.parse({
+  name: "Preset strobe",
+  presets: [
+    { name: "White", values: { color: "#ffffff" } },
+    { name: "Red", values: { color: "#ff0000" } },
+  ],
+  mode: { type: "loop", beats: 4 },
+  layers: [{ effect: "strobe", params: { color: { preset: "color" }, duty: 0.5 } }],
+});
+
 describe("playback engine", () => {
+  it("renders the selected preset and keeps it across animation updates", () => {
+    const { engine } = createEngine();
+    engine.play("strobe", presetStrobe, { preset: "Red" });
+    expect(engine.getState().preset).toBe("Red");
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 0, 0]);
+    engine.updateAnimation("strobe", { ...presetStrobe, name: "Renamed" });
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 0, 0]);
+    engine.updateAnimation("strobe", {
+      ...presetStrobe,
+      presets: presetStrobe.presets?.slice(0, 1),
+    });
+    expect(engine.getState().preset).toBe("White");
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 255, 255]);
+  });
+
   it("renders black frames while idle", () => {
     const { engine } = createEngine();
     expect(engine.renderFrame().every((value) => value === 0)).toBe(true);
@@ -71,7 +96,7 @@ describe("playback engine", () => {
       mode: { type: "once", ms: 1000 },
       layers: [{ effect: "solid" }],
     });
-    engine.play("clip", clip, 0, 0, 4);
+    engine.play("clip", clip, { beats: 4 });
     expect(engine.getState().fit).toEqual({ section: 0, beats: 4 });
     clock.time = 1000;
     engine.renderFrame();
@@ -88,7 +113,7 @@ describe("playback engine", () => {
   it("starts and resyncs at a beat position", () => {
     const { clock, engine } = createEngine();
     clock.time = 1000;
-    engine.play("strobe", strobe, 2.5);
+    engine.play("strobe", strobe, { beat: 2.5 });
     expect(engine.getState().beat).toBe(2.5);
     expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
     clock.time = 1500;
@@ -125,6 +150,7 @@ describe("playback engine", () => {
     engine.tick();
     expect(setState).toHaveBeenCalledWith({
       animationId: "strobe",
+      preset: null,
       bpm: 120,
       fps: 30,
       beat: 0,

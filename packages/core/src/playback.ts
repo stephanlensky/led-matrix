@@ -12,6 +12,7 @@ export const sectionStateSchema = z.object({
 
 export const playbackStateSchema = z.object({
   animationId: z.string().nullable(),
+  preset: z.string().nullable(),
   bpm: z.number(),
   fps: z.number(),
   beat: z.number().nullable(),

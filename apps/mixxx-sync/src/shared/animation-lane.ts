@@ -3,6 +3,8 @@ import {
   type SectionFit,
   type StoredAnimation,
   getAnimationLength,
+  getPresetAnimation,
+  getPresetName,
   getRenderPosition,
 } from "@led-matrix/core";
 import { type Beats, getBeat, getBpm } from "./beats.ts";
@@ -14,6 +16,8 @@ export type SectionBoundary = { beat: number; section: number };
 export type AnimationBlock = {
   index: number;
   animation: StoredAnimation;
+  source: StoredAnimation;
+  preset: string | null;
   section: number;
   bpm: number;
   beat: number;
@@ -80,10 +84,11 @@ export function getAnimationLane(
   const trackEnd = getBeat(beats, duration);
   const sectionCues = resolved.cues.filter((cue): cue is SectionCue => cue.animationId !== null);
   const blocks = sectionCues.flatMap((cue, index): AnimationBlock[] => {
-    const animation = animationsById.get(cue.animationId);
-    if (!animation) {
+    const source = animationsById.get(cue.animationId);
+    if (!source) {
       return [];
     }
+    const animation = getPresetAnimation(source, cue.preset);
     const stop = Math.max(sectionCues[index + 1]?.beat ?? trackEnd, cue.beat);
     const cueEnd = cues[index]?.end;
     const hasEnd = cueEnd !== undefined && cueEnd < stop;
@@ -94,6 +99,8 @@ export function getAnimationLane(
       {
         index,
         animation,
+        source,
+        preset: (source.presets?.length ?? 0) > 1 ? getPresetName(source, cue.preset) : null,
         section: cue.section,
         bpm,
         beat: cue.beat,
@@ -113,7 +120,8 @@ export function getAnimationLane(
 
 export function isSameRender(a: AnimationBlock, b: AnimationBlock): boolean {
   return (
-    a.animation === b.animation &&
+    a.source === b.source &&
+    a.preset === b.preset &&
     a.section === b.section &&
     a.bpm === b.bpm &&
     a.beat === b.beat &&

@@ -1,4 +1,9 @@
-import { type ClipInfo, type ParamField, keyframeTrackSchema } from "@led-matrix/core";
+import {
+  type ClipInfo,
+  type ParamField,
+  getPresetReference,
+  keyframeTrackSchema,
+} from "@led-matrix/core";
 import { Button } from "@led-matrix/ui/components/button";
 import { Input } from "@led-matrix/ui/components/input";
 import { Label } from "@led-matrix/ui/components/label";
@@ -16,6 +21,7 @@ import { Textarea } from "@led-matrix/ui/components/textarea";
 type ParamControlProps = {
   field: ParamField;
   value: unknown;
+  presetValues: Readonly<Record<string, unknown>>;
   clips: readonly ClipInfo[];
   error: string | undefined;
   onChange: (value: unknown) => void;
@@ -213,16 +219,32 @@ function getControl(
   );
 }
 
-export function ParamControl({ field, value, clips, error, onChange }: ParamControlProps) {
+export function ParamControl({
+  field,
+  value,
+  presetValues,
+  clips,
+  error,
+  onChange,
+}: ParamControlProps) {
   const id = `param-${field.key}`;
-  const track = keyframeTrackSchema.safeParse(value);
-  const isInline = field.type === "boolean" && !track.success;
+  const reference = getPresetReference(value);
+  const resolved = reference === undefined ? value : presetValues[reference];
+  const track = keyframeTrackSchema.safeParse(resolved);
+  const isInline = field.type === "boolean" && !track.success && reference === undefined;
 
   return (
     <div className={isInline ? "flex items-center justify-between gap-4" : "flex flex-col gap-1.5"}>
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
-        {field.label}
-      </Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={id} className="text-xs text-muted-foreground">
+          {field.label}
+        </Label>
+        {reference !== undefined && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            Preset · <span className="font-mono">{reference}</span>
+          </span>
+        )}
+      </div>
       {track.success ? (
         <div className="flex items-center justify-between gap-2 rounded-md border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground">
           <span>Animated · {track.data.keyframes.length} keyframes</span>
@@ -236,7 +258,7 @@ export function ParamControl({ field, value, clips, error, onChange }: ParamCont
           </Button>
         </div>
       ) : (
-        getControl(id, field, value, clips, onChange)
+        getControl(id, field, resolved, clips, onChange)
       )}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

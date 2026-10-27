@@ -53,8 +53,17 @@ export function createApiClient(baseUrl: string) {
       return request(z.array(storedAnimationSchema), "GET", `${baseUrl}/api/animations`);
     },
 
-    play(output: Output, id: string): Promise<PlaybackState> {
-      return request(playbackStateSchema, "POST", `${baseUrl}/api/outputs/${output}/play`, { id });
+    play(output: Output, id: string, preset?: string): Promise<PlaybackState> {
+      return request(playbackStateSchema, "POST", `${baseUrl}/api/outputs/${output}/play`, {
+        id,
+        preset,
+      });
+    },
+
+    setPreset(output: Output, preset: string): Promise<PlaybackState> {
+      return request(playbackStateSchema, "POST", `${baseUrl}/api/outputs/${output}/preset`, {
+        preset,
+      });
     },
 
     seek(output: Output, section: number, progress: number): Promise<PlaybackState> {

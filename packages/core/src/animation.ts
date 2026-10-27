@@ -2,6 +2,13 @@ import { z } from "zod";
 import { blendModes } from "./blend.ts";
 import { getEffect } from "./effects/index.ts";
 import { resolveParams } from "./keyframes.ts";
+import {
+  type Preset,
+  getPresetParams,
+  getPresetReference,
+  getPresetValues,
+  presetsSchema,
+} from "./presets.ts";
 
 export const modeTypes = ["loop", "once"] as const;
 
@@ -22,24 +29,12 @@ export const layerSchema = z
     antialias: z.boolean().optional(),
   })
   .superRefine((layer, context) => {
-    const effect = getEffect(layer.effect);
-    if (!effect) {
+    if (!getEffect(layer.effect)) {
       context.addIssue({
         code: "custom",
         path: ["effect"],
         message: `Unknown effect "${layer.effect}"`,
       });
-      return;
-    }
-    const issues = new Map<string, z.core.$ZodIssue>();
-    for (const progress of [0, 1]) {
-      for (const issue of effect.params.safeParse(resolveParams(layer.params, progress)).error
-        ?.issues ?? []) {
-        issues.set(JSON.stringify([issue.path, issue.message]), issue);
-      }
-    }
-    for (const issue of issues.values()) {
-      context.addIssue({ code: "custom", path: ["params", ...issue.path], message: issue.message });
     }
   });
 
@@ -64,29 +59,85 @@ export const folderSchema = z
   .transform((folder) => getFolderPath(folder).join(FOLDER_SEPARATOR) || undefined)
   .optional();
 
-export const animationObjectSchema = z.object({
-  name: z.string().min(1).max(100),
-  folder: folderSchema,
-  sections: z
-    .array(sectionSchema)
-    .min(1)
-    .superRefine((sections, context) => {
-      const names = new Set<string>();
-      for (const [index, { name }] of sections.entries()) {
-        if (name === undefined) {
+type LayerIssue = { path: PropertyKey[]; message: string };
+
+function getLayerIssues(
+  layer: z.output<typeof layerSchema>,
+  presets: readonly Preset[] | undefined,
+): LayerIssue[] {
+  const effect = getEffect(layer.effect);
+  if (!effect) {
+    return [];
+  }
+  const defaults = getPresetValues({ presets }, undefined);
+  const missing = Object.entries(layer.params).flatMap(([key, value]) => {
+    const reference = getPresetReference(value);
+    return reference === undefined || reference in defaults ? [] : [{ key, reference }];
+  });
+  const issues = new Map<string, LayerIssue>(
+    missing.map(({ key, reference }) => [
+      JSON.stringify([key]),
+      { path: ["params", key], message: `Preset value "${reference}" is not defined` },
+    ]),
+  );
+  const names = presets?.length ? presets.map(({ name }) => name) : [undefined];
+  for (const name of names) {
+    const params = getPresetParams(layer.params, getPresetValues({ presets }, name));
+    for (const progress of [0, 1]) {
+      for (const issue of effect.params.safeParse(resolveParams(params, progress)).error?.issues ??
+        []) {
+        if (missing.some(({ key }) => key === issue.path[0])) {
           continue;
         }
-        if (names.has(name)) {
+        const key = JSON.stringify(issue.path);
+        const suffix = name === undefined ? "" : ` (preset "${name}")`;
+        if (!issues.has(key)) {
+          issues.set(key, { path: ["params", ...issue.path], message: issue.message + suffix });
+        }
+      }
+    }
+  }
+  return [...issues.values()];
+}
+
+export const animationObjectSchema = z
+  .object({
+    name: z.string().min(1).max(100),
+    folder: folderSchema,
+    presets: presetsSchema.optional(),
+    sections: z
+      .array(sectionSchema)
+      .min(1)
+      .superRefine((sections, context) => {
+        const names = new Set<string>();
+        for (const [index, { name }] of sections.entries()) {
+          if (name === undefined) {
+            continue;
+          }
+          if (names.has(name)) {
+            context.addIssue({
+              code: "custom",
+              path: [index, "name"],
+              message: `Duplicate section name "${name}"`,
+            });
+          }
+          names.add(name);
+        }
+      }),
+  })
+  .superRefine((animation, context) => {
+    for (const [sectionIndex, section] of animation.sections.entries()) {
+      for (const [layerIndex, layer] of section.layers.entries()) {
+        for (const { path, message } of getLayerIssues(layer, animation.presets)) {
           context.addIssue({
             code: "custom",
-            path: [index, "name"],
-            message: `Duplicate section name "${name}"`,
+            path: ["sections", sectionIndex, "layers", layerIndex, ...path],
+            message,
           });
         }
-        names.add(name);
       }
-    }),
-});
+    }
+  });
 
 export const animationIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 
@@ -110,7 +161,7 @@ export const animationSchema = z.preprocess(getSectionedAnimation, animationObje
 
 export const storedAnimationSchema = z.preprocess(
   getSectionedAnimation,
-  animationObjectSchema.extend({ id: animationIdSchema }),
+  animationObjectSchema.safeExtend({ id: animationIdSchema }),
 );
 
 export type AnimationMode = z.infer<typeof animationModeSchema>;

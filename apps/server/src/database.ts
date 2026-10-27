@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { deflateSync, inflateSync } from "node:zlib";
 import { encodeClipFrames, getSectionedAnimation } from "@led-matrix/core";
 import { z } from "zod";
+import { replacedSeedIds } from "./seeds.ts";
 
 const IN_MEMORY_PATH = ":memory:";
 
@@ -41,6 +42,13 @@ function updateAnimationSections(connection: DatabaseSync) {
   }
 }
 
+function removeReplacedSeeds(connection: DatabaseSync) {
+  const remove = connection.prepare("DELETE FROM animations WHERE id = ?");
+  for (const id of replacedSeedIds) {
+    remove.run(id);
+  }
+}
+
 const migrations: readonly Migration[] = [
   `
   CREATE TABLE animations (
@@ -61,6 +69,7 @@ const migrations: readonly Migration[] = [
   compressClipFrames,
   encodeClipFrameGroups,
   updateAnimationSections,
+  removeReplacedSeeds,
 ];
 
 function getVersion(connection: DatabaseSync): number {

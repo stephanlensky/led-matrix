@@ -15,6 +15,16 @@ const animations: StoredAnimation[] = [
     ],
   }),
   storedAnimationSchema.parse({
+    id: "strobe",
+    name: "Strobe",
+    presets: [
+      { name: "White", values: { color: "#ffffff" } },
+      { name: "Orange", values: { color: "#ff5a00" } },
+    ],
+    mode: { type: "loop", beats: 1 },
+    layers: [{ effect: "strobe", params: { color: { preset: "color" } } }],
+  }),
+  storedAnimationSchema.parse({
     id: "plasma",
     name: "Plasma",
     mode: { type: "loop", beats: 8 },
@@ -39,6 +49,35 @@ describe("mappingSchema", () => {
 });
 
 describe("getResolvedMapping", () => {
+  it("carries the preset over until the animation changes", () => {
+    const file = mappingSchema.parse({
+      tracks: {
+        a: [
+          { beat: 0, animation: "strobe", preset: "Orange" },
+          { beat: 8 },
+          { beat: 16, preset: "White" },
+          { beat: 24, animation: "strobe" },
+        ],
+      },
+    });
+    const cues = getResolvedMapping(file, animations).mapping.get("a") ?? [];
+    expect(cues.map((cue) => ("preset" in cue ? cue.preset : null))).toEqual([
+      "Orange",
+      "Orange",
+      "White",
+      undefined,
+    ]);
+  });
+
+  it("reports unknown presets", () => {
+    const file = mappingSchema.parse({
+      tracks: { a: [{ beat: 0, animation: "strobe", preset: "Missing" }] },
+    });
+    expect(getResolvedMapping(file, animations).errors).toEqual([
+      'a beat 0: preset "Missing" not found in "strobe"',
+    ]);
+  });
+
   it("carries the animation over and resolves section names", () => {
     const file = mappingSchema.parse({
       tracks: {
@@ -53,10 +92,10 @@ describe("getResolvedMapping", () => {
     const { mapping, errors } = getResolvedMapping(file, animations);
     expect(errors).toEqual([]);
     expect(mapping.get("/music/a.flac")).toEqual([
-      { beat: 0, animationId: "cat", section: 0, beats: undefined },
-      { beat: 64, animationId: "cat", section: 1, beats: undefined },
-      { beat: 128, animationId: "plasma", section: 0, beats: undefined },
-      { beat: 192, animationId: "cat", section: 2, beats: undefined },
+      { beat: 0, animationId: "cat", section: 0, preset: undefined, beats: undefined },
+      { beat: 64, animationId: "cat", section: 1, preset: undefined, beats: undefined },
+      { beat: 128, animationId: "plasma", section: 0, preset: undefined, beats: undefined },
+      { beat: 192, animationId: "cat", section: 2, preset: undefined, beats: undefined },
     ]);
   });
 
@@ -86,8 +125,8 @@ describe("cue end", () => {
       },
     });
     expect(getResolvedMapping(file, animations).mapping.get("a")).toEqual([
-      { beat: 8, animationId: "cat", section: 1, beats: 16 },
-      { beat: 24, animationId: "cat", section: 2, beats: undefined },
+      { beat: 8, animationId: "cat", section: 1, preset: undefined, beats: 16 },
+      { beat: 24, animationId: "cat", section: 2, preset: undefined, beats: undefined },
     ]);
   });
 
@@ -113,9 +152,9 @@ describe("cue end", () => {
       },
     });
     expect(getResolvedMapping(file, animations).mapping.get("a")).toEqual([
-      { beat: 0, animationId: "cat", section: 1, beats: 16 },
+      { beat: 0, animationId: "cat", section: 1, preset: undefined, beats: 16 },
       { beat: 16, animationId: null },
-      { beat: 32, animationId: "plasma", section: 0, beats: undefined },
+      { beat: 32, animationId: "plasma", section: 0, preset: undefined, beats: undefined },
       { beat: 64, animationId: null },
     ]);
   });
@@ -128,8 +167,8 @@ describe("cue end", () => {
 
 describe("getCue", () => {
   const cues = [
-    { beat: 8, animationId: "cat", section: 0, beats: undefined },
-    { beat: 32, animationId: "cat", section: 1, beats: undefined },
+    { beat: 8, animationId: "cat", section: 0, preset: undefined, beats: undefined },
+    { beat: 32, animationId: "cat", section: 1, preset: undefined, beats: undefined },
   ];
 
   it("returns the last cue at or before the beat", () => {

@@ -1,4 +1,4 @@
-import { type StoredAnimation, animationIdSchema } from "@led-matrix/core";
+import { type StoredAnimation, animationIdSchema, getPreset } from "@led-matrix/core";
 import { z } from "zod";
 
 export const cueSchema = z
@@ -7,6 +7,7 @@ export const cueSchema = z
     end: z.number().optional(),
     animation: animationIdSchema.optional(),
     section: z.union([z.string(), z.int().min(0)]).optional(),
+    preset: z.string().min(1).optional(),
   })
   .refine(({ beat, end }) => end === undefined || end > beat, {
     path: ["end"],
@@ -48,6 +49,7 @@ export type SectionCue = {
   beat: number;
   animationId: string;
   section: number;
+  preset: string | undefined;
   beats: number | undefined;
 };
 
@@ -68,15 +70,27 @@ function getSectionIndex(animation: StoredAnimation, section: Cue["section"]): n
   return index === -1 ? undefined : index;
 }
 
+export type ExplicitCue = Cue & { animation: string };
+
+export function getExplicitCues(cues: readonly Cue[]): ExplicitCue[] {
+  let animation = "";
+  let preset: string | undefined;
+  return cues.map((cue) => {
+    preset = cue.animation === undefined ? (cue.preset ?? preset) : cue.preset;
+    animation = cue.animation ?? animation;
+    const { preset: _preset, ...rest } = cue;
+    return preset === undefined ? { ...rest, animation } : { ...rest, animation, preset };
+  });
+}
+
 export function getResolvedCues(
   cues: readonly Cue[],
   animationsById: ReadonlyMap<string, StoredAnimation>,
 ): { cues: ResolvedCue[]; errors: string[] } {
   const resolved: ResolvedCue[] = [];
   const errors: string[] = [];
-  let animationId = "";
-  for (const [index, cue] of cues.entries()) {
-    animationId = cue.animation ?? animationId;
+  for (const [index, cue] of getExplicitCues(cues).entries()) {
+    const { animation: animationId, preset } = cue;
     const animation = animationsById.get(animationId);
     if (!animation) {
       errors.push(`beat ${cue.beat}: animation "${animationId}" not found`);
@@ -89,9 +103,13 @@ export function getResolvedCues(
       );
       continue;
     }
+    if (preset !== undefined && !getPreset(animation, preset)) {
+      errors.push(`beat ${cue.beat}: preset "${preset}" not found in "${animationId}"`);
+      continue;
+    }
     const isOnce = animation.sections[section]?.mode.type === "once";
     const beats = cue.end === undefined || !isOnce ? undefined : cue.end - cue.beat;
-    resolved.push({ beat: cue.beat, animationId, section, beats });
+    resolved.push({ beat: cue.beat, animationId, section, preset, beats });
     const next = cues[index + 1];
     if (cue.end !== undefined && (next === undefined || cue.end < next.beat)) {
       resolved.push({ beat: cue.end, animationId: null });

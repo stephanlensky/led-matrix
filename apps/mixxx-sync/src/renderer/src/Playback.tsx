@@ -3,6 +3,7 @@ import {
   type StoredAnimation,
   createFrame,
   getSectionPosition,
+  getPresetAnimation,
 } from "@led-matrix/core";
 import { Button } from "@led-matrix/ui/components/button";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
@@ -22,7 +23,11 @@ const blankFrame = createFrame();
 const FRAME_CLASS = "h-full min-h-0";
 const DEFAULT_BPM = 120;
 
-export type AnimationPreview = { animationId: string; section: number | undefined };
+export type AnimationPreview = {
+  animationId: string;
+  section: number | undefined;
+  preset: string | undefined;
+};
 
 export function PlayButton({ player, track }: { player: Player; track: Track }) {
   const { track: current, isPlaying, error } = usePlayerState(player);
@@ -189,7 +194,12 @@ export function PlaybackSimulator({
   const { track, isPlaying } = usePlayerState(player);
   const cues = track && mapping?.tracks[track.location];
   const isTrackActive = isPlaying && cues !== undefined && cues.length > 0;
-  const previewAnimation = preview && source.animationsById?.get(preview.animationId);
+  const previewSource = preview && source.animationsById?.get(preview.animationId);
+  const previewPreset = preview?.preset;
+  const previewAnimation = useMemo(
+    () => previewSource && getPresetAnimation(previewSource, previewPreset),
+    [previewSource, previewPreset],
+  );
 
   useEffect(() => {
     if (isTrackActive) {
@@ -197,7 +207,7 @@ export function PlaybackSimulator({
     }
   }, [isTrackActive, onPreviewChange]);
 
-  if (previewAnimation && !isTrackActive) {
+  if (preview && previewAnimation && !isTrackActive) {
     return (
       <PreviewSimulator
         animation={previewAnimation}

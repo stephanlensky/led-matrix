@@ -35,6 +35,7 @@ export type PlayRequest = {
   section: number;
   beat: number;
   bpm: number;
+  preset?: string | undefined;
   beats?: number;
 };
 

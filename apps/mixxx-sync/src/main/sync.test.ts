@@ -10,12 +10,14 @@ const location = "/music/a.flac";
 function createFakeServer(clock: { time: number }) {
   const calls: { type: string; body?: unknown }[] = [];
   let animationId: string | null = null;
+  let preset: string | null = null;
   let bpm = 120;
   let startedAt = 0;
 
   function getState(): PlaybackState {
     return {
       animationId,
+      preset,
       bpm,
       fps: 30,
       beat: animationId === null ? null : ((clock.time - startedAt) * bpm) / 60_000,
@@ -35,11 +37,13 @@ function createFakeServer(clock: { time: number }) {
     stop: async () => {
       calls.push({ type: "stop" });
       animationId = null;
+      preset = null;
       return getState();
     },
     play: async (body: PlayRequest) => {
       calls.push({ type: "play", body });
       animationId = body.id;
+      preset = body.preset ?? null;
       bpm = body.bpm;
       setBeat(body.beat);
       return getState();
@@ -63,6 +67,9 @@ function createFakeServer(clock: { time: number }) {
     server,
     calls,
     play: (id: string) => void server.play({ id, section: 0, beat: 0.3, bpm }),
+    setPreset: (name: string) => {
+      preset = name;
+    },
   };
 }
 
@@ -112,8 +119,8 @@ const mapping: Mapping = new Map([
   [
     location,
     [
-      { beat: 16, animationId: "cat", section: 0, beats: undefined },
-      { beat: 64, animationId: "cat", section: 1, beats: 32 },
+      { beat: 16, animationId: "cat", section: 0, preset: undefined, beats: undefined },
+      { beat: 64, animationId: "cat", section: 1, preset: undefined, beats: 32 },
     ],
   ],
 ]);
@@ -150,13 +157,32 @@ describe("sync", () => {
 
   it("plays a cue on the beat before the track starts", async () => {
     const leadIn: Mapping = new Map([
-      [location, [{ beat: -1, animationId: "bad-apple", section: 0, beats: 688 }]],
+      [
+        location,
+        [{ beat: -1, animationId: "bad-apple", section: 0, preset: undefined, beats: 688 }],
+      ],
     ]);
     const { fake, update } = createHarness(leadIn);
     await update([{ beat: -0.75 }]);
     expect(fake.calls).toEqual([
       { type: "play", body: { id: "bad-apple", section: 0, beat: 0.25, bpm: 120, beats: 688 } },
     ]);
+  });
+
+  it("plays the cue preset and replays when the server preset differs", async () => {
+    const presetMapping: Mapping = new Map([
+      [
+        location,
+        [{ beat: 0, animationId: "strobe", section: 0, preset: "Orange", beats: undefined }],
+      ],
+    ]);
+    const { clock, fake, update } = createHarness(presetMapping);
+    await update([{ beat: 4 }]);
+    expect(fake.calls[0]).toMatchObject({ type: "play", body: { id: "strobe", preset: "Orange" } });
+    fake.setPreset("White");
+    clock.time = 2500;
+    await update([{ beat: 9 }]);
+    expect(fake.calls.filter(({ type }) => type === "play")).toHaveLength(2);
   });
 
   it("does not replay while the cue stays the same", async () => {
@@ -210,9 +236,9 @@ describe("sync", () => {
       [
         location,
         [
-          { beat: 16, animationId: "cat", section: 0, beats: undefined },
+          { beat: 16, animationId: "cat", section: 0, preset: undefined, beats: undefined },
           { beat: 32, animationId: null },
-          { beat: 64, animationId: "plasma", section: 0, beats: undefined },
+          { beat: 64, animationId: "plasma", section: 0, preset: undefined, beats: undefined },
         ],
       ],
     ]);

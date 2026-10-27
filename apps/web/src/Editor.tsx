@@ -13,6 +13,10 @@ import {
   getFolderTree,
   getFolders,
   getParamFields,
+  getPresetAnimation,
+  getPresetName,
+  getPresetReference,
+  getPresetValues,
 } from "@led-matrix/core";
 import { PlayIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -172,6 +176,7 @@ export function Editor({
   const [saved, setSaved] = useState<Animation>(NEW_ANIMATION);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [layerIndex, setLayerIndex] = useState(0);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -180,6 +185,13 @@ export function Editor({
   if (issues.size === 0 && previewAnimation !== draft) {
     setPreviewAnimation(draft);
   }
+
+  const preset = getPresetName(draft, selectedPreset);
+  const presetValues = getPresetValues(draft, preset);
+  const previewWithPreset = useMemo(
+    () => getPresetAnimation(previewAnimation, preset),
+    [previewAnimation, preset],
+  );
 
   const section = draft.sections[sectionIndex] ?? draft.sections[0] ?? DEFAULT_SECTION;
   const { layers, mode } = section;
@@ -204,6 +216,7 @@ export function Editor({
     setSaved(next);
     setSectionIndex(0);
     setLayerIndex(0);
+    setSelectedPreset(null);
     setIsConfirmingDelete(false);
     setError(undefined);
   }
@@ -294,8 +307,24 @@ export function Editor({
     setLayerIndex(Math.max(0, layerIndex >= index ? layerIndex - 1 : layerIndex));
   }
 
+  function updatePresetValue(key: string, value: unknown) {
+    setDraft({
+      ...draft,
+      presets: draft.presets?.map((current) =>
+        current.name === preset
+          ? { ...current, values: { ...current.values, [key]: value } }
+          : current,
+      ),
+    });
+  }
+
   function updateParam(key: string, value: unknown) {
     if (!layer) {
+      return;
+    }
+    const reference = getPresetReference(layer.params[key]);
+    if (reference !== undefined) {
+      updatePresetValue(reference, value);
       return;
     }
     const { [key]: _previous, ...params } = layer.params;
@@ -433,6 +462,25 @@ export function Editor({
               </Select>
             </div>
           )}
+          {(draft.presets?.length ?? 0) > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="animation-preset" className="text-xs text-muted-foreground">
+                Preset
+              </Label>
+              <Select value={preset} onValueChange={setSelectedPreset}>
+                <SelectTrigger id="animation-preset" size="sm" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {draft.presets?.map(({ name }) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="animation-length" className="text-xs text-muted-foreground">
               Length
@@ -552,6 +600,7 @@ export function Editor({
                   key={`${layerIndex}-${layer.effect}-${field.key}`}
                   field={field}
                   value={layer.params[field.key]}
+                  presetValues={presetValues}
                   clips={clips}
                   error={issues.get(`${layerPath}.params.${field.key}`)}
                   onChange={(value) => updateParam(field.key, value)}
@@ -640,7 +689,11 @@ export function Editor({
               disabled={issues.size > 0}
               onClick={() =>
                 run(async () =>
-                  api.play("simulator", isDirty || !selectedId ? await save() : selectedId),
+                  api.play(
+                    "simulator",
+                    isDirty || !selectedId ? await save() : selectedId,
+                    preset ?? undefined,
+                  ),
                 )
               }
             >
@@ -699,7 +752,7 @@ export function Editor({
       </AlertDialog>
       {isVisible && (
         <Preview
-          animation={previewAnimation}
+          animation={previewWithPreset}
           section={sectionIndex}
           bpm={bpm}
           fps={fps}

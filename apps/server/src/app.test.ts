@@ -152,7 +152,7 @@ describe("animations", () => {
     expect(response.statusCode).toBe(400);
     expect(
       response.json<{ issues: { path: unknown[] }[] }>().issues.map(({ path }) => path),
-    ).toEqual([["sections", 0, "layers", 0, "params", "color"], ["id"]]);
+    ).toEqual([["id"], ["sections", 0, "layers", 0, "params", "color"]]);
   });
 
   it("updates and deletes animations", async () => {
@@ -189,6 +189,7 @@ describe("playback", () => {
     });
     expect(played.json()).toEqual({
       animationId: "plasma",
+      preset: null,
       bpm: 120,
       fps: 30,
       beat: expect.any(Number),
@@ -203,6 +204,7 @@ describe("playback", () => {
     const stopped = await app.inject({ method: "POST", url: "/api/outputs/simulator/stop" });
     expect(stopped.json()).toEqual({
       animationId: null,
+      preset: null,
       bpm: 120,
       fps: 30,
       beat: null,
@@ -312,6 +314,33 @@ describe("playback", () => {
     expect(invalid.statusCode).toBe(400);
   });
 
+  it("plays animation presets", async () => {
+    const played = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: { id: "strobe", preset: "Orange" },
+    });
+    expect(played.json()).toMatchObject({ animationId: "strobe", preset: "Orange" });
+    const defaulted = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: { id: "strobe" },
+    });
+    expect(defaulted.json()).toMatchObject({ preset: "White" });
+    const missing = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: { id: "strobe", preset: "Missing" },
+    });
+    expect(missing.statusCode).toBe(400);
+    const changed = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/preset",
+      body: { preset: "Green" },
+    });
+    expect(changed.json()).toMatchObject({ animationId: "strobe", preset: "Green" });
+  });
+
   it("keeps playback and bpm separate per output", async () => {
     await app.inject({
       method: "POST",
@@ -324,6 +353,7 @@ describe("playback", () => {
     const simulator = await app.inject({ method: "GET", url: "/api/outputs/simulator" });
     expect(simulator.json()).toEqual({
       animationId: null,
+      preset: null,
       bpm: 120,
       fps: 30,
       beat: null,
@@ -361,7 +391,7 @@ describe("playback", () => {
     await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/play",
-      body: { id: "white-strobe" },
+      body: { id: "strobe" },
     });
     await expect.poll(() => messages.filter(({ isBinary }) => isBinary).length).toBeGreaterThan(1);
     socket.terminate();
@@ -374,6 +404,7 @@ describe("playback", () => {
         type: "state",
         state: {
           animationId: null,
+          preset: null,
           bpm: 120,
           fps: 30,
           beat: null,
@@ -385,7 +416,8 @@ describe("playback", () => {
       {
         type: "state",
         state: {
-          animationId: "white-strobe",
+          animationId: "strobe",
+          preset: "White",
           bpm: 120,
           fps: 30,
           beat: expect.any(Number),
@@ -416,6 +448,7 @@ describe("playback", () => {
         type: "state",
         state: {
           animationId: null,
+          preset: null,
           bpm: 120,
           fps: 30,
           beat: null,
