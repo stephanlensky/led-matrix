@@ -156,6 +156,7 @@ describe("playback", () => {
       fps: 30,
       beat: expect.any(Number),
       section: { index: 0, time: expect.any(Number), next: null },
+      fit: null,
       paused: false,
     });
     const paused = await app.inject({ method: "POST", url: "/api/outputs/simulator/pause" });
@@ -169,6 +170,7 @@ describe("playback", () => {
       fps: 30,
       beat: null,
       section: null,
+      fit: null,
       paused: false,
     });
   });
@@ -289,6 +291,7 @@ describe("playback", () => {
       fps: 30,
       beat: null,
       section: null,
+      fit: null,
       paused: false,
     });
   });
@@ -332,7 +335,15 @@ describe("playback", () => {
     expect(states).toEqual([
       {
         type: "state",
-        state: { animationId: null, bpm: 120, fps: 30, beat: null, section: null, paused: false },
+        state: {
+          animationId: null,
+          bpm: 120,
+          fps: 30,
+          beat: null,
+          section: null,
+          fit: null,
+          paused: false,
+        },
       },
       {
         type: "state",
@@ -342,6 +353,7 @@ describe("playback", () => {
           fps: 30,
           beat: expect.any(Number),
           section: { index: 0, time: expect.any(Number), next: null },
+          fit: null,
           paused: false,
         },
       },
@@ -365,7 +377,15 @@ describe("playback", () => {
     expect(messages).toEqual([
       {
         type: "state",
-        state: { animationId: null, bpm: 120, fps: 30, beat: null, section: null, paused: false },
+        state: {
+          animationId: null,
+          bpm: 120,
+          fps: 30,
+          beat: null,
+          section: null,
+          fit: null,
+          paused: false,
+        },
       },
       {
         type: "device",

@@ -17,7 +17,13 @@ export class ServerError extends Error {
   }
 }
 
-export type PlayRequest = { id: string; section: number; beat: number; bpm: number };
+export type PlayRequest = {
+  id: string;
+  section: number;
+  beat: number;
+  bpm: number;
+  beats?: number;
+};
 
 export type ServerClient = {
   getState(): Promise<PlaybackState>;

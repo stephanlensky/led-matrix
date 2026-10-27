@@ -3,6 +3,7 @@ import {
   type PlaybackState,
   type SectionPlayback,
   type StoredAnimation,
+  getFittedAnimation,
   getSectionPosition,
 } from "@led-matrix/core";
 import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
@@ -54,7 +55,13 @@ export function LiveTimeline({ output, state, animations }: LiveTimelineProps) {
           index,
           time: sectionTime,
           length,
-        } = getSectionPosition(animation, playback, time, state.bpm, state.fps);
+        } = getSectionPosition(
+          getFittedAnimation(animation, state.fit),
+          playback,
+          time,
+          state.bpm,
+          state.fps,
+        );
         const { next } = playback;
         const nextIndex = next && time < next.startedAt ? next.index : undefined;
         setPosition({ index, progress: sectionTime / length, nextIndex });

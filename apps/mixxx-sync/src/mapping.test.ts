@@ -53,10 +53,10 @@ describe("getResolvedMapping", () => {
     const { mapping, errors } = getResolvedMapping(file, animations);
     expect(errors).toEqual([]);
     expect(mapping.get("/music/a.flac")).toEqual([
-      { beat: 0, animationId: "cat", section: 0 },
-      { beat: 64, animationId: "cat", section: 1 },
-      { beat: 128, animationId: "plasma", section: 0 },
-      { beat: 192, animationId: "cat", section: 2 },
+      { beat: 0, animationId: "cat", section: 0, beats: undefined },
+      { beat: 64, animationId: "cat", section: 1, beats: undefined },
+      { beat: 128, animationId: "plasma", section: 0, beats: undefined },
+      { beat: 192, animationId: "cat", section: 2, beats: undefined },
     ]);
   });
 
@@ -75,10 +75,26 @@ describe("getResolvedMapping", () => {
   });
 });
 
+describe("cue end", () => {
+  it("fits the section between the cue and its end beat", () => {
+    const file = mappingSchema.parse({
+      tracks: { a: [{ beat: 8, end: 696, animation: "plasma" }] },
+    });
+    expect(getResolvedMapping(file, animations).mapping.get("a")).toEqual([
+      { beat: 8, animationId: "plasma", section: 0, beats: 688 },
+    ]);
+  });
+
+  it("rejects an end before the cue beat", () => {
+    const cues = [{ beat: 8, end: 8, animation: "plasma" }];
+    expect(mappingSchema.safeParse({ tracks: { a: cues } }).success).toBe(false);
+  });
+});
+
 describe("getCue", () => {
   const cues = [
-    { beat: 8, animationId: "cat", section: 0 },
-    { beat: 32, animationId: "cat", section: 1 },
+    { beat: 8, animationId: "cat", section: 0, beats: undefined },
+    { beat: 32, animationId: "cat", section: 1, beats: undefined },
   ];
 
   it("returns the last cue at or before the beat", () => {

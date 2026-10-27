@@ -20,6 +20,7 @@ function createFakeServer(clock: { time: number }) {
       fps: 30,
       beat: animationId === null ? null : ((clock.time - startedAt) * bpm) / 60_000,
       section: null,
+      fit: null,
       paused: false,
     };
   }
@@ -104,8 +105,8 @@ const mapping: Mapping = new Map([
   [
     location,
     [
-      { beat: 16, animationId: "cat", section: 0 },
-      { beat: 64, animationId: "cat", section: 1 },
+      { beat: 16, animationId: "cat", section: 0, beats: undefined },
+      { beat: 64, animationId: "cat", section: 1, beats: 32 },
     ],
   ],
 ]);
@@ -142,7 +143,7 @@ describe("sync", () => {
     await update([{ beat: 65 }]);
     expect(fake.calls[1]).toEqual({
       type: "play",
-      body: { id: "cat", section: 1, beat: 1, bpm: 120 },
+      body: { id: "cat", section: 1, beat: 1, bpm: 120, beats: 32 },
     });
   });
 
@@ -189,7 +190,7 @@ describe("sync", () => {
     await update([{ beat: 70.4 }, { volume: 0.2, beat: 100.4 }]);
     expect(fake.calls.at(-1)).toEqual({
       type: "play",
-      body: { id: "cat", section: 1, beat: expect.closeTo(6.4), bpm: 120 },
+      body: { id: "cat", section: 1, beat: expect.closeTo(6.4), bpm: 120, beats: 32 },
     });
   });
 });

@@ -87,9 +87,8 @@ export function createSync({
 
   async function play(target: Target, cue: ResolvedCue, key: string): Promise<void> {
     const beat = Math.max(target.getBeat(getTime()) - cue.beat, 0);
-    setModel(
-      await server.play({ id: cue.animationId, section: cue.section, beat, bpm: target.bpm }),
-    );
+    const { animationId: id, section, beats } = cue;
+    setModel(await server.play({ id, section, beat, bpm: target.bpm, beats }));
     playedKey = key;
     log(`Playing ${cue.animationId} section ${cue.section} from cue beat ${cue.beat}`);
   }
@@ -98,7 +97,7 @@ export function createSync({
     let current = await getModel();
     const { cue } = target;
     if (cue) {
-      const key = `${target.location}\n${cue.beat}\n${cue.animationId}\n${cue.section}`;
+      const key = [target.location, cue.beat, cue.animationId, cue.section, cue.beats].join("\n");
       if (key !== playedKey || current.state.animationId !== cue.animationId) {
         await play(target, cue, key);
         return;

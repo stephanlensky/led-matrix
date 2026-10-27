@@ -49,19 +49,20 @@ GitHub Actions builds `ghcr.io/stephanlensky/led-matrix` from the `Dockerfile` o
 `apps/mixxx-sync` reads deck state from the Mixxx deck state server (Preferences → Decks → "Deck state server") and drives one output of the server.
 
 ```sh
-pnpm --filter @led-matrix/mixxx-sync start mapping.json --server https://led-matrix.cardinal.slensky.com
+pnpm --filter @led-matrix/mixxx-sync start --server https://led-matrix.cardinal.slensky.com
 ```
 
 Options: `--server` (`LED_MATRIX_URL`, default `http://localhost:3000`), `--output` (`LED_MATRIX_OUTPUT`, default `device`), `--socket` (`MIXXX_SOCKET`, default `$XDG_RUNTIME_DIR/mixxx-deck-state.sock`).
 
-The mapping file maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. The file is reloaded when it changes.
+The mapping file (`apps/mixxx-sync/mapping.json` unless a path is given) maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. With `end`, the section is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song. The file is reloaded when it changes.
 
 ```json
 {
   "tracks": {
     "/mnt/music/track.flac": [
       { "beat": 0, "animation": "cat", "section": "Stare" },
-      { "beat": 128, "section": "Spawn" }
+      { "beat": 128, "section": "Spawn" },
+      { "beat": 192, "end": 704, "animation": "bad-apple" }
     ]
   }
 }
@@ -75,7 +76,7 @@ The mapping file maps track file paths to cues. Each cue shows a section (name o
 
 - `GET /api/animations`, `GET /api/animations/:id` — list or fetch animations
 - `POST /api/animations` — create (id derived from the name unless given), `PUT`/`DELETE /api/animations/:id`
-- `GET /api/outputs/:output`, `POST /api/outputs/:output/play {id, beat?, bpm?}`, `POST /api/outputs/:output/stop`, `POST /api/outputs/:output/bpm {bpm}` — playback per output (`simulator` or `device`), each with its own animation and BPM; `beat` starts the animation that many beats in
+- `GET /api/outputs/:output`, `POST /api/outputs/:output/play {id, beat?, bpm?}`, `POST /api/outputs/:output/stop`, `POST /api/outputs/:output/bpm {bpm}` — playback per output (`simulator` or `device`), each with its own animation and BPM; `beat` starts the animation that many beats in; `section` picks the starting section and `beats` stretches that section to last that many beats (reported as the state's `fit`)
 - `POST /api/outputs/:output/beat {beat}` — move the playing animation to a beat position without restarting it, for resyncing to the music; the state's `beat` is the current position
 - `GET /api/effects` — built-in effects with JSON schemas for their params
 - `GET /api/clips`, `GET /api/clips/:id`, `GET /api/clips/:id/frames` — list clips, fetch metadata or raw 64x64 RGBA frames

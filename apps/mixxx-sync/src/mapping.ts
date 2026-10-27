@@ -1,11 +1,17 @@
 import { type StoredAnimation, animationIdSchema } from "@led-matrix/core";
 import { z } from "zod";
 
-export const cueSchema = z.object({
-  beat: z.number().min(0),
-  animation: animationIdSchema.optional(),
-  section: z.union([z.string(), z.int().min(0)]).optional(),
-});
+export const cueSchema = z
+  .object({
+    beat: z.number().min(0),
+    end: z.number().optional(),
+    animation: animationIdSchema.optional(),
+    section: z.union([z.string(), z.int().min(0)]).optional(),
+  })
+  .refine(({ beat, end }) => end === undefined || end > beat, {
+    path: ["end"],
+    message: "End must be after the cue beat",
+  });
 
 export const cuesSchema = z
   .array(cueSchema)
@@ -38,7 +44,12 @@ export type Cue = z.infer<typeof cueSchema>;
 
 export type MappingFile = z.infer<typeof mappingSchema>;
 
-export type ResolvedCue = { beat: number; animationId: string; section: number };
+export type ResolvedCue = {
+  beat: number;
+  animationId: string;
+  section: number;
+  beats: number | undefined;
+};
 
 export type Mapping = ReadonlyMap<string, readonly ResolvedCue[]>;
 
@@ -77,7 +88,8 @@ export function getResolvedMapping(
         );
         continue;
       }
-      resolved.push({ beat: cue.beat, animationId, section });
+      const beats = cue.end === undefined ? undefined : cue.end - cue.beat;
+      resolved.push({ beat: cue.beat, animationId, section, beats });
     }
     if (resolved.length === cues.length) {
       mapping.set(location, resolved);

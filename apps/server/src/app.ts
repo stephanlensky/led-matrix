@@ -58,6 +58,7 @@ const playSchema = z.object({
   beat: beatSchema.optional(),
   bpm: bpmSchema.optional(),
   section: sectionIndexSchema.optional(),
+  beats: z.number().positive().optional(),
 });
 const seekSchema = z.object({ section: sectionIndexSchema, progress: z.number().min(0).max(1) });
 const advanceSchema = z.object({ at: z.enum(["end", "now"]).optional() }).default({});
@@ -311,14 +312,14 @@ export function createApp({
       return reply.code(404).send({ error: "Animation not found" });
     }
     const { id, ...rest } = animation;
-    const { bpm: requestedBpm, beat, section } = result.data;
+    const { bpm: requestedBpm, beat, section, beats } = result.data;
     if (section !== undefined && section >= rest.sections.length) {
       return reply.code(400).send({ error: "Section not found" });
     }
     if (requestedBpm !== undefined) {
       engine.setBpm(requestedBpm);
     }
-    engine.play(id, rest, beat, section);
+    engine.play(id, rest, beat, section, beats);
     return engine.getState();
   });
 

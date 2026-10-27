@@ -24,15 +24,7 @@ const { values, positionals } = parseArgs({
   },
 });
 
-const [mappingPath] = positionals;
-if (mappingPath === undefined) {
-  console.error(
-    "Usage: mixxx-sync <mapping.json> [--server URL] [--output device|simulator] [--socket PATH]",
-  );
-  process.exit(1);
-}
-
-const mappingFile = resolve(mappingPath);
+const mappingFile = resolve(positionals[0] ?? join(import.meta.dirname, "../mapping.json"));
 const server = createServerClient(values.server, outputSchema.parse(values.output));
 let mapping: Mapping = new Map();
 

@@ -4,10 +4,13 @@ import {
   type Frame,
   type PlaybackState,
   type Renderer,
+  type SectionFit,
   type SectionPlayback,
   type SectionState,
   createFrame,
+  getAnimationLength,
   getCurrentPlayback,
+  getFittedAnimation,
   getNextSection,
   getSectionCursor,
   getSectionPosition,
@@ -41,7 +44,9 @@ export function createPlaybackEngine({
   let active:
     | {
         id: string;
+        source: Animation;
         animation: Animation;
+        fit: SectionFit | null;
         startedAt: number;
         sections: SectionPlayback;
         reportedSection: number;
@@ -100,6 +105,7 @@ export function createPlaybackEngine({
       fps,
       beat: getBeat(),
       section: getSection(),
+      fit: active?.fit ?? null,
       paused: active?.pausedAt !== undefined,
     };
   }
@@ -119,14 +125,16 @@ export function createPlaybackEngine({
       return createFrame();
     }
     try {
-      const { index, time } = getSectionPosition(
+      const { index, time, length } = getSectionPosition(
         active.animation,
         active.sections,
         getRenderTime(),
         bpm,
         fps,
       );
-      return renderer.render(active.animation, time, bpm, index);
+      const mode = active.source.sections[index]?.mode;
+      const scale = mode ? getAnimationLength(mode, bpm, fps) / length : 1;
+      return renderer.render(active.source, time * scale, bpm, index);
     } catch (error) {
       if (!active.failed) {
         active.failed = true;
@@ -170,11 +178,14 @@ export function createPlaybackEngine({
     getState,
     renderFrame,
     tick,
-    play(id: string, animation: Animation, beat = 0, section = 0): void {
+    play(id: string, animation: Animation, beat = 0, section = 0, beats?: number): void {
       const startedAt = getTime() - beat * getBeatDuration();
+      const fit = beats === undefined ? null : { section, beats };
       active = {
         id,
-        animation,
+        source: animation,
+        animation: getFittedAnimation(animation, fit),
+        fit,
         startedAt,
         sections: { current: { index: section, startedAt }, next: undefined },
         reportedSection: section,
@@ -234,7 +245,15 @@ export function createPlaybackEngine({
     },
     updateAnimation(id: string, animation: Animation): void {
       if (active?.id === id) {
-        active = { ...active, animation, failed: false };
+        const fit =
+          active.fit && active.fit.section < animation.sections.length ? active.fit : null;
+        active = {
+          ...active,
+          source: animation,
+          animation: getFittedAnimation(animation, fit),
+          fit,
+          failed: false,
+        };
         updateState();
       }
     },

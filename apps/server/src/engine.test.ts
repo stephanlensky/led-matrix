@@ -1,6 +1,8 @@
 import {
   type Frame,
+  createFrame,
   type PlaybackState,
+  type Renderer,
   animationSchema,
   createRenderer,
   getPixel,
@@ -55,6 +57,34 @@ describe("playback engine", () => {
     expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
   });
 
+  it("stretches a fitted section to the requested beats", () => {
+    const clock = { time: 0 };
+    const render = vi.fn<Renderer["render"]>(() => createFrame());
+    const engine = createPlaybackEngine({
+      renderer: { render },
+      fps: 30,
+      bpm: 120,
+      getTime: () => clock.time,
+    });
+    const clip = animationSchema.parse({
+      name: "Clip",
+      mode: { type: "once", ms: 1000 },
+      layers: [{ effect: "solid" }],
+    });
+    engine.play("clip", clip, 0, 0, 4);
+    expect(engine.getState().fit).toEqual({ section: 0, beats: 4 });
+    clock.time = 1000;
+    engine.renderFrame();
+    expect(render.mock.lastCall?.[1]).toBeCloseTo(500);
+    engine.setBpm(60);
+    clock.time = 2000;
+    engine.renderFrame();
+    expect(render.mock.lastCall?.[1]).toBeCloseTo(750);
+    clock.time = 10_000;
+    engine.renderFrame();
+    expect(render.mock.lastCall?.[1]).toBeCloseTo(1000);
+  });
+
   it("starts and resyncs at a beat position", () => {
     const { clock, engine } = createEngine();
     clock.time = 1000;
@@ -99,6 +129,7 @@ describe("playback engine", () => {
       fps: 30,
       beat: 0,
       section: { index: 0, time: 0, next: null },
+      fit: null,
       paused: false,
     });
     expect(setFrame).toHaveBeenCalledOnce();

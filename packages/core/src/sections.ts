@@ -1,4 +1,12 @@
+import { z } from "zod";
 import { type Animation, getAnimationLength } from "./animation.ts";
+
+export const sectionFitSchema = z.object({
+  section: z.int().min(0),
+  beats: z.number().positive(),
+});
+
+export type SectionFit = z.infer<typeof sectionFitSchema>;
 
 export type SectionCursor = { index: number; startedAt: number };
 
@@ -81,4 +89,16 @@ export function getNextSection(
   const isLoop = animation.sections[position.index]?.mode.type === "loop";
   const startedAt = timing === "end" && isLoop ? time - position.time + position.length : time;
   return { index: position.index + 1, startedAt };
+}
+
+export function getFittedAnimation(animation: Animation, fit: SectionFit | null): Animation {
+  const section = fit && animation.sections[fit.section];
+  if (!fit || !section) {
+    return animation;
+  }
+  const sections = animation.sections.with(fit.section, {
+    ...section,
+    mode: { type: section.mode.type, beats: fit.beats },
+  });
+  return { ...animation, sections };
 }
