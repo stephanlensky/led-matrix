@@ -19,6 +19,7 @@ import {
   type MouseEvent,
   type PointerEvent,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -55,18 +56,29 @@ import {
 } from "../../shared/lane-edit.ts";
 import type { MixxxCue } from "../../shared/library.ts";
 import type { CueStatus } from "../../shared/api.ts";
-import type { Cue, MappingFile } from "../../shared/mapping.ts";
+import { type Cue, type MappingFile, getExplicitCues } from "../../shared/mapping.ts";
 import {
+  type AnimationCue,
   addCue,
   clearCueEnd,
   copyCue,
   moveCue,
+  pasteCue,
   replaceCue,
   resizeCue,
   setCueLoops,
   setCueParam,
 } from "../../shared/mapping-edits.ts";
 import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
+import {
+  type CueCopy,
+  dropCueCopy,
+  getLaneTarget,
+  getLaneProps,
+  setCopyDrop,
+  setCueCopy,
+  useCueCopy,
+} from "./cue-copy.ts";
 import { getCueDrag, getCurrentCueDrag, hasCueDrag } from "./cue-drag.ts";
 import type { MappingEditor } from "./useMapping.ts";
 
@@ -93,6 +105,8 @@ type DragKind = "move" | "start" | "end";
 type Drag = {
   kind: DragKind;
   isCopy: boolean;
+  cue: AnimationCue | undefined;
+  target: string | undefined;
   index: number;
   pointerId: number;
   startX: number;
@@ -113,6 +127,13 @@ type Draft = {
   cues: readonly Cue[];
   snap: number | undefined;
   blocked: BeatRange | undefined;
+};
+
+type CopyPlacement = {
+  beat: number;
+  end: number;
+  target: number | undefined;
+  isValid: boolean;
 };
 
 type Ghost = {
@@ -499,6 +520,7 @@ export function AnimationLane({
   );
   const live = lane && getLiveBlock(lane.blocks, liveCue);
   const isEditable = editor !== undefined && lane !== undefined && lane.errors.length === 0;
+  const copy = useCueCopy(location);
 
   function getLaneScale(): { laneScale: LaneScale; left: number } | undefined {
     const rect = laneRef.current?.getBoundingClientRect();
@@ -538,6 +560,8 @@ export function AnimationLane({
       dragRef.current = {
         kind,
         isCopy,
+        cue: isCopy ? getExplicitCues(savedCues)[block.index] : undefined,
+        target: undefined,
         index: block.index,
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -591,6 +615,20 @@ export function AnimationLane({
     const pointerBeat = getPointerBeat(drag.laneScale, drag.left, event.clientX);
     const beat = drag.value + pointerBeat - drag.startBeat;
     if (drag.isCopy) {
+      const target = getLaneTarget(event.clientX, event.clientY);
+      drag.target = target?.location !== location ? target?.location : undefined;
+      if (target && drag.target && drag.cue) {
+        setDraft(undefined);
+        setCueCopy({
+          ...target,
+          cue: drag.cue,
+          clientX: event.clientX,
+          offset: drag.startBeat - drag.value,
+          isFree: event.altKey,
+        });
+        return;
+      }
+      setCueCopy(undefined);
       handleCopyMove(drag, beat, event.altKey);
       return;
     }
@@ -635,6 +673,10 @@ export function AnimationLane({
     setDraft(undefined);
     if (drag.isMoved) {
       isClickSuppressedRef.current = true;
+      if (drag.target) {
+        dropCueCopy();
+        return;
+      }
       if (drag.isValid && drag.current !== drag.value) {
         editor?.update(getEdit(drag, drag.current));
         if (drag.isCopy && track) {
@@ -651,7 +693,44 @@ export function AnimationLane({
   function handlePointerCancel() {
     dragRef.current = undefined;
     setDraft(undefined);
+    setCueCopy(undefined);
   }
+
+  function getCopyPlacement(dropped: CueCopy): CopyPlacement | undefined {
+    if (!isEditable || !track || !beats) {
+      return undefined;
+    }
+    const { cue, clientX, left, width, offset, isFree } = dropped;
+    const laneScale = { beats, duration, width };
+    const length = cue.end === undefined ? undefined : cue.end - cue.beat;
+    const beat = getPointerBeat(laneScale, left, clientX) - offset;
+    const snap = getCopySnap(
+      beat,
+      length,
+      getSnapTargets(savedCues, undefined, mixxxCues, beats),
+      getGapRanges(savedCues, length, track),
+      laneScale,
+      isFree,
+    );
+    const stop = savedCues.find((other) => other.beat > snap.beat)?.beat ?? track.max;
+    const end = length === undefined ? stop : Math.min(snap.beat + length, stop);
+    return { beat: snap.beat, end, target: snap.target, isValid: snap.isValid };
+  }
+
+  function handleCopyDrop(dropped: CueCopy) {
+    const placement = getCopyPlacement(dropped);
+    if (!editor || !track || !placement?.isValid) {
+      return;
+    }
+    editor.update((file) => pasteCue(file, location, dropped.cue, placement.beat));
+    editor.onSelect({
+      location,
+      index: savedCues.filter((cue) => cue.beat < placement.beat).length,
+      trackRange: track,
+    });
+  }
+
+  useEffect(() => setCopyDrop(location, handleCopyDrop));
 
   function getGhost(event: DragEvent<HTMLDivElement>): Ghost | undefined {
     const measured = getLaneScale();
@@ -786,10 +865,26 @@ export function AnimationLane({
       </LaneMessage>
     );
   }
-  const snapBeat = draft?.snap ?? ghost?.snap;
+  const placement = copy && getCopyPlacement(copy);
+  const copyGhost: Ghost | undefined = placement?.isValid
+    ? {
+        beat: placement.beat,
+        stop: placement.end,
+        end: placement.end,
+        name: animationsById?.get(copy?.cue.animation ?? "")?.name ?? "",
+        snap: placement.target,
+        replace: undefined,
+      }
+    : undefined;
+  const shownGhost = ghost ?? copyGhost;
+  const blocked =
+    draft?.blocked ??
+    (placement && !placement.isValid ? { min: placement.beat, max: placement.end } : undefined);
+  const snapBeat = draft?.snap ?? shownGhost?.snap;
   return (
     <div
       ref={laneRef}
+      {...getLaneProps(location)}
       className="relative h-8 overflow-hidden rounded-sm bg-muted/40"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -799,7 +894,7 @@ export function AnimationLane({
       onDrop={handleDrop}
       onClick={handleClick}
     >
-      {lane.blocks.length === 0 && !ghost && editor && (
+      {lane.blocks.length === 0 && !shownGhost && editor && (
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground/60">
           Drop an animation here
         </span>
@@ -818,25 +913,25 @@ export function AnimationLane({
           handlers={isEditable ? handlers : undefined}
         />
       ))}
-      {ghost && (
+      {shownGhost && (
         <div
-          className={`pointer-events-none absolute inset-y-0 z-20 border-2 border-dashed ${ghost.replace === undefined ? "border-sky-400 bg-sky-400/20" : "border-amber-400 bg-amber-400/30"}`}
+          className={`pointer-events-none absolute inset-y-0 z-20 border-2 border-dashed ${shownGhost.replace === undefined ? "border-sky-400 bg-sky-400/20" : "border-amber-400 bg-amber-400/30"}`}
           style={getSpanStyle(
-            getBeatFraction(scale, ghost.beat),
-            getBeatFraction(scale, ghost.end ?? ghost.stop),
+            getBeatFraction(scale, shownGhost.beat),
+            getBeatFraction(scale, shownGhost.end ?? shownGhost.stop),
           )}
         >
           <span className="absolute top-0.5 left-0.5 truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 font-medium text-white">
-            {ghost.name}
+            {shownGhost.name}
           </span>
         </div>
       )}
-      {draft?.blocked && (
+      {blocked && (
         <div
           className="pointer-events-none absolute inset-y-0 z-20 border-2 border-dashed border-red-500 bg-red-500/25"
           style={getSpanStyle(
-            getBeatFraction(scale, draft.blocked.min),
-            getBeatFraction(scale, draft.blocked.max),
+            getBeatFraction(scale, blocked.min),
+            getBeatFraction(scale, blocked.max),
           )}
         />
       )}

@@ -5,6 +5,7 @@ import {
   clearCueEnd,
   copyCue,
   moveCue,
+  pasteCue,
   removeCue,
   replaceCue,
   resizeCue,
@@ -100,6 +101,22 @@ describe("copyCue", () => {
       animation: "cat",
       section: "Spawn",
       loops: 2,
+    });
+  });
+});
+
+describe("pasteCue", () => {
+  it("adds the cue to another track and ends it at the next cue", () => {
+    const cue = { beat: 32, end: 48, animation: "cat", section: "Spawn", loops: 2 };
+    expect(pasteCue(file, "/music/b.flac", cue, 4).tracks["/music/b.flac"]).toEqual([
+      { beat: 0, animation: "plasma" },
+      { beat: 4, end: 20, animation: "cat", section: "Spawn", loops: 2 },
+    ]);
+    expect(pasteCue(file, location, cue, 56).tracks[location]?.[2]).toEqual({
+      beat: 56,
+      end: 64,
+      animation: "cat",
+      section: "Spawn",
     });
   });
 });

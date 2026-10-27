@@ -55,22 +55,33 @@ export function addCue(file: MappingFile, location: string, cue: AnimationCue): 
   return setTrackCues(file, location, [...cues, cue]);
 }
 
+export function pasteCue(
+  file: MappingFile,
+  location: string,
+  cue: AnimationCue,
+  beat: number,
+): MappingFile {
+  const { loops, ...rest } = cue;
+  const next = getTrackCues(file, location).find((other) => other.beat > beat)?.beat ?? Infinity;
+  const end = rest.end === undefined ? undefined : rest.end + beat - rest.beat;
+  const copy = getCueWithEnd(
+    { ...rest, beat },
+    end === undefined ? undefined : Math.min(end, next),
+  );
+  return addCue(
+    file,
+    location,
+    loops === undefined || end === undefined || end > next ? copy : { ...copy, loops },
+  );
+}
+
 export function copyCue(
   file: MappingFile,
   location: string,
   index: number,
   beat: number,
 ): MappingFile {
-  const cues = getTrackCues(file, location);
-  const { loops, ...cue } = getCueAt(cues, index);
-  const next = cues.find((other) => other.beat > beat)?.beat ?? Infinity;
-  const end = cue.end === undefined ? undefined : cue.end + beat - cue.beat;
-  const copy = getCueWithEnd({ ...cue, beat }, end === undefined ? undefined : Math.min(end, next));
-  return addCue(
-    file,
-    location,
-    loops === undefined || end === undefined || end > next ? copy : { ...copy, loops },
-  );
+  return pasteCue(file, location, getCueAt(getTrackCues(file, location), index), beat);
 }
 
 export function replaceCue(

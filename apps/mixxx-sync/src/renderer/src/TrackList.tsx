@@ -33,6 +33,7 @@ import {
 } from "../../shared/track-list.ts";
 import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
 import { type AnimationSource, type LaneEditor, AnimationLane } from "./AnimationLane.tsx";
+import { getTrackProps } from "./cue-copy.ts";
 import { PlayButton, Playhead } from "./Playback.tsx";
 import { TrackScrollbar } from "./TrackScrollbar.tsx";
 import { type Player, usePlayerState } from "./player.ts";
@@ -185,6 +186,7 @@ function TrackRow({ track, player, isLive, views, ...props }: RowProps) {
 
   return (
     <div
+      {...getTrackProps(track.location)}
       className={`flex h-full flex-col gap-1.5 border-b border-l-2 px-3 py-2 ${isLive ? "border-l-emerald-400 bg-emerald-400/5" : "border-l-transparent"}`}
       onPointerDownCapture={() => player.focus(track)}
       onWheelCapture={(event) => {
