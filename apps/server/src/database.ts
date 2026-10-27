@@ -2,12 +2,14 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { deflateSync, inflateSync } from "node:zlib";
-import { encodeClipFrames } from "@led-matrix/core";
+import { encodeClipFrames, getSectionedAnimation } from "@led-matrix/core";
 import { z } from "zod";
 
 const IN_MEMORY_PATH = ":memory:";
 
 const clipFramesRowSchema = z.object({ id: z.string(), frames: z.instanceof(Uint8Array) });
+const animationRowSchema = z.object({ id: z.string(), document: z.string() });
+const mergedSeedIds = ["staring-cat", "cat-spawn", "cat-bounce", "scare-meter-max"];
 
 type Migration = string | ((connection: DatabaseSync) => void);
 
@@ -24,6 +26,18 @@ function encodeClipFrameGroups(connection: DatabaseSync) {
   for (const row of connection.prepare("SELECT id, frames FROM clips").all()) {
     const { id, frames } = clipFramesRowSchema.parse(row);
     update.run(encodeClipFrames(inflateSync(frames)), id);
+  }
+}
+
+function updateAnimationSections(connection: DatabaseSync) {
+  const update = connection.prepare("UPDATE animations SET document = ? WHERE id = ?");
+  for (const row of connection.prepare("SELECT id, document FROM animations").all()) {
+    const { id, document } = animationRowSchema.parse(row);
+    update.run(JSON.stringify(getSectionedAnimation(JSON.parse(document))), id);
+  }
+  const remove = connection.prepare("DELETE FROM animations WHERE id = ?");
+  for (const id of mergedSeedIds) {
+    remove.run(id);
   }
 }
 
@@ -46,6 +60,7 @@ const migrations: readonly Migration[] = [
   `,
   compressClipFrames,
   encodeClipFrameGroups,
+  updateAnimationSections,
 ];
 
 function getVersion(connection: DatabaseSync): number {

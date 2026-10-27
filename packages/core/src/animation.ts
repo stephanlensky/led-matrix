@@ -3,10 +3,14 @@ import { blendModes } from "./blend.ts";
 import { getEffect } from "./effects/index.ts";
 import { resolveParams } from "./keyframes.ts";
 
+export const modeTypes = ["loop", "once"] as const;
+
+const modeTypeSchema = z.enum(modeTypes);
+
 export const animationModeSchema = z.union([
-  z.object({ type: z.literal("loop"), beats: z.number().positive() }),
-  z.object({ type: z.literal("loop"), frames: z.number().int().positive() }),
-  z.object({ type: z.literal("duration"), ms: z.number().positive() }),
+  z.object({ type: modeTypeSchema, beats: z.number().positive() }),
+  z.object({ type: modeTypeSchema, frames: z.number().int().positive() }),
+  z.object({ type: modeTypeSchema, ms: z.number().positive() }),
 ]);
 
 export const layerSchema = z
@@ -39,25 +43,55 @@ export const layerSchema = z
     }
   });
 
-export const animationSchema = z.object({
-  name: z.string().min(1).max(100),
+export const sectionSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
   mode: animationModeSchema,
   layers: z.array(layerSchema).min(1),
 });
 
+export const animationObjectSchema = z.object({
+  name: z.string().min(1).max(100),
+  sections: z.array(sectionSchema).min(1),
+});
+
 export const animationIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 
-export const storedAnimationSchema = animationSchema.extend({ id: animationIdSchema });
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getMode(mode: unknown): unknown {
+  return isRecord(mode) && mode["type"] === "duration" ? { ...mode, type: "once" } : mode;
+}
+
+export function getSectionedAnimation(value: unknown): unknown {
+  if (!isRecord(value) || "sections" in value || !("layers" in value)) {
+    return value;
+  }
+  const { mode, layers, ...rest } = value;
+  return { ...rest, sections: [{ mode: getMode(mode), layers }] };
+}
+
+export const animationSchema = z.preprocess(getSectionedAnimation, animationObjectSchema);
+
+export const storedAnimationSchema = z.preprocess(
+  getSectionedAnimation,
+  animationObjectSchema.extend({ id: animationIdSchema }),
+);
 
 export type AnimationMode = z.infer<typeof animationModeSchema>;
 
 export type Layer = z.infer<typeof layerSchema>;
 
-export type Animation = z.infer<typeof animationSchema>;
+export type ModeType = (typeof modeTypes)[number];
+
+export type Section = z.infer<typeof sectionSchema>;
+
+export type Animation = z.infer<typeof animationObjectSchema>;
 
 export type StoredAnimation = z.infer<typeof storedAnimationSchema>;
 
-export type AnimationInput = z.input<typeof animationSchema>;
+export type AnimationInput = z.input<typeof animationObjectSchema>;
 
 export type AnimationTiming = {
   time: number;
@@ -66,7 +100,7 @@ export type AnimationTiming = {
 };
 
 export function getAnimationLength(mode: AnimationMode, bpm: number, fps: number): number {
-  if (mode.type === "duration") {
+  if ("ms" in mode) {
     return mode.ms;
   }
   return "beats" in mode ? (mode.beats * 60_000) / bpm : (mode.frames * 1000) / fps;

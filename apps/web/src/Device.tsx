@@ -1,6 +1,7 @@
 import { DeviceMode, type DeviceStatus, type StoredAnimation } from "@led-matrix/core";
 import { useState } from "react";
 import { setBrightness } from "./api.ts";
+import { LiveTimeline } from "./LiveTimeline.tsx";
 import { MatrixFrame } from "./MatrixFrame.tsx";
 import { PlaybackControls } from "./PlaybackControls.tsx";
 import type { Stream } from "./useStream.ts";
@@ -140,6 +141,7 @@ export function Device({ stream, animations, showGrid, onShowGridChange }: Devic
       <MatrixFrame
         frame={frame}
         showGrid={showGrid}
+        footer={<LiveTimeline output="device" state={state} animations={animations} />}
         overlay={!device?.connected && <Badge variant="destructive">Board offline</Badge>}
       />
     </>

@@ -93,8 +93,85 @@ describe("playback engine", () => {
     engine.tick();
     unsubscribe();
     engine.tick();
-    expect(setState).toHaveBeenCalledWith({ animationId: "strobe", bpm: 120, fps: 30, beat: 0 });
+    expect(setState).toHaveBeenCalledWith({
+      animationId: "strobe",
+      bpm: 120,
+      fps: 30,
+      beat: 0,
+      section: { index: 0, time: 0, next: null },
+      paused: false,
+    });
     expect(setFrame).toHaveBeenCalledOnce();
+  });
+
+  it("advances to the next section at the end of the loop and reports it", () => {
+    const { clock, engine } = createEngine(undefined, 100);
+    const sections = animationSchema.parse({
+      name: "Sections",
+      sections: [
+        { mode: { type: "loop", beats: 2 }, layers: [{ effect: "solid" }] },
+        { mode: { type: "once", beats: 1 }, layers: [{ effect: "solid" }] },
+        { mode: { type: "loop", beats: 4 }, layers: [{ effect: "solid" }] },
+      ],
+    });
+    const setState = vi.fn<(state: PlaybackState) => void>();
+    engine.subscribe({ setState });
+    engine.play("sections", sections);
+    clock.time = 1500;
+    expect(engine.advance()).toBe(true);
+    expect(engine.getState().section).toEqual({
+      index: 0,
+      time: 500,
+      next: { index: 1, delay: 500 },
+    });
+    clock.time = 2100;
+    engine.tick();
+    expect(engine.getState().section).toEqual({ index: 1, time: 100, next: null });
+    clock.time = 2600;
+    engine.tick();
+    expect(engine.getState().section).toEqual({ index: 2, time: 100, next: null });
+    expect(setState.mock.calls.map(([state]) => state.section?.index)).toEqual([0, 0, 1, 2]);
+    expect(engine.advance()).toBe(false);
+  });
+
+  it("shifts sections with the beat and keeps their beat position when the bpm changes", () => {
+    const { clock, engine } = createEngine();
+    const sections = animationSchema.parse({
+      name: "Sections",
+      sections: [
+        { mode: { type: "loop", beats: 4 }, layers: [{ effect: "solid" }] },
+        { mode: { type: "loop", beats: 4 }, layers: [{ effect: "solid" }] },
+        { mode: { type: "loop", beats: 4 }, layers: [{ effect: "solid" }] },
+      ],
+    });
+    engine.play("sections", sections);
+    clock.time = 500;
+    engine.seek(1, 0.25);
+    engine.setBeat(3);
+    expect(engine.getState().section).toEqual({ index: 1, time: 1500, next: null });
+    engine.advance();
+    expect(engine.getState().section?.next).toEqual({ index: 2, delay: 500 });
+    engine.setBpm(60);
+    expect(engine.getState().section).toEqual({
+      index: 1,
+      time: 3000,
+      next: { index: 2, delay: 1000 },
+    });
+    expect(engine.getState().beat).toBe(3);
+  });
+
+  it("freezes the animation and beat while paused", () => {
+    const { clock, engine } = createEngine();
+    engine.play("strobe", strobe);
+    clock.time = 100;
+    engine.pause();
+    clock.time = 5000;
+    expect(engine.getState()).toMatchObject({ beat: 0.2, paused: true });
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 255, 255]);
+    engine.resume();
+    clock.time = 5300;
+    expect(engine.getState()).toMatchObject({ beat: 0.8, paused: false });
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
   });
 
   it("reports render errors once and falls back to black", () => {

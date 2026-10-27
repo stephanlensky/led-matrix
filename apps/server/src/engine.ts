@@ -1,9 +1,16 @@
 import {
+  type AdvanceTiming,
   type Animation,
   type Frame,
   type PlaybackState,
   type Renderer,
+  type SectionPlayback,
+  type SectionState,
   createFrame,
+  getCurrentPlayback,
+  getNextSection,
+  getSectionCursor,
+  getSectionPosition,
 } from "@led-matrix/core";
 
 export type PlaybackListener = {
@@ -31,23 +38,76 @@ export function createPlaybackEngine({
   onError,
 }: PlaybackEngineOptions) {
   const listeners = new Set<PlaybackListener>();
-  let active: { id: string; animation: Animation; startedAt: number; failed: boolean } | undefined;
+  let active:
+    | {
+        id: string;
+        animation: Animation;
+        startedAt: number;
+        sections: SectionPlayback;
+        reportedSection: number;
+        pausedAt: number | undefined;
+        failed: boolean;
+      }
+    | undefined;
   let bpm = initialBpm;
   let timer: ReturnType<typeof setInterval> | undefined;
+
+  function getPlaybackTime(): number {
+    return active?.pausedAt ?? getTime();
+  }
+
+  function getRenderTime(): number {
+    return getPlaybackTime() + getLatency();
+  }
+
+  function getSectionIndex(time: number): number {
+    return active ? getSectionPosition(active.animation, active.sections, time, bpm, fps).index : 0;
+  }
+
+  function getSection(): SectionState | null {
+    if (!active) {
+      return null;
+    }
+    const time = getPlaybackTime();
+    const { index, time: sectionTime } = getSectionPosition(
+      active.animation,
+      active.sections,
+      time,
+      bpm,
+      fps,
+    );
+    const { next } = active.sections;
+    return {
+      index,
+      time: sectionTime,
+      next:
+        next && next.startedAt > time ? { index: next.index, delay: next.startedAt - time } : null,
+    };
+  }
 
   function getBeatDuration(): number {
     return 60_000 / bpm;
   }
 
   function getBeat(): number | null {
-    return active ? (getTime() - active.startedAt) / getBeatDuration() : null;
+    return active ? (getPlaybackTime() - active.startedAt) / getBeatDuration() : null;
   }
 
   function getState(): PlaybackState {
-    return { animationId: active?.id ?? null, bpm, fps, beat: getBeat() };
+    return {
+      animationId: active?.id ?? null,
+      bpm,
+      fps,
+      beat: getBeat(),
+      section: getSection(),
+      paused: active?.pausedAt !== undefined,
+    };
   }
 
   function updateState(): void {
+    if (active) {
+      active.reportedSection = getSectionIndex(getPlaybackTime());
+    }
     const state = getState();
     for (const listener of listeners) {
       listener.setState?.(state);
@@ -59,7 +119,14 @@ export function createPlaybackEngine({
       return createFrame();
     }
     try {
-      return renderer.render(active.animation, getTime() + getLatency() - active.startedAt, bpm);
+      const { index, time } = getSectionPosition(
+        active.animation,
+        active.sections,
+        getRenderTime(),
+        bpm,
+        fps,
+      );
+      return renderer.render(active.animation, time, bpm, index);
     } catch (error) {
       if (!active.failed) {
         active.failed = true;
@@ -69,7 +136,30 @@ export function createPlaybackEngine({
     }
   }
 
+  function updateSections(): void {
+    if (!active) {
+      return;
+    }
+    const time = getPlaybackTime();
+    active.sections = getCurrentPlayback(active.sections, time);
+    if (getSectionIndex(time) !== active.reportedSection) {
+      updateState();
+    }
+  }
+
+  function shiftSections(offset: number): void {
+    if (!active) {
+      return;
+    }
+    const { current, next } = active.sections;
+    active.sections = {
+      current: { ...current, startedAt: current.startedAt + offset },
+      next: next && { ...next, startedAt: next.startedAt + offset },
+    };
+  }
+
   function tick(): void {
+    updateSections();
     const frame = renderFrame();
     for (const listener of listeners) {
       listener.setFrame?.(frame);
@@ -80,24 +170,69 @@ export function createPlaybackEngine({
     getState,
     renderFrame,
     tick,
-    play(id: string, animation: Animation, beat = 0): void {
+    play(id: string, animation: Animation, beat = 0, section = 0): void {
+      const startedAt = getTime() - beat * getBeatDuration();
       active = {
         id,
         animation,
-        startedAt: getTime() - beat * getBeatDuration(),
+        startedAt,
+        sections: { current: { index: section, startedAt }, next: undefined },
+        reportedSection: section,
+        pausedAt: undefined,
         failed: false,
       };
       updateState();
     },
     setBeat(beat: number): void {
       if (active) {
-        active.startedAt = getTime() - beat * getBeatDuration();
+        const startedAt = getPlaybackTime() - beat * getBeatDuration();
+        shiftSections(startedAt - active.startedAt);
+        active.startedAt = startedAt;
         updateState();
       }
+    },
+    pause(): void {
+      if (active && active.pausedAt === undefined) {
+        active.pausedAt = getTime();
+        updateState();
+      }
+    },
+    resume(): void {
+      if (active?.pausedAt !== undefined) {
+        const offset = getTime() - active.pausedAt;
+        shiftSections(offset);
+        active.startedAt += offset;
+        active.pausedAt = undefined;
+        updateState();
+      }
+    },
+    seek(section: number, progress: number): void {
+      if (active) {
+        const time = getRenderTime();
+        active.sections = {
+          current: getSectionCursor(active.animation, section, progress, time, bpm, fps),
+          next: undefined,
+        };
+        updateState();
+      }
+    },
+    advance(timing: AdvanceTiming = "end"): boolean {
+      if (!active) {
+        return false;
+      }
+      const time = getRenderTime();
+      const next = getNextSection(active.animation, active.sections, time, bpm, fps, timing);
+      if (!next) {
+        return false;
+      }
+      active.sections = { current: getCurrentPlayback(active.sections, time).current, next };
+      updateState();
+      return true;
     },
     updateAnimation(id: string, animation: Animation): void {
       if (active?.id === id) {
         active = { ...active, animation, failed: false };
+        updateState();
       }
     },
     stop(): void {
@@ -105,10 +240,32 @@ export function createPlaybackEngine({
       updateState();
     },
     setBpm(value: number): void {
-      const beat = getBeat();
+      if (!active) {
+        bpm = value;
+        updateState();
+        return;
+      }
+      const beat = (getPlaybackTime() - active.startedAt) / getBeatDuration();
+      const time = getRenderTime();
+      const position = getSectionPosition(active.animation, active.sections, time, bpm, fps);
+      const isPending = active.sections.next !== undefined && active.sections.next.startedAt > time;
+      const mode = active.animation.sections[position.index]?.mode;
+      const scale = mode && "beats" in mode ? bpm / value : 1;
       bpm = value;
-      if (active && beat !== null && "beats" in active.animation.mode) {
-        active.startedAt = getTime() - beat * getBeatDuration();
+      active.startedAt = getPlaybackTime() - beat * getBeatDuration();
+      active.sections = {
+        current: { index: position.index, startedAt: time - position.time * scale },
+        next: undefined,
+      };
+      if (isPending) {
+        active.sections.next = getNextSection(
+          active.animation,
+          active.sections,
+          time,
+          bpm,
+          fps,
+          "end",
+        );
       }
       updateState();
     },

@@ -8,7 +8,7 @@ describe("animationSchema", () => {
       mode: { type: "loop", beats: 4 },
       layers: [{ effect: "plasma" }],
     });
-    expect(animation.layers[0]).toEqual({
+    expect(animation.sections[0]?.layers[0]).toEqual({
       effect: "plasma",
       params: {},
       blend: "normal",
@@ -37,9 +37,24 @@ describe("animationSchema", () => {
       ],
     });
     expect(result.error?.issues.map((issue) => issue.path)).toEqual([
-      ["layers", 0, "effect"],
-      ["layers", 1, "params", "color"],
-      ["layers", 2, "params", "duty"],
+      ["sections", 0, "layers", 0, "effect"],
+      ["sections", 0, "layers", 1, "params", "color"],
+      ["sections", 0, "layers", 2, "params", "duty"],
+    ]);
+  });
+
+  it("wraps legacy single-section documents", () => {
+    expect(
+      animationSchema.parse({
+        name: "Fade",
+        mode: { type: "duration", ms: 1000 },
+        layers: [{ effect: "solid" }],
+      }).sections,
+    ).toEqual([
+      {
+        mode: { type: "once", ms: 1000 },
+        layers: [{ effect: "solid", params: {}, blend: "normal", opacity: 1 }],
+      },
     ]);
   });
 
@@ -69,8 +84,8 @@ describe("getAnimationTiming", () => {
     );
   });
 
-  it("clamps duration animations at their end", () => {
-    expect(getAnimationTiming({ type: "duration", ms: 1000 }, 5000, 120, 30)).toEqual({
+  it("clamps once animations at their end", () => {
+    expect(getAnimationTiming({ type: "once", ms: 1000 }, 5000, 120, 30)).toEqual({
       time: 1000,
       progress: 1,
       beat: 2,

@@ -1,9 +1,10 @@
 import type { Frame } from "@led-matrix/core";
 import { type ReactNode, useRef } from "react";
 import { Panel, usePanelPitch } from "./Panel.tsx";
+import { TIMELINE_HEIGHT } from "./Timeline.tsx";
 
 const FRAME_INSET = 26;
-const FOOTER_HEIGHT = 44;
+const FOOTER_GAP = 12;
 
 type MatrixFrameProps = {
   frame: Frame;
@@ -17,7 +18,7 @@ export function MatrixFrame({ frame, showGrid, footer, overlay }: MatrixFramePro
   const pitch = usePanelPitch(
     containerRef,
     FRAME_INSET,
-    FRAME_INSET + (footer ? FOOTER_HEIGHT : 0),
+    FRAME_INSET + (footer ? TIMELINE_HEIGHT + FOOTER_GAP : 0),
   );
 
   return (

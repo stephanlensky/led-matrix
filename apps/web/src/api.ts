@@ -53,6 +53,25 @@ export function play(output: Output, id: string): Promise<PlaybackState> {
   return request(playbackStateSchema, "POST", `/api/outputs/${output}/play`, { id });
 }
 
+export function seek(output: Output, section: number, progress: number): Promise<PlaybackState> {
+  return request(playbackStateSchema, "POST", `/api/outputs/${output}/seek`, {
+    section,
+    progress,
+  });
+}
+
+export function pause(output: Output): Promise<PlaybackState> {
+  return request(playbackStateSchema, "POST", `/api/outputs/${output}/pause`);
+}
+
+export function resume(output: Output): Promise<PlaybackState> {
+  return request(playbackStateSchema, "POST", `/api/outputs/${output}/resume`);
+}
+
+export function advance(output: Output): Promise<PlaybackState> {
+  return request(playbackStateSchema, "POST", `/api/outputs/${output}/advance`, {});
+}
+
 export function stop(output: Output): Promise<PlaybackState> {
   return request(playbackStateSchema, "POST", `/api/outputs/${output}/stop`);
 }

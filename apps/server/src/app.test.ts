@@ -74,8 +74,12 @@ describe("animations", () => {
     expect(first.json()).toEqual({
       id: "red-alert",
       name: "Red Alert!",
-      mode: { type: "loop", beats: 2 },
-      layers: [{ effect: "solid", params: { color: "#ff0000" }, blend: "normal", opacity: 1 }],
+      sections: [
+        {
+          mode: { type: "loop", beats: 2 },
+          layers: [{ effect: "solid", params: { color: "#ff0000" }, blend: "normal", opacity: 1 }],
+        },
+      ],
     });
     const second = await app.inject({ method: "POST", url: "/api/animations", body: animation });
     expect(second.json<{ id: string }>().id).toBe("red-alert-2");
@@ -111,7 +115,7 @@ describe("animations", () => {
     expect(response.statusCode).toBe(400);
     expect(
       response.json<{ issues: { path: unknown[] }[] }>().issues.map(({ path }) => path),
-    ).toEqual([["layers", 0, "params", "color"], ["id"]]);
+    ).toEqual([["sections", 0, "layers", 0, "params", "color"], ["id"]]);
   });
 
   it("updates and deletes animations", async () => {
@@ -151,9 +155,22 @@ describe("playback", () => {
       bpm: 120,
       fps: 30,
       beat: expect.any(Number),
+      section: { index: 0, time: expect.any(Number), next: null },
+      paused: false,
     });
+    const paused = await app.inject({ method: "POST", url: "/api/outputs/simulator/pause" });
+    expect(paused.json()).toMatchObject({ paused: true });
+    const resumed = await app.inject({ method: "POST", url: "/api/outputs/simulator/resume" });
+    expect(resumed.json()).toMatchObject({ paused: false });
     const stopped = await app.inject({ method: "POST", url: "/api/outputs/simulator/stop" });
-    expect(stopped.json()).toEqual({ animationId: null, bpm: 120, fps: 30, beat: null });
+    expect(stopped.json()).toEqual({
+      animationId: null,
+      bpm: 120,
+      fps: 30,
+      beat: null,
+      section: null,
+      paused: false,
+    });
   });
 
   it("plays from a beat position and resyncs the beat", async () => {
@@ -182,6 +199,42 @@ describe("playback", () => {
       body: { beat: -1 },
     });
     expect(invalid.statusCode).toBe(400);
+  });
+
+  it("seeks and advances between sections", async () => {
+    const idle = await app.inject({ method: "POST", url: "/api/outputs/simulator/advance" });
+    expect(idle.statusCode).toBe(409);
+    const played = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/play",
+      body: { id: "cat" },
+    });
+    expect(played.json()).toMatchObject({ section: { index: 0, next: null } });
+    const advanced = await app.inject({ method: "POST", url: "/api/outputs/simulator/advance" });
+    const { section } = advanced.json<{ section: { next: { delay: number } } }>();
+    expect(section).toMatchObject({ index: 0, next: { index: 1 } });
+    expect(section.next.delay).toBeGreaterThan(15_000);
+    const cut = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/advance",
+      body: { at: "now" },
+    });
+    expect(cut.json()).toMatchObject({ section: { index: 1, next: null } });
+    const sought = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/seek",
+      body: { section: 2, progress: 0.5 },
+    });
+    expect(sought.json()).toMatchObject({ section: { index: 2, next: null } });
+    expect(sought.json<{ section: { time: number } }>().section.time).toBeCloseTo(4000, -1);
+    const last = await app.inject({ method: "POST", url: "/api/outputs/simulator/advance" });
+    expect(last.statusCode).toBe(409);
+    const missing = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/seek",
+      body: { section: 3, progress: 0 },
+    });
+    expect(missing.statusCode).toBe(400);
   });
 
   it("rejects unknown animations, outputs and bad requests", async () => {
@@ -230,7 +283,14 @@ describe("playback", () => {
     const device = await app.inject({ method: "GET", url: "/api/outputs/device" });
     expect(device.json()).toMatchObject({ animationId: "plasma", bpm: 128, fps: 30 });
     const simulator = await app.inject({ method: "GET", url: "/api/outputs/simulator" });
-    expect(simulator.json()).toEqual({ animationId: null, bpm: 120, fps: 30, beat: null });
+    expect(simulator.json()).toEqual({
+      animationId: null,
+      bpm: 120,
+      fps: 30,
+      beat: null,
+      section: null,
+      paused: false,
+    });
   });
 
   it("stops the deleted animation on every output", async () => {
@@ -270,10 +330,20 @@ describe("playback", () => {
       .filter(({ isBinary }) => !isBinary)
       .map(({ data }) => JSON.parse(data.toString()));
     expect(states).toEqual([
-      { type: "state", state: { animationId: null, bpm: 120, fps: 30, beat: null } },
       {
         type: "state",
-        state: { animationId: "white-strobe", bpm: 120, fps: 30, beat: expect.any(Number) },
+        state: { animationId: null, bpm: 120, fps: 30, beat: null, section: null, paused: false },
+      },
+      {
+        type: "state",
+        state: {
+          animationId: "white-strobe",
+          bpm: 120,
+          fps: 30,
+          beat: expect.any(Number),
+          section: { index: 0, time: expect.any(Number), next: null },
+          paused: false,
+        },
       },
     ]);
     const frame = messages.find(({ isBinary }) => isBinary);
@@ -293,7 +363,10 @@ describe("playback", () => {
     await expect.poll(() => messages.length).toBe(2);
     socket.terminate();
     expect(messages).toEqual([
-      { type: "state", state: { animationId: null, bpm: 120, fps: 30, beat: null } },
+      {
+        type: "state",
+        state: { animationId: null, bpm: 120, fps: 30, beat: null, section: null, paused: false },
+      },
       {
         type: "device",
         device: {

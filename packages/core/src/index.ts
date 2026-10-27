@@ -18,6 +18,7 @@ export * from "./particles.ts";
 export * from "./projection.ts";
 export * from "./random.ts";
 export * from "./sample.ts";
+export * from "./sections.ts";
 export * from "./sprite.ts";
 export * from "./svg-path.ts";
 export * from "./playback.ts";

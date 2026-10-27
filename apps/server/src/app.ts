@@ -12,12 +12,14 @@ import {
   type StoredAnimation,
   type StreamMessage,
   animationIdSchema,
+  animationObjectSchema,
   animationSchema,
   clipIdSchema,
   clipImportOptionsSchema,
   clipInfoSchema,
   createRenderer,
   effects,
+  getSectionedAnimation,
   outputSchema,
 } from "@led-matrix/core";
 import { nodeCanvas } from "@led-matrix/core/node-canvas";
@@ -50,15 +52,22 @@ export type AppOptions = {
 
 const bpmSchema = z.number().positive();
 const beatSchema = z.number().min(0);
+const sectionIndexSchema = z.int().min(0);
 const playSchema = z.object({
   id: animationIdSchema,
   beat: beatSchema.optional(),
   bpm: bpmSchema.optional(),
+  section: sectionIndexSchema.optional(),
 });
+const seekSchema = z.object({ section: sectionIndexSchema, progress: z.number().min(0).max(1) });
+const advanceSchema = z.object({ at: z.enum(["end", "now"]).optional() }).default({});
 const setBpmSchema = z.object({ bpm: bpmSchema });
 const setBeatSchema = z.object({ beat: beatSchema });
 const setBrightnessSchema = z.object({ brightness: z.int().min(0).max(255) });
-const createAnimationSchema = animationSchema.extend({ id: animationIdSchema.optional() });
+const createAnimationSchema = z.preprocess(
+  getSectionedAnimation,
+  animationObjectSchema.extend({ id: animationIdSchema.optional() }),
+);
 const idParamsSchema = z.object({ id: z.string() });
 const outputParamsSchema = z.object({ output: outputSchema });
 const updateClipSchema = clipInfoSchema.pick({ name: true });
@@ -69,8 +78,10 @@ function getValidationError(message: string, error: z.ZodError) {
 
 function getClipUsers(animations: readonly StoredAnimation[], clipId: string): string[] {
   return animations
-    .filter(({ layers }) =>
-      layers.some(({ effect, params }) => effect === "clip" && params["clip"] === clipId),
+    .filter(({ sections }) =>
+      sections.some(({ layers }) =>
+        layers.some(({ effect, params }) => effect === "clip" && params["clip"] === clipId),
+      ),
     )
     .map(({ id }) => id);
 }
@@ -300,10 +311,63 @@ export function createApp({
       return reply.code(404).send({ error: "Animation not found" });
     }
     const { id, ...rest } = animation;
-    if (result.data.bpm !== undefined) {
-      engine.setBpm(result.data.bpm);
+    const { bpm: requestedBpm, beat, section } = result.data;
+    if (section !== undefined && section >= rest.sections.length) {
+      return reply.code(400).send({ error: "Section not found" });
     }
-    engine.play(id, rest, result.data.beat);
+    if (requestedBpm !== undefined) {
+      engine.setBpm(requestedBpm);
+    }
+    engine.play(id, rest, beat, section);
+    return engine.getState();
+  });
+
+  app.post("/api/outputs/:output/seek", async (request, reply) => {
+    const engine = getEngine(request.params);
+    if (!engine) {
+      return reply.code(404).send({ error: "Output not found" });
+    }
+    const result = seekSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send(getValidationError("Invalid seek", result.error));
+    }
+    const animationId = engine.getState().animationId;
+    if (animationId === null) {
+      return reply.code(409).send({ error: "Nothing is playing" });
+    }
+    if (result.data.section >= (store.get(animationId)?.sections.length ?? 0)) {
+      return reply.code(400).send({ error: "Section not found" });
+    }
+    engine.seek(result.data.section, result.data.progress);
+    return engine.getState();
+  });
+
+  for (const action of ["pause", "resume"] as const) {
+    app.post(`/api/outputs/:output/${action}`, async (request, reply) => {
+      const engine = getEngine(request.params);
+      if (!engine) {
+        return reply.code(404).send({ error: "Output not found" });
+      }
+      if (engine.getState().animationId === null) {
+        return reply.code(409).send({ error: "Nothing is playing" });
+      }
+      engine[action]();
+      return engine.getState();
+    });
+  }
+
+  app.post("/api/outputs/:output/advance", async (request, reply) => {
+    const engine = getEngine(request.params);
+    if (!engine) {
+      return reply.code(404).send({ error: "Output not found" });
+    }
+    const result = advanceSchema.safeParse(request.body ?? {});
+    if (!result.success) {
+      return reply.code(400).send(getValidationError("Invalid advance", result.error));
+    }
+    if (!engine.advance(result.data.at)) {
+      return reply.code(409).send({ error: "No next section" });
+    }
     return engine.getState();
   });
 

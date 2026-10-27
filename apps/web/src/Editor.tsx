@@ -3,6 +3,8 @@ import {
   type AnimationMode,
   type ClipInfo,
   type Layer,
+  type ModeType,
+  type Section,
   type StoredAnimation,
   animationSchema,
   blendModes,
@@ -17,6 +19,7 @@ import { LayerList } from "./LayerList.tsx";
 import { TruncatedText } from "./TruncatedText.tsx";
 import { ParamControl } from "./ParamControl.tsx";
 import { Preview } from "./Preview.tsx";
+import { getSectionName } from "./sectionLabels.ts";
 import { navigate } from "./usePathname.ts";
 import {
   AlertDialog,
@@ -56,39 +59,45 @@ type EditorProps = {
   onSaved: () => void;
 };
 
-type ModeType = "beats" | "frames" | "seconds";
+type LengthUnit = "beats" | "frames" | "seconds";
 
 const modeTypeLabels: Readonly<Record<ModeType, string>> = {
-  beats: "Loop (beats)",
-  frames: "Loop (frames)",
-  seconds: "Duration (seconds)",
+  loop: "Loop",
+  once: "Once",
 };
 
-const NEW_ANIMATION: Animation = {
-  name: "Untitled",
+const lengthUnitLabels: Readonly<Record<LengthUnit, string>> = {
+  beats: "Beats",
+  frames: "Frames",
+  seconds: "Seconds",
+};
+
+const DEFAULT_SECTION: Section = {
   mode: { type: "loop", beats: 4 },
   layers: [{ effect: "plasma", params: {}, blend: "normal", opacity: 1 }],
 };
 
-function getModeType(mode: AnimationMode): ModeType {
-  if (mode.type === "duration") {
+const NEW_ANIMATION: Animation = { name: "Untitled", sections: [DEFAULT_SECTION] };
+
+function getLengthUnit(mode: AnimationMode): LengthUnit {
+  if ("ms" in mode) {
     return "seconds";
   }
   return "beats" in mode ? "beats" : "frames";
 }
 
 function getModeValue(mode: AnimationMode): number {
-  if (mode.type === "duration") {
+  if ("ms" in mode) {
     return mode.ms / 1000;
   }
   return "beats" in mode ? mode.beats : mode.frames;
 }
 
-function getMode(type: ModeType, value: number): AnimationMode {
-  if (type === "seconds") {
-    return { type: "duration", ms: value * 1000 };
+function getMode(type: ModeType, unit: LengthUnit, value: number): AnimationMode {
+  if (unit === "seconds") {
+    return { type, ms: value * 1000 };
   }
-  return type === "beats" ? { type: "loop", beats: value } : { type: "loop", frames: value };
+  return unit === "beats" ? { type, beats: value } : { type, frames: value };
 }
 
 function getEditorPathname(id: string | undefined): string {
@@ -99,10 +108,15 @@ function getDraft({ id: _id, ...animation }: StoredAnimation): Animation {
   return animation;
 }
 
-function getInvalidLayerIndexes(issues: ReadonlyMap<string, string>): Set<number> {
+function getInvalidLayerIndexes(
+  issues: ReadonlyMap<string, string>,
+  sectionIndex: number,
+): Set<number> {
+  const prefix = `sections.${sectionIndex}.layers.`;
   return new Set(
     [...issues.keys()]
-      .map((path) => /^layers\.(\d+)\./.exec(path)?.[1])
+      .filter((path) => path.startsWith(prefix))
+      .map((path) => /^(\d+)\./.exec(path.slice(prefix.length))?.[1])
       .filter((index) => index !== undefined)
       .map(Number),
   );
@@ -132,6 +146,7 @@ export function Editor({
   }>();
   const [draft, setDraft] = useState<Animation>(NEW_ANIMATION);
   const [saved, setSaved] = useState<Animation>(NEW_ANIMATION);
+  const [sectionIndex, setSectionIndex] = useState(0);
   const [layerIndex, setLayerIndex] = useState(0);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [error, setError] = useState<string>();
@@ -142,14 +157,20 @@ export function Editor({
     setPreviewAnimation(draft);
   }
 
-  const layer = draft.layers[layerIndex] ?? draft.layers[0];
+  const section = draft.sections[sectionIndex] ?? draft.sections[0] ?? DEFAULT_SECTION;
+  const { layers, mode } = section;
+  const layer = layers[layerIndex] ?? layers[0];
+  const sectionPath = `sections.${sectionIndex}`;
+  const layerPath = `${sectionPath}.layers.${layerIndex}`;
   const effect = layer && getEffect(layer.effect);
   const fields = useMemo(() => (effect ? getParamFields(effect.params) : []), [effect]);
   const isDirty = JSON.stringify(draft) !== JSON.stringify(saved);
-  const modeType = getModeType(draft.mode);
+  const lengthUnit = getLengthUnit(mode);
   const generalIssues = [...issues.entries()].filter(
     ([path]) =>
-      !path.startsWith(`layers.${layerIndex}.params.`) && path !== "name" && path !== "mode",
+      !path.startsWith(`${layerPath}.params.`) &&
+      path !== "name" &&
+      !path.startsWith(`${sectionPath}.mode`),
   );
 
   function load(animation: StoredAnimation | undefined) {
@@ -157,6 +178,7 @@ export function Editor({
     setSelectedId(animation?.id);
     setDraft(next);
     setSaved(next);
+    setSectionIndex(0);
     setLayerIndex(0);
     setIsConfirmingDelete(false);
     setError(undefined);
@@ -205,36 +227,46 @@ export function Editor({
     setPendingSelection(undefined);
   }
 
-  function updateLayer(update: Partial<Layer>) {
+  function updateSection(update: Partial<Section>) {
     setDraft({
       ...draft,
-      layers: draft.layers.map((current, index) =>
+      sections: draft.sections.map((current, index) =>
+        index === sectionIndex ? { ...current, ...update } : current,
+      ),
+    });
+  }
+
+  function selectSection(index: number) {
+    setSectionIndex(index);
+    setLayerIndex(0);
+  }
+
+  function updateLayer(update: Partial<Layer>) {
+    updateSection({
+      layers: layers.map((current, index) =>
         index === layerIndex ? { ...current, ...update } : current,
       ),
     });
   }
 
   function addLayer(effectId: string) {
-    setDraft({
-      ...draft,
-      layers: [...draft.layers, { effect: effectId, params: {}, blend: "normal", opacity: 1 }],
+    updateSection({
+      layers: [...layers, { effect: effectId, params: {}, blend: "normal", opacity: 1 }],
     });
-    setLayerIndex(draft.layers.length);
+    setLayerIndex(layers.length);
   }
 
   function moveLayer(index: number, offset: number) {
-    const layers = [...draft.layers];
-    const [moved] = layers.splice(index, 1);
+    const moved = layers[index];
     if (!moved) {
       return;
     }
-    layers.splice(index + offset, 0, moved);
-    setDraft({ ...draft, layers });
+    updateSection({ layers: layers.toSpliced(index, 1).toSpliced(index + offset, 0, moved) });
     setLayerIndex(index + offset);
   }
 
   function removeLayer(index: number) {
-    setDraft({ ...draft, layers: draft.layers.toSpliced(index, 1) });
+    updateSection({ layers: layers.toSpliced(index, 1) });
     setLayerIndex(Math.max(0, layerIndex >= index ? layerIndex - 1 : layerIndex));
   }
 
@@ -327,20 +359,51 @@ export function Editor({
               onChange={(event) => setDraft({ ...draft, name: event.currentTarget.value })}
             />
           </div>
+          {draft.sections.length > 1 && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="animation-section" className="text-xs text-muted-foreground">
+                Section
+              </Label>
+              <Select
+                value={sectionIndex}
+                onValueChange={(index: number | null) => {
+                  if (index !== null) {
+                    selectSection(index);
+                  }
+                }}
+              >
+                <SelectTrigger id="animation-section" size="sm" className="w-full">
+                  <SelectValue>
+                    {(index: number) => {
+                      const selected = draft.sections[index];
+                      return selected && getSectionName(selected, index);
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {draft.sections.map((current, index) => (
+                    <SelectItem key={index} value={index}>
+                      {getSectionName(current, index)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="animation-length" className="text-xs text-muted-foreground">
               Length
             </Label>
             <div className="flex items-center gap-2">
               <Select
-                value={modeType}
+                value={mode.type}
                 onValueChange={(type: ModeType | null) => {
                   if (type) {
-                    setDraft({ ...draft, mode: getMode(type, getModeValue(draft.mode)) });
+                    updateSection({ mode: getMode(type, lengthUnit, getModeValue(mode)) });
                   }
                 }}
               >
-                <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Length unit">
+                <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Repeat">
                   <SelectValue>{(type: ModeType) => modeTypeLabels[type]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -351,18 +414,38 @@ export function Editor({
                   ))}
                 </SelectContent>
               </Select>
+              <Select
+                value={lengthUnit}
+                onValueChange={(unit: LengthUnit | null) => {
+                  if (unit) {
+                    updateSection({ mode: getMode(mode.type, unit, getModeValue(mode)) });
+                  }
+                }}
+              >
+                <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Length unit">
+                  <SelectValue>{(unit: LengthUnit) => lengthUnitLabels[unit]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(lengthUnitLabels).map(([unit, label]) => (
+                    <SelectItem key={unit} value={unit}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 id="animation-length"
                 type="number"
                 className="h-7 w-20 shrink-0 font-mono text-xs tabular-nums"
                 min={0}
-                step={modeType === "seconds" ? 0.1 : 1}
-                aria-invalid={[...issues.keys()].some((path) => path.startsWith("mode"))}
-                value={getModeValue(draft.mode)}
+                step={lengthUnit === "seconds" ? 0.1 : 1}
+                aria-invalid={[...issues.keys()].some((path) =>
+                  path.startsWith(`${sectionPath}.mode`),
+                )}
+                value={getModeValue(mode)}
                 onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    mode: getMode(modeType, Number(event.currentTarget.value)),
+                  updateSection({
+                    mode: getMode(mode.type, lengthUnit, Number(event.currentTarget.value)),
                   })
                 }
               />
@@ -390,9 +473,9 @@ export function Editor({
               </Select>
             </div>
             <LayerList
-              layers={draft.layers}
+              layers={layers}
               selectedIndex={layerIndex}
-              invalidIndexes={getInvalidLayerIndexes(issues)}
+              invalidIndexes={getInvalidLayerIndexes(issues, sectionIndex)}
               onSelect={setLayerIndex}
               onMove={moveLayer}
               onRemove={removeLayer}
@@ -427,7 +510,7 @@ export function Editor({
                   field={field}
                   value={layer.params[field.key]}
                   clips={clips}
-                  error={issues.get(`layers.${layerIndex}.params.${field.key}`)}
+                  error={issues.get(`${layerPath}.params.${field.key}`)}
                   onChange={(value) => updateParam(field.key, value)}
                 />
               ))}
@@ -446,7 +529,7 @@ export function Editor({
                   />
                 </div>
               )}
-              {(draft.layers.length > 1 || effect?.kind === "filter") && (
+              {(layers.length > 1 || effect?.kind === "filter") && (
                 <>
                   <Separator />
                   <div className="flex flex-col gap-1.5">
@@ -465,9 +548,9 @@ export function Editor({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {blendModes.map((mode) => (
-                          <SelectItem key={mode} value={mode}>
-                            {mode}
+                        {blendModes.map((blendMode) => (
+                          <SelectItem key={blendMode} value={blendMode}>
+                            {blendMode}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -574,6 +657,7 @@ export function Editor({
       {isVisible && (
         <Preview
           animation={previewAnimation}
+          section={sectionIndex}
           bpm={bpm}
           fps={fps}
           showGrid={showGrid}

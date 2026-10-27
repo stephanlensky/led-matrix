@@ -1,9 +1,8 @@
 import type { Output, PlaybackState, StoredAnimation } from "@led-matrix/core";
-import { SearchIcon, SquareIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { AnimationList } from "./AnimationList.tsx";
-import { play, setBpm, stop } from "./api.ts";
-import { Button } from "@/components/ui/button";
+import { play, seek, setBpm } from "./api.ts";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -105,18 +104,12 @@ export function PlaybackControls({
           <AnimationList
             animations={getMatches(animations, query)}
             activeId={state?.animationId}
+            activeSection={state?.section?.index}
             onPlay={(id) => run(() => play(output, id))}
+            onSelectSection={(index) => run(() => seek(output, index, 0))}
           />
         </div>
       </div>
-      <Button
-        variant="outline"
-        onClick={() => run(() => stop(output))}
-        disabled={!state?.animationId}
-      >
-        <SquareIcon />
-        Stop
-      </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}
     </>
   );

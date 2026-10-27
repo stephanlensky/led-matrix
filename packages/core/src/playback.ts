@@ -3,11 +3,19 @@ import { deviceStatusSchema } from "./device-protocol.ts";
 
 export const outputSchema = z.enum(["simulator", "device"]);
 
+export const sectionStateSchema = z.object({
+  index: z.int(),
+  time: z.number(),
+  next: z.object({ index: z.int(), delay: z.number() }).nullable(),
+});
+
 export const playbackStateSchema = z.object({
   animationId: z.string().nullable(),
   bpm: z.number(),
   fps: z.number(),
   beat: z.number().nullable(),
+  section: sectionStateSchema.nullable(),
+  paused: z.boolean(),
 });
 
 export const deviceStateSchema = z.object({
@@ -25,6 +33,8 @@ export const streamMessageSchema = z.discriminatedUnion("type", [
 ]);
 
 export type Output = z.infer<typeof outputSchema>;
+
+export type SectionState = z.infer<typeof sectionStateSchema>;
 
 export type PlaybackState = z.infer<typeof playbackStateSchema>;
 

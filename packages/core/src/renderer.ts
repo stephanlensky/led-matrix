@@ -22,7 +22,7 @@ export type RendererOptions = {
 };
 
 export type Renderer = {
-  render(animation: Animation, elapsed: number, bpm: number): Frame;
+  render(animation: Animation, elapsed: number, bpm: number, section?: number): Frame;
 };
 
 function getSource(frame: Frame): RgbaImage {
@@ -67,7 +67,7 @@ export function createRenderer({
   clips = emptyClipLibrary,
 }: RendererOptions): Renderer {
   const contexts: CanvasContext[] = [];
-  const previousImages = new Map<number, RgbaImage>();
+  const previousImages = new Map<string, RgbaImage>();
 
   function getContext(index: number): CanvasContext {
     if (!canvas) {
@@ -78,11 +78,15 @@ export function createRenderer({
   }
 
   return {
-    render(animation, elapsed, bpm) {
+    render(animation, elapsed, bpm, section = 0) {
       const frame = createFrame();
-      const timing = getAnimationTiming(animation.mode, elapsed, bpm, fps);
+      const current = animation.sections[section];
+      if (!current) {
+        throw new Error(`Missing section ${section}`);
+      }
+      const timing = getAnimationTiming(current.mode, elapsed, bpm, fps);
 
-      for (const [index, layer] of animation.layers.entries()) {
+      for (const [index, layer] of current.layers.entries()) {
         const effect = getEffect(layer.effect);
         if (!effect) {
           throw new Error(`Unknown effect "${layer.effect}"`);
@@ -94,9 +98,10 @@ export function createRenderer({
         if (effect.kind === "pixel") {
           effect.render(image, input);
         } else if (effect.kind === "filter") {
-          const previous = previousImages.get(index) ?? createRgbaImage();
+          const key = `${section}:${index}`;
+          const previous = previousImages.get(key) ?? createRgbaImage();
           effect.render(image, { ...input, source: getSource(frame), previous });
-          previousImages.set(index, image);
+          previousImages.set(key, image);
         } else {
           const context = getContext(index);
           context.save();

@@ -1,4 +1,5 @@
 import type { StoredAnimation } from "@led-matrix/core";
+import { LiveTimeline } from "./LiveTimeline.tsx";
 import { MatrixFrame } from "./MatrixFrame.tsx";
 import { PlaybackControls } from "./PlaybackControls.tsx";
 import type { Stream } from "./useStream.ts";
@@ -37,7 +38,11 @@ export function Simulator({
           />
         </CardContent>
       </Card>
-      <MatrixFrame frame={frame} showGrid={showGrid} />
+      <MatrixFrame
+        frame={frame}
+        showGrid={showGrid}
+        footer={<LiveTimeline output="simulator" state={state} animations={animations} />}
+      />
     </>
   );
 }

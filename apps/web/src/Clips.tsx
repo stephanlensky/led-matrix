@@ -97,8 +97,12 @@ function getFrameCountLabel(clip: ClipInfo): string {
 function getClipAnimation(clip: ClipInfo): Animation {
   return {
     name: clip.name,
-    mode: { type: "duration", ms: getClipDuration(clip) },
-    layers: [{ effect: "clip", params: { clip: clip.id }, blend: "normal", opacity: 1 }],
+    sections: [
+      {
+        mode: { type: "once", ms: getClipDuration(clip) },
+        layers: [{ effect: "clip", params: { clip: clip.id }, blend: "normal", opacity: 1 }],
+      },
+    ],
   };
 }
 
@@ -256,13 +260,20 @@ export function Clips({
     }
     const animation = await createAnimation({
       name: clip.name,
-      mode: { type: "loop", frames: Math.max(1, Math.round((getClipDuration(clip) * fps) / 1000)) },
-      layers: [
+      sections: [
         {
-          effect: "clip",
-          params: { clip: clip.id, timing: "stretch" },
-          blend: "normal",
-          opacity: 1,
+          mode: {
+            type: "loop",
+            frames: Math.max(1, Math.round((getClipDuration(clip) * fps) / 1000)),
+          },
+          layers: [
+            {
+              effect: "clip",
+              params: { clip: clip.id, timing: "stretch" },
+              blend: "normal",
+              opacity: 1,
+            },
+          ],
         },
       ],
     });

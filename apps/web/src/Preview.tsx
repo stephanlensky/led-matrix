@@ -1,49 +1,56 @@
 import {
   type Animation,
   type Frame,
+  type SectionPlayback,
   createFrame,
   createRenderer,
-  getAnimationLength,
+  getCurrentPlayback,
+  getNextSection,
+  getSectionCursor,
+  getSectionPosition,
 } from "@led-matrix/core";
 import { Grid3x3Icon, PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { browserCanvas } from "./browserCanvas.ts";
 import { browserClips, subscribeClips } from "./clipLibrary.ts";
 import { MatrixFrame } from "./MatrixFrame.tsx";
+import { Timeline, type TimelinePosition } from "./Timeline.tsx";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 
 type PreviewProps = {
   animation: Animation | undefined;
+  section?: number;
   bpm: number;
   fps: number;
   showGrid: boolean;
   onShowGridChange: (showGrid: boolean) => void;
 };
 
-function getPositionLabel(animation: Animation | undefined, progress: number, bpm: number): string {
-  if (!animation) {
-    return "";
-  }
-  const { mode } = animation;
-  if (mode.type === "loop" && "beats" in mode) {
-    return `${(progress * mode.beats).toFixed(1)} / ${mode.beats} beats`;
-  }
-  if (mode.type === "loop") {
-    return `${Math.floor(progress * mode.frames)} / ${mode.frames} frames`;
-  }
-  const length = getAnimationLength(mode, bpm, 1) / 1000;
-  return `${(progress * length).toFixed(1)} / ${length.toFixed(1)} s`;
-}
+const INITIAL_PLAYBACK: SectionPlayback = {
+  current: { index: 0, startedAt: 0 },
+  next: undefined,
+};
 
-export function Preview({ animation, bpm, fps, showGrid, onShowGridChange }: PreviewProps) {
+export function Preview({
+  animation,
+  section = 0,
+  bpm,
+  fps,
+  showGrid,
+  onShowGridChange,
+}: PreviewProps) {
   const [frame, setFrame] = useState<Frame>(createFrame);
-  const [progress, setProgress] = useState(0);
+  const [position, setPosition] = useState<TimelinePosition>({
+    index: 0,
+    progress: 0,
+    nextIndex: undefined,
+  });
   const [isPlaying, setIsPlaying] = useState(true);
   const [renderer] = useState(() =>
     createRenderer({ fps, canvas: browserCanvas, clips: browserClips }),
   );
-  const elapsedRef = useRef(0);
+  const clockRef = useRef(0);
+  const playbackRef = useRef(INITIAL_PLAYBACK);
   const isPlayingRef = useRef(isPlaying);
   const animationRef = useRef(animation);
 
@@ -54,7 +61,7 @@ export function Preview({ animation, bpm, fps, showGrid, onShowGridChange }: Pre
 
   useEffect(() => {
     const frameDuration = 1000 / fps;
-    let lastRendered: { animation: Animation; frameTime: number } | undefined;
+    let lastRendered: { animation: Animation; index: number; frameTime: number } | undefined;
     let lastTime = performance.now();
     let requestId = 0;
     const unsubscribe = subscribeClips(() => {
@@ -64,18 +71,37 @@ export function Preview({ animation, bpm, fps, showGrid, onShowGridChange }: Pre
     function tick(now: number) {
       const current = animationRef.current;
       if (isPlayingRef.current) {
-        elapsedRef.current += now - lastTime;
+        clockRef.current += now - lastTime;
       }
       lastTime = now;
       if (current) {
-        const length = getAnimationLength(current.mode, bpm, fps);
-        elapsedRef.current %= length;
-        const frameTime = Math.floor(elapsedRef.current / frameDuration) * frameDuration;
-        if (lastRendered?.animation !== current || lastRendered.frameTime !== frameTime) {
-          lastRendered = { animation: current, frameTime };
-          setFrame(renderer.render(current, frameTime, bpm));
-          setProgress(frameTime / length);
+        const playback = getCurrentPlayback(playbackRef.current, clockRef.current);
+        playbackRef.current = playback;
+        const { index, time, length } = getSectionPosition(
+          current,
+          playback,
+          clockRef.current,
+          bpm,
+          fps,
+        );
+        const frameTime = Math.floor(time / frameDuration) * frameDuration;
+        if (
+          lastRendered?.animation !== current ||
+          lastRendered.index !== index ||
+          lastRendered.frameTime !== frameTime
+        ) {
+          lastRendered = { animation: current, index, frameTime };
+          setFrame(renderer.render(current, frameTime, bpm, index));
         }
+        const progress = time / length;
+        const nextIndex = playback.next?.index;
+        setPosition((previous) =>
+          previous.index === index &&
+          previous.progress === progress &&
+          previous.nextIndex === nextIndex
+            ? previous
+            : { index, progress, nextIndex },
+        );
       }
       requestId = requestAnimationFrame(tick);
     }
@@ -87,48 +113,70 @@ export function Preview({ animation, bpm, fps, showGrid, onShowGridChange }: Pre
     };
   }, [renderer, bpm, fps]);
 
-  function seek(value: number) {
-    if (animation) {
-      elapsedRef.current = value * getAnimationLength(animation.mode, bpm, fps);
+  function seek(index: number, progress: number) {
+    const current = animationRef.current;
+    if (current?.sections[index]) {
+      playbackRef.current = {
+        current: getSectionCursor(current, index, progress, clockRef.current, bpm, fps),
+        next: undefined,
+      };
     }
   }
+
+  function advance() {
+    if (animation) {
+      const playback = getCurrentPlayback(playbackRef.current, clockRef.current);
+      playbackRef.current = {
+        current: playback.current,
+        next: getNextSection(animation, playback, clockRef.current, bpm, fps, "end"),
+      };
+    }
+  }
+
+  const seekRef = useRef(seek);
+  useEffect(() => {
+    seekRef.current = seek;
+  });
+
+  useEffect(() => {
+    seekRef.current(section, 0);
+  }, [section]);
 
   return (
     <MatrixFrame
       frame={frame}
       showGrid={showGrid}
       footer={
-        <div className="flex h-8 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={isPlaying ? "Pause preview" : "Play preview"}
-            onClick={() => setIsPlaying(!isPlaying)}
-          >
-            {isPlaying ? <PauseIcon /> : <PlayIcon />}
-          </Button>
-          <Slider
-            aria-label="Preview position"
-            min={0}
-            max={1}
-            step={0.001}
-            value={progress}
-            onValueChange={(value) => seek(Array.isArray(value) ? (value[0] ?? 0) : value)}
-          />
-          <span className="shrink-0 font-mono text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-            {getPositionLabel(animation, progress, bpm)}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Pixel grid"
-            aria-pressed={showGrid}
-            className="aria-pressed:bg-muted"
-            onClick={() => onShowGridChange(!showGrid)}
-          >
-            <Grid3x3Icon />
-          </Button>
-        </div>
+        <Timeline
+          animation={animation}
+          position={animation ? position : undefined}
+          bpm={bpm}
+          fps={fps}
+          controls={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={isPlaying ? "Pause preview" : "Play preview"}
+              onClick={() => setIsPlaying(!isPlaying)}
+            >
+              {isPlaying ? <PauseIcon /> : <PlayIcon />}
+            </Button>
+          }
+          actions={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Pixel grid"
+              aria-pressed={showGrid}
+              className="aria-pressed:bg-muted"
+              onClick={() => onShowGridChange(!showGrid)}
+            >
+              <Grid3x3Icon />
+            </Button>
+          }
+          onSeek={seek}
+          onAdvance={advance}
+        />
       }
     />
   );
