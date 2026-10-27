@@ -87,6 +87,16 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     mode: { type: "loop", beats: 32 },
     layers: [{ effect: "cat", params: {} }],
   },
+  "cat-spawn": {
+    name: "Cat spawn",
+    mode: { type: "loop", beats: 16 },
+    layers: [{ effect: "cat-spawn", params: {} }],
+  },
+  "cat-bounce": {
+    name: "Cat bounce",
+    mode: { type: "loop", beats: 16 },
+    layers: [{ effect: "cat-bounce", params: {} }],
+  },
   "scare-meter-16": {
     name: "Scare meter (16 bars)",
     mode: { type: "loop", beats: 64 },

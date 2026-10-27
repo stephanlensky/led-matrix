@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { animationSchema } from "../animation.ts";
+import { emptyClipLibrary } from "../clip.ts";
 import { nodeCanvas } from "../node-canvas.ts";
-import { CHANNELS, HEIGHT, WIDTH } from "../frame.ts";
+import { CHANNELS, HEIGHT, type RgbaImage, WIDTH, createRgbaImage } from "../frame.ts";
 import { createRenderer } from "../renderer.ts";
 import { effects, getEffect } from "./index.ts";
 
@@ -54,5 +55,35 @@ describe("text", () => {
     const center = getLitColumns("center");
     expect(Math.min(...center)).toBeGreaterThan(WIDTH / 2 - 5);
     expect(Math.max(...center)).toBeLessThan(WIDTH / 2 + 5);
+  });
+});
+
+function renderEffect(id: string, progress: number): RgbaImage {
+  const effect = getEffect(id);
+  const image = createRgbaImage();
+  if (effect?.kind === "pixel") {
+    effect.render(image, {
+      params: effect.params.parse({}),
+      progress,
+      time: 0,
+      beat: 0,
+      bpm: 120,
+      clips: emptyClipLibrary,
+    });
+  }
+  return image;
+}
+
+function getMeanDifference(a: RgbaImage, b: RgbaImage): number {
+  return a.reduce((sum, value, index) => sum + Math.abs(value - (b[index] ?? 0)), 0) / a.length;
+}
+
+describe("cat sequence", () => {
+  it.each([
+    ["cat", "cat-spawn"],
+    ["cat-spawn", "cat-bounce"],
+    ["cat-bounce", "cat-bounce"],
+  ])("%s ends where %s starts", (from, to) => {
+    expect(getMeanDifference(renderEffect(from, 1 - 1e-6), renderEffect(to, 0))).toBeLessThan(0.5);
   });
 });
