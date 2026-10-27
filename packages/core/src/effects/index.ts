@@ -15,6 +15,22 @@ import { colorFade, colorFlash } from "./color-flash.ts";
 import { checker, rings, stripes, twinkle } from "./patterns.ts";
 import { hyperspace } from "./hyperspace.ts";
 import { scareMeter } from "./scare-meter.ts";
+import {
+  bloodCurtain,
+  bloodDrip,
+  bloodEqualizer,
+  bloodFountain,
+  bloodShockwave,
+  bloodStorm,
+  bloodStrobe,
+  bloodVortex,
+  bloodExplosion,
+  bloodPool,
+  bloodSplatter,
+  bloodText,
+  bloodVeins,
+  bloodWells,
+} from "./blood/index.ts";
 import { loading } from "./loading.ts";
 import { cat } from "./cat.ts";
 import { catBounce, catSpawn } from "./cat-duo.ts";
@@ -49,6 +65,20 @@ export const effects: readonly Effect[] = [
   vampireMouth,
   pumpkin,
   scareMeter,
+  bloodDrip,
+  bloodSplatter,
+  bloodExplosion,
+  bloodPool,
+  bloodText,
+  bloodVeins,
+  bloodCurtain,
+  bloodFountain,
+  bloodWells,
+  bloodVortex,
+  bloodEqualizer,
+  bloodStorm,
+  bloodShockwave,
+  bloodStrobe,
   loading,
   cat,
   catSpawn,

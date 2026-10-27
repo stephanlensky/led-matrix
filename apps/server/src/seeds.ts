@@ -410,6 +410,217 @@ export const replacedSeedIds = [
   "sunrise-fade",
 ];
 
+function getRamp(from: number, to: number, easing?: string): { keyframes: unknown[] } {
+  return {
+    keyframes: [
+      { at: 0, value: from, ...(easing ? { easing } : {}) },
+      { at: 1, value: to },
+    ],
+  };
+}
+
+const bloodAnimations: Record<string, AnimationInput> = {
+  "blood-drip": getLoop(
+    "Blood drip",
+    16,
+    [{ effect: "blood-drip", params: getReferences(["count", "length", "band", "pool"]) }],
+    [
+      getParameter(
+        "Intensity",
+        {
+          Light: { count: 8, length: 8, band: 2, pool: 1 },
+          Medium: { count: 14, length: 10, band: 3, pool: 2 },
+          Heavy: { count: 28, length: 16, band: 6, pool: 4 },
+        },
+        "Medium",
+      ),
+    ],
+  ),
+  "blood-splatter": getLoop(
+    "Blood splatter",
+    8,
+    [
+      {
+        effect: "blood-splatter",
+        params: { period: 8, ...getReferences(["every", "fade", "origin"]) },
+      },
+    ],
+    [
+      getParameter(
+        "Rate",
+        {
+          "Every beat": { every: 1, fade: 4 },
+          "Every 2 beats": { every: 2, fade: 6 },
+          "Every bar": { every: 4, fade: 8 },
+        },
+        "Every beat",
+      ),
+      getValueParameter("Origin", "origin", { Random: "random", Center: "center" }, "Random"),
+    ],
+  ),
+  "blood-explosion": getLoop(
+    "Blood explosion",
+    16,
+    [{ effect: "blood-explosion", params: { period: 16, ...getReferences(["every"]) } }],
+    [
+      getValueParameter(
+        "Rate",
+        "every",
+        { "Every bar": 4, "Every 2 bars": 8, "Every 4 bars": 16 },
+        "Every bar",
+      ),
+    ],
+  ),
+  "blood-pool": {
+    name: "Blood pool",
+    sections: [
+      {
+        name: "Spread",
+        mode: { type: "once", beats: 32 },
+        layers: [{ effect: "blood-pool", params: { level: getRamp(0.05, 1, "easeOutCubic") } }],
+      },
+      {
+        name: "Full",
+        mode: { type: "loop", beats: 16 },
+        layers: [{ effect: "blood-pool", params: { level: 1 } }],
+      },
+    ],
+  },
+  "bleeding-text": getLoop(
+    "Bleeding text",
+    16,
+    [{ effect: "blood-text", params: getReferences(["text", "font", "offsetY", "shake"]) }],
+    [
+      getParameter(
+        "Text",
+        {
+          RUN: { text: "RUN", font: "spleen-16x32", offsetY: -8 },
+          DIE: { text: "DIE", font: "spleen-16x32", offsetY: -8 },
+          "HELP ME": { text: "HELP\nME", font: "spleen-12x24", offsetY: -6 },
+          "GET OUT": { text: "GET\nOUT", font: "spleen-12x24", offsetY: -6 },
+        },
+        "RUN",
+      ),
+      getValueParameter("Shake", "shake", { Off: 0, On: 1, Violent: 3 }, "Off"),
+    ],
+  ),
+  veins: {
+    name: "Veins",
+    sections: [
+      {
+        name: "Creep",
+        mode: { type: "once", beats: 16 },
+        layers: [{ effect: "blood-veins", params: { growth: getRamp(0, 1) } }],
+      },
+      {
+        name: "Pulse",
+        mode: { type: "loop", beats: 8 },
+        layers: [{ effect: "blood-veins" }],
+      },
+    ],
+  },
+  "blood-curtain": {
+    name: "Blood curtain",
+    sections: [
+      {
+        name: "Pour",
+        mode: { type: "once", beats: 8 },
+        layers: [{ effect: "blood-curtain", params: { level: getRamp(0, 1, "easeInQuad") } }],
+      },
+      {
+        name: "Drain",
+        mode: { type: "once", beats: 8 },
+        layers: [{ effect: "blood-curtain", params: { level: getRamp(1, 2, "easeInQuad") } }],
+      },
+    ],
+  },
+};
+
+const bassBloodAnimations: Record<string, AnimationInput> = {
+  "blood-fountain": getLoop(
+    "Blood fountain",
+    8,
+    [
+      {
+        effect: "blood-fountain",
+        params: { period: 8, ...getReferences(["emitters", "perStep", "power", "beatBurst"]) },
+      },
+    ],
+    [
+      getParameter(
+        "Style",
+        {
+          Gush: { emitters: 1, perStep: 24, power: 1 },
+          Twin: { emitters: 2, perStep: 16, power: 0.95 },
+          Triple: { emitters: 3, perStep: 12, power: 0.9 },
+          Torrent: { emitters: 1, perStep: 48, power: 1.1 },
+        },
+        "Gush",
+      ),
+      getValueParameter("Bursts", "beatBurst", { Off: 0, "On beat": 40 }, "Off"),
+    ],
+  ),
+  "blood-wells": getLoop(
+    "Blood gravity wells",
+    16,
+    [{ effect: "blood-wells", params: { period: 16, ...getReferences(["every", "wells"]) } }],
+    [
+      getValueParameter("Move every", "every", { Beat: 1, "2 beats": 2, Bar: 4 }, "2 beats"),
+      getValueParameter("Wells", "wells", { One: 1, Two: 2, Three: 3, Four: 4 }, "Three"),
+    ],
+  ),
+  "blood-vortex": getLoop(
+    "Blood vortex",
+    16,
+    [{ effect: "blood-vortex", params: getReferences(["every"]) }],
+    [getValueParameter("Drop every", "every", { Bar: 4, "2 bars": 8, "4 bars": 16 }, "Bar")],
+  ),
+  "blood-equalizer": getLoop(
+    "Blood equalizer",
+    16,
+    [{ effect: "blood-equalizer", params: getReferences(["style"]) }],
+    [getValueParameter("Style", "style", { Bottom: "bottom", Center: "center" }, "Bottom")],
+  ),
+  "blood-storm": getLoop(
+    "Blood storm",
+    8,
+    [{ effect: "blood-storm", params: getReferences(["fallBeats", "drops"]) }],
+    [
+      getParameter(
+        "Speed",
+        {
+          Slow: { fallBeats: 1, drops: 50 },
+          Fast: { fallBeats: 0.5, drops: 70 },
+          Faster: { fallBeats: 0.25, drops: 90 },
+        },
+        "Fast",
+      ),
+    ],
+  ),
+  "blood-shockwave": getLoop(
+    "Blood shockwave",
+    8,
+    [{ effect: "blood-shockwave", params: { period: 8, ...getReferences(["perBeat"]) } }],
+    [getValueParameter("Wobble", "perBeat", { Beat: 1, "1/8": 2, Triplet: 3, "1/16": 4 }, "Beat")],
+  ),
+  "blood-strobe": getLoop(
+    "Blood strobe",
+    8,
+    [{ effect: "blood-strobe", params: { period: 8, ...getReferences(["every", "decay"]) } }],
+    [
+      getParameter(
+        "Rate",
+        {
+          Beat: { every: 1, decay: 5 },
+          "1/8": { every: 0.5, decay: 7 },
+          "1/16": { every: 0.25, decay: 12 },
+        },
+        "1/8",
+      ),
+    ],
+  ),
+};
+
 export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("Basics", {
     plasma: getLoop(
@@ -737,5 +948,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       ],
     },
   }),
+  ...getFolder("Halloween/Blood", bloodAnimations),
+  ...getFolder("Halloween/Blood/Bass", bassBloodAnimations),
   ...getFolder("One-offs", { rumble }),
 };
