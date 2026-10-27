@@ -10,6 +10,7 @@ const mapping: MappingFile = {
     "/music/a.flac": [
       { beat: -1, end: 687, animation: "bad-apple" },
       { beat: 700, animation: "cat", section: "Spawn" },
+      { beat: 800, end: 816, loops: 2, animation: "plasma", params: { style: "fire" } },
     ],
     "/music/b.flac": [{ beat: 0, animation: "plasma" }],
   },
@@ -19,7 +20,8 @@ const mappingText = `{
   "tracks": {
     "/music/a.flac": [
       { "beat": -1, "end": 687, "animation": "bad-apple" },
-      { "beat": 700, "animation": "cat", "section": "Spawn" }
+      { "beat": 700, "animation": "cat", "section": "Spawn" },
+      { "beat": 800, "end": 816, "loops": 2, "animation": "plasma", "params": {"style":"fire"} }
     ],
     "/music/b.flac": [
       { "beat": 0, "animation": "plasma" }

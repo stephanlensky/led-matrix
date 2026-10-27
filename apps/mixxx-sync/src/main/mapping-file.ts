@@ -13,7 +13,14 @@ import {
 
 const RELOAD_DELAY = 100;
 
-const cueKeys = ["beat", "end", "animation", "section"] as const satisfies readonly (keyof Cue)[];
+const cueKeys = [
+  "beat",
+  "end",
+  "loops",
+  "animation",
+  "section",
+  "params",
+] as const satisfies readonly (keyof Cue)[];
 
 function getCueText(cue: Cue): string {
   const fields = cueKeys

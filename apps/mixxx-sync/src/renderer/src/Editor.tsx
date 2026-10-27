@@ -28,8 +28,8 @@ import { useStoredState } from "./useStoredState.ts";
 
 const FPS = 30;
 const ALL_TRACKS: LibrarySelection = { type: "all" };
-const INTERACTIVE_SELECTOR =
-  "input, textarea, select, button, [contenteditable='true'], [role='button'], [role='switch']";
+const TEXT_ENTRY_SELECTOR = "input, textarea, [contenteditable='true']";
+const INTERACTIVE_SELECTOR = `${TEXT_ENTRY_SELECTOR}, select, button, [role='button'], [role='switch']`;
 
 function usePlayer(): Player {
   const [player] = useState(createPlayer);
@@ -47,17 +47,33 @@ function useEditorKeys(
   });
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const isIgnored = (event: KeyboardEvent, selector: string) => {
       const target = event.target instanceof Element ? event.target : undefined;
-      if (target?.closest(INTERACTIVE_SELECTOR) || !rootRef.current?.checkVisibility()) {
-        return;
-      }
-      if (handlerRef.current(event)) {
+      return Boolean(target?.closest(selector)) || !rootRef.current?.checkVisibility();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isIgnored(event, INTERACTIVE_SELECTOR) && handlerRef.current(event)) {
         event.preventDefault();
       }
     };
+    const handleSpace = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || isIgnored(event, TEXT_ENTRY_SELECTOR)) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.type === "keydown") {
+        handlerRef.current(event);
+      }
+    };
+    window.addEventListener("keydown", handleSpace, { capture: true });
+    window.addEventListener("keyup", handleSpace, { capture: true });
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleSpace, { capture: true });
+      window.removeEventListener("keyup", handleSpace, { capture: true });
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [rootRef]);
 }
 
