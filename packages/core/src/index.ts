@@ -23,4 +23,4 @@ export * from "./sections.ts";
 export * from "./sprite.ts";
 export * from "./svg-path.ts";
 export * from "./playback.ts";
-export * from "./presets.ts";
+export * from "./parameters.ts";

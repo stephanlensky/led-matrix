@@ -5,13 +5,13 @@ import { ClipsContext, createBrowserClips } from "@led-matrix/ui/lib/clips";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { Settings } from "../../shared/api.ts";
 import type { AnimationSource, CueSelection, LaneEditor } from "./AnimationLane.tsx";
-import { AnimationPanel, type CuePreset, useAnimations } from "./AnimationPanel.tsx";
+import { AnimationPanel, type CueParams, useAnimations } from "./AnimationPanel.tsx";
 import { LibraryNav } from "./LibraryNav.tsx";
 import { type AnimationPreview, PlaybackSimulator } from "./Playback.tsx";
 import { ResizeHandle, useStoredSize } from "./ResizeHandle.tsx";
 import { getNudgedBeat } from "../../shared/lane-edit.ts";
 import { type MappingFile, getExplicitCues } from "../../shared/mapping.ts";
-import { moveCue, removeCue, setCuePreset } from "../../shared/mapping-edits.ts";
+import { moveCue, removeCue, setCueParam } from "../../shared/mapping-edits.ts";
 import { BEATS_PER_BAR } from "../../shared/track-scale.ts";
 import { type Player, createPlayer } from "./player.ts";
 import { type LiveTrack, TrackList } from "./TrackList.tsx";
@@ -63,7 +63,7 @@ function useEditorKeys(
 
 type EditorActions = {
   remove: () => void;
-  setPreset: (preset: string) => void;
+  setParam: (name: string, option: string) => void;
   nudge: (delta: number) => void;
   undo: () => boolean;
   redo: () => boolean;
@@ -83,9 +83,11 @@ function useLaneEditor(mapping: MappingEditor): LaneEditor & EditorActions {
           setSelection(undefined);
         }
       },
-      setPreset(preset) {
+      setParam(name, option) {
         if (selection) {
-          update((current) => setCuePreset(current, selection.location, selection.index, preset));
+          update((current) =>
+            setCueParam(current, selection.location, selection.index, name, option),
+          );
         }
       },
       nudge(delta) {
@@ -108,19 +110,19 @@ function useLaneEditor(mapping: MappingEditor): LaneEditor & EditorActions {
   );
 }
 
-function getCuePreset(
+function getCueParams(
   editor: LaneEditor & EditorActions,
   file: MappingFile | undefined,
   animationsById: ReadonlyMap<string, StoredAnimation> | undefined,
-): CuePreset | undefined {
-  const { selection, setPreset } = editor;
+): CueParams | undefined {
+  const { selection, setParam } = editor;
   const cues = selection && file?.tracks[selection.location];
   const cue = cues && getExplicitCues(cues)[selection.index];
   const animation = cue && animationsById?.get(cue.animation);
-  if (!cue || !animation || (animation.presets?.length ?? 0) < 2) {
+  if (!cue || !animation?.parameters?.some(({ options }) => options.length > 1)) {
     return undefined;
   }
-  return { animation, preset: cue.preset, onChange: setPreset };
+  return { animation, params: cue.params, onChange: setParam };
 }
 
 function useLiveTrack(): LiveTrack | undefined {
@@ -200,7 +202,7 @@ function EditorContent({ settings }: { settings: Settings }) {
   const player = usePlayer();
   const editor = useLaneEditor(mapping);
   const [preview, setPreview] = useState<AnimationPreview>();
-  const cuePreset = getCuePreset(editor, mapping.mapping, source.animationsById);
+  const cueParams = getCueParams(editor, mapping.mapping, source.animationsById);
   const live = useLiveTrack();
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -276,7 +278,7 @@ function EditorContent({ settings }: { settings: Settings }) {
         <AnimationPanel
           animations={animations}
           preview={preview}
-          cuePreset={cuePreset}
+          cueParams={cueParams}
           onPreviewChange={setPreview}
           simulator={
             <PlaybackSimulator

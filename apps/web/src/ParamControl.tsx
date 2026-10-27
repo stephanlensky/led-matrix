@@ -1,7 +1,7 @@
 import {
   type ClipInfo,
   type ParamField,
-  getPresetReference,
+  getParameterReference,
   keyframeTrackSchema,
 } from "@led-matrix/core";
 import { Button } from "@led-matrix/ui/components/button";
@@ -21,7 +21,7 @@ import { Textarea } from "@led-matrix/ui/components/textarea";
 type ParamControlProps = {
   field: ParamField;
   value: unknown;
-  presetValues: Readonly<Record<string, unknown>>;
+  parameterValues: Readonly<Record<string, unknown>>;
   clips: readonly ClipInfo[];
   error: string | undefined;
   onChange: (value: unknown) => void;
@@ -222,14 +222,14 @@ function getControl(
 export function ParamControl({
   field,
   value,
-  presetValues,
+  parameterValues,
   clips,
   error,
   onChange,
 }: ParamControlProps) {
   const id = `param-${field.key}`;
-  const reference = getPresetReference(value);
-  const resolved = reference === undefined ? value : presetValues[reference];
+  const reference = getParameterReference(value);
+  const resolved = reference === undefined ? value : parameterValues[reference];
   const track = keyframeTrackSchema.safeParse(resolved);
   const isInline = field.type === "boolean" && !track.success && reference === undefined;
 
@@ -241,7 +241,7 @@ export function ParamControl({
         </Label>
         {reference !== undefined && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            Preset · <span className="font-mono">{reference}</span>
+            Parameter · <span className="font-mono">{reference}</span>
           </span>
         )}
       </div>

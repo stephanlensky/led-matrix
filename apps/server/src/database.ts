@@ -70,6 +70,7 @@ const migrations: readonly Migration[] = [
   encodeClipFrameGroups,
   updateAnimationSections,
   removeReplacedSeeds,
+  removeReplacedSeeds,
 ];
 
 function getVersion(connection: DatabaseSync): number {

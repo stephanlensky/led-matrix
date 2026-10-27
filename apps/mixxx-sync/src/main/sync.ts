@@ -40,7 +40,14 @@ export function getPhaseDrift(drift: number): number {
 function getCueKey(location: string | undefined, cue: ResolvedCue): string {
   return cue.animationId === null
     ? [location, cue.beat].join("\n")
-    : [location, cue.beat, cue.animationId, cue.section, cue.preset, cue.beats].join("\n");
+    : [
+        location,
+        cue.beat,
+        cue.animationId,
+        cue.section,
+        JSON.stringify(cue.params),
+        cue.beats,
+      ].join("\n");
 }
 
 export function createSync({
@@ -108,8 +115,8 @@ export function createSync({
 
   async function play(target: Target, cue: SectionCue, key: string): Promise<void> {
     const beat = Math.max(target.getBeat(getTime()) - cue.beat, 0);
-    const { animationId: id, section, preset, beats } = cue;
-    setModel(await server.play({ id, section, preset, beat, bpm: target.bpm, beats }));
+    const { animationId: id, section, params, beats } = cue;
+    setModel(await server.play({ id, section, params, beat, bpm: target.bpm, beats }));
     playedKey = key;
     log(`Playing ${cue.animationId} section ${cue.section} from cue beat ${cue.beat}`);
   }
@@ -126,8 +133,10 @@ export function createSync({
     }
     if (cue) {
       const key = getCueKey(target.location, cue);
-      const isPresetChanged = cue.preset !== undefined && current.state.preset !== cue.preset;
-      if (key !== playedKey || current.state.animationId !== cue.animationId || isPresetChanged) {
+      const isParamsChanged = Object.entries(cue.params ?? {}).some(
+        ([name, option]) => current.state.params[name] !== option,
+      );
+      if (key !== playedKey || current.state.animationId !== cue.animationId || isParamsChanged) {
         await play(target, cue, key);
         return;
       }

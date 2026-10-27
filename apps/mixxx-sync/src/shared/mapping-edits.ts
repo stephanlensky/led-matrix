@@ -77,7 +77,7 @@ export function replaceCue(
   file: MappingFile,
   location: string,
   index: number,
-  { animation, section, preset }: Pick<AnimationCue, "animation" | "section" | "preset">,
+  { animation, section, params }: Pick<AnimationCue, "animation" | "section" | "params">,
 ): MappingFile {
   const cues = getTrackCues(file, location);
   const { beat, end } = getCueAt(cues, index);
@@ -86,7 +86,7 @@ export function replaceCue(
       beat,
       animation,
       ...(section === undefined ? {} : { section }),
-      ...(preset === undefined ? {} : { preset }),
+      ...(params === undefined ? {} : { params }),
     },
     end,
   );
@@ -136,15 +136,18 @@ export function resizeCue(
   return setTrackCues(file, location, cues);
 }
 
-export function setCuePreset(
+export function setCueParam(
   file: MappingFile,
   location: string,
   index: number,
-  preset: string | undefined,
+  name: string,
+  option: string | undefined,
 ): MappingFile {
   const cues = getTrackCues(file, location);
-  const { preset: _preset, ...cue } = getCueAt(cues, index);
-  cues[index] = preset === undefined ? cue : { ...cue, preset };
+  const { params: current, ...cue } = getCueAt(cues, index);
+  const { [name]: _option, ...rest } = current ?? {};
+  const params = option === undefined ? rest : { ...rest, [name]: option };
+  cues[index] = Object.keys(params).length === 0 ? cue : { ...cue, params };
   return setTrackCues(file, location, cues);
 }
 

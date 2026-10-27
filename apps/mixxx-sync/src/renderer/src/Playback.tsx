@@ -1,9 +1,10 @@
 import {
   type Frame,
+  type ParameterSelection,
   type StoredAnimation,
   createFrame,
+  getParameterAnimation,
   getSectionPosition,
-  getPresetAnimation,
 } from "@led-matrix/core";
 import { Button } from "@led-matrix/ui/components/button";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
@@ -26,7 +27,7 @@ const DEFAULT_BPM = 120;
 export type AnimationPreview = {
   animationId: string;
   section: number | undefined;
-  preset: string | undefined;
+  params: ParameterSelection | undefined;
 };
 
 export function PlayButton({ player, track }: { player: Player; track: Track }) {
@@ -195,10 +196,10 @@ export function PlaybackSimulator({
   const cues = track && mapping?.tracks[track.location];
   const isTrackActive = isPlaying && cues !== undefined && cues.length > 0;
   const previewSource = preview && source.animationsById?.get(preview.animationId);
-  const previewPreset = preview?.preset;
+  const previewParams = preview?.params;
   const previewAnimation = useMemo(
-    () => previewSource && getPresetAnimation(previewSource, previewPreset),
-    [previewSource, previewPreset],
+    () => previewSource && getParameterAnimation(previewSource, previewParams),
+    [previewSource, previewParams],
   );
 
   useEffect(() => {

@@ -10,8 +10,9 @@ import {
   createFrame,
   getCurrentPlayback,
   getFittedAnimation,
-  getPresetAnimation,
-  getPresetName,
+  type ParameterSelection,
+  getParameterAnimation,
+  getParameterSelection,
   getNextSection,
   getRenderPosition,
   getSectionCursor,
@@ -36,7 +37,7 @@ export type PlayOptions = {
   beat?: number | undefined;
   section?: number | undefined;
   beats?: number | undefined;
-  preset?: string | null | undefined;
+  params?: ParameterSelection | undefined;
 };
 
 export type PlaybackEngine = ReturnType<typeof createPlaybackEngine>;
@@ -54,7 +55,7 @@ export function createPlaybackEngine({
     | {
         id: string;
         document: Animation;
-        preset: string | null;
+        params: ParameterSelection;
         source: Animation;
         animation: Animation;
         fit: SectionFit | null;
@@ -112,7 +113,7 @@ export function createPlaybackEngine({
   function getState(): PlaybackState {
     return {
       animationId: active?.id ?? null,
-      preset: active?.preset ?? null,
+      params: active?.params ?? {},
       bpm,
       fps,
       beat: getBeat(),
@@ -177,17 +178,17 @@ export function createPlaybackEngine({
     };
   }
 
-  function setSource(document: Animation, name: string | null): void {
+  function setSource(document: Animation, selection: ParameterSelection): void {
     if (!active) {
       return;
     }
     const fit = active.fit && active.fit.section < document.sections.length ? active.fit : null;
-    const preset = getPresetName(document, name);
-    const source = getPresetAnimation(document, preset);
+    const params = getParameterSelection(document, selection);
+    const source = getParameterAnimation(document, params);
     active = {
       ...active,
       document,
-      preset,
+      params,
       source,
       animation: getFittedAnimation(source, fit, bpm, fps),
       fit,
@@ -211,15 +212,16 @@ export function createPlaybackEngine({
     play(
       id: string,
       animation: Animation,
-      { beat = 0, section = 0, beats, preset = null }: PlayOptions = {},
+      { beat = 0, section = 0, beats, params }: PlayOptions = {},
     ): void {
       const startedAt = getTime() - beat * getBeatDuration();
       const fit = beats === undefined ? null : { section, beats };
-      const source = getPresetAnimation(animation, preset);
+      const selection = getParameterSelection(animation, params);
+      const source = getParameterAnimation(animation, selection);
       active = {
         id,
         document: animation,
-        preset: getPresetName(animation, preset),
+        params: selection,
         source,
         animation: getFittedAnimation(source, fit, bpm, fps),
         fit,
@@ -282,12 +284,12 @@ export function createPlaybackEngine({
     },
     updateAnimation(id: string, animation: Animation): void {
       if (active?.id === id) {
-        setSource(animation, active.preset);
+        setSource(animation, active.params);
       }
     },
-    setPreset(preset: string): void {
+    setParams(params: ParameterSelection): void {
       if (active) {
-        setSource(active.document, preset);
+        setSource(active.document, { ...active.params, ...params });
       }
     },
     stop(): void {

@@ -13,10 +13,12 @@ import {
   getFolderTree,
   getFolders,
   getParamFields,
-  getPresetAnimation,
-  getPresetName,
-  getPresetReference,
-  getPresetValues,
+  type ParameterSelection,
+  getParameterAnimation,
+  getParameterReference,
+  getParameterSelection,
+  getParameterValues,
+  getValueParameter,
 } from "@led-matrix/core";
 import { PlayIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -176,7 +178,7 @@ export function Editor({
   const [saved, setSaved] = useState<Animation>(NEW_ANIMATION);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [layerIndex, setLayerIndex] = useState(0);
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [selectedParams, setSelectedParams] = useState<ParameterSelection>({});
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -186,11 +188,11 @@ export function Editor({
     setPreviewAnimation(draft);
   }
 
-  const preset = getPresetName(draft, selectedPreset);
-  const presetValues = getPresetValues(draft, preset);
-  const previewWithPreset = useMemo(
-    () => getPresetAnimation(previewAnimation, preset),
-    [previewAnimation, preset],
+  const params = getParameterSelection(draft, selectedParams);
+  const parameterValues = getParameterValues(draft, params);
+  const previewWithParams = useMemo(
+    () => getParameterAnimation(previewAnimation, selectedParams),
+    [previewAnimation, selectedParams],
   );
 
   const section = draft.sections[sectionIndex] ?? draft.sections[0] ?? DEFAULT_SECTION;
@@ -216,7 +218,7 @@ export function Editor({
     setSaved(next);
     setSectionIndex(0);
     setLayerIndex(0);
-    setSelectedPreset(null);
+    setSelectedParams({});
     setIsConfirmingDelete(false);
     setError(undefined);
   }
@@ -307,13 +309,21 @@ export function Editor({
     setLayerIndex(Math.max(0, layerIndex >= index ? layerIndex - 1 : layerIndex));
   }
 
-  function updatePresetValue(key: string, value: unknown) {
+  function updateParameterValue(key: string, value: unknown) {
+    const owner = getValueParameter(draft, key);
     setDraft({
       ...draft,
-      presets: draft.presets?.map((current) =>
-        current.name === preset
-          ? { ...current, values: { ...current.values, [key]: value } }
-          : current,
+      parameters: draft.parameters?.map((parameter) =>
+        parameter === owner
+          ? {
+              ...parameter,
+              options: parameter.options.map((option) =>
+                option.name === params[parameter.name]
+                  ? { ...option, values: { ...option.values, [key]: value } }
+                  : option,
+              ),
+            }
+          : parameter,
       ),
     });
   }
@@ -322,13 +332,13 @@ export function Editor({
     if (!layer) {
       return;
     }
-    const reference = getPresetReference(layer.params[key]);
+    const reference = getParameterReference(layer.params[key]);
     if (reference !== undefined) {
-      updatePresetValue(reference, value);
+      updateParameterValue(reference, value);
       return;
     }
-    const { [key]: _previous, ...params } = layer.params;
-    updateLayer({ params: value === undefined ? params : { ...params, [key]: value } });
+    const { [key]: _previous, ...rest } = layer.params;
+    updateLayer({ params: value === undefined ? rest : { ...rest, [key]: value } });
   }
 
   function run(action: () => Promise<unknown>) {
@@ -462,17 +472,26 @@ export function Editor({
               </Select>
             </div>
           )}
-          {(draft.presets?.length ?? 0) > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="animation-preset" className="text-xs text-muted-foreground">
-                Preset
+          {draft.parameters?.map((parameter, index) => (
+            <div key={parameter.name} className="flex flex-col gap-1.5">
+              <Label
+                htmlFor={`animation-parameter-${index}`}
+                className="text-xs text-muted-foreground"
+              >
+                {parameter.name}
               </Label>
-              <Select value={preset} onValueChange={setSelectedPreset}>
-                <SelectTrigger id="animation-preset" size="sm" className="w-full">
+              <Select
+                value={params[parameter.name]}
+                onValueChange={(option) =>
+                  option !== null &&
+                  setSelectedParams({ ...selectedParams, [parameter.name]: option })
+                }
+              >
+                <SelectTrigger id={`animation-parameter-${index}`} size="sm" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {draft.presets?.map(({ name }) => (
+                  {parameter.options.map(({ name }) => (
                     <SelectItem key={name} value={name}>
                       {name}
                     </SelectItem>
@@ -480,7 +499,7 @@ export function Editor({
                 </SelectContent>
               </Select>
             </div>
-          )}
+          ))}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="animation-length" className="text-xs text-muted-foreground">
               Length
@@ -600,7 +619,7 @@ export function Editor({
                   key={`${layerIndex}-${layer.effect}-${field.key}`}
                   field={field}
                   value={layer.params[field.key]}
-                  presetValues={presetValues}
+                  parameterValues={parameterValues}
                   clips={clips}
                   error={issues.get(`${layerPath}.params.${field.key}`)}
                   onChange={(value) => updateParam(field.key, value)}
@@ -689,11 +708,7 @@ export function Editor({
               disabled={issues.size > 0}
               onClick={() =>
                 run(async () =>
-                  api.play(
-                    "simulator",
-                    isDirty || !selectedId ? await save() : selectedId,
-                    preset ?? undefined,
-                  ),
+                  api.play("simulator", isDirty || !selectedId ? await save() : selectedId, params),
                 )
               }
             >
@@ -752,7 +767,7 @@ export function Editor({
       </AlertDialog>
       {isVisible && (
         <Preview
-          animation={previewWithPreset}
+          animation={previewWithParams}
           section={sectionIndex}
           bpm={bpm}
           fps={fps}

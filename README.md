@@ -56,7 +56,7 @@ Settings are edited in the app's Settings tab and saved automatically to `settin
 
 The app is split into `src/main` (Electron main process: daemon, Mixxx socket, server client), `src/preload` (IPC bridge exposed as `window.api`), `src/shared` (IPC types) and `src/renderer` (React UI).
 
-The mapping file maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. `preset` picks the animation's preset by name; it carries over along with the animation, and resets to the default when a cue names an animation without a preset. Without `end`, a cue plays until the next one: `once` sections flow into the following sections and the last one holds, `loop` sections repeat. With `end`, the cue stops there and the display goes blank until the next cue (or the end of the track). A `once` section with `end`, together with the `once` sections that follow it, is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song; a `loop` section keeps its own speed and just repeats until `end`. Beats before the first grid beat are negative, so a cue at `-1` starts on the beat just before a track that doesn't begin on a beat. The file is reloaded when it changes.
+The mapping file maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. `params` picks options by parameter name (`{"Speed": "Half time"}`); they carry over along with the animation, merged with the params of cues that don't name an animation, and reset to the defaults when a cue names an animation. Without `end`, a cue plays until the next one: `once` sections flow into the following sections and the last one holds, `loop` sections repeat. With `end`, the cue stops there and the display goes blank until the next cue (or the end of the track). A `once` section with `end`, together with the `once` sections that follow it, is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song; a `loop` section keeps its own speed and just repeats until `end`. Beats before the first grid beat are negative, so a cue at `-1` starts on the beat just before a track that doesn't begin on a beat. The file is reloaded when it changes.
 
 ```json
 {
@@ -75,36 +75,57 @@ The mapping file maps track file paths to cues. Each cue shows a section (name o
 - On unmapped tracks and before the first cue, the current animation keeps playing; the daemon only follows the BPM and aligns the beat phase.
 - Between a cue's `end` and the next cue, the daemon stops the output.
 
-The Editor tab reads the Mixxx library (read-only, also while Mixxx runs) and shows every track with its waveform, Mixxx cues and an animation lane. Drag an animation, one of its sections or one of its presets from the right panel onto a lane to add a cue that ends after one loop or after its `once` sections, cut short by the next cue (Cue preset changes the preset of the selected block), drag a block to move it, and drag its left or right arrow handle to change its start or set its end (double-click the right handle to clear the end). Edits snap to Mixxx cues, other blocks, bars and whole beats; hold Alt to place freely. Delete or Backspace removes the selected block, the left and right arrow keys move it by a beat (with Shift, by a bar), and Ctrl+Z / Ctrl+Shift+Z undo and redo edits. Play a track to hear it and see the mapped animation in the simulator; changes are saved to the mapping file automatically. While the daemon runs, the track that's live in Mixxx is marked, its current cue is outlined, and the Live button scrolls to it. The keyboard button in the track list header lists all shortcuts.
+The Editor tab reads the Mixxx library (read-only, also while Mixxx runs) and shows every track with its waveform, Mixxx cues and an animation lane. Drag an animation, one of its sections or one of its parameter options from the right panel onto a lane to add a cue that ends after one loop or after its `once` sections, cut short by the next cue (the parameter selects under the simulator, or the parameter submenus in a block's right-click menu, change the options of that block), drag a block to move it, and drag its left or right arrow handle to change its start or set its end (double-click the right handle to clear the end). Edits snap to Mixxx cues, other blocks, bars and whole beats; hold Alt to place freely. Delete or Backspace removes the selected block, the left and right arrow keys move it by a beat (with Shift, by a bar), and Ctrl+Z / Ctrl+Shift+Z undo and redo edits. Play a track to hear it and see the mapped animation in the simulator; changes are saved to the mapping file automatically. While the daemon runs, the track that's live in Mixxx is marked, its current cue is outlined, and the Live button scrolls to it. The keyboard button in the track list header lists all shortcuts.
 
-## Presets
+## Parameters
 
-An animation can define `presets`, a list of `{name, values}`. A layer param written as `{"preset": "color1"}` takes its value from the selected preset, so one animation can be played in several color schemes. The first preset is the default, and other presets fall back to its values for keys they leave out. Every preset is validated against the effect params.
+An animation can define `parameters`, a list of `{name, default?, options}` where each option is `{name, values}`. A layer param written as `{"param": "color"}` takes its value from the selected option of the parameter that sets `color`, so one animation can vary its colors, speed, size and so on instead of being duplicated. Each value key belongs to one parameter. `default` names the option used when none is selected (otherwise the first one), and other options fall back to the default option's values for keys they leave out. Every option is validated against the effect params.
 
 ```json
 {
   "name": "Strobe",
-  "presets": [
-    { "name": "White", "values": { "color": "#ffffff" } },
-    { "name": "Orange", "values": { "color": "#ff5a00" } }
+  "parameters": [
+    {
+      "name": "Color",
+      "options": [
+        { "name": "White", "values": { "color": "#ffffff" } },
+        { "name": "Orange", "values": { "color": "#ff5a00" } }
+      ]
+    },
+    {
+      "name": "Speed",
+      "default": "Double",
+      "options": [
+        { "name": "Beat", "values": { "flashesPerBeat": 1 } },
+        { "name": "Double", "values": { "flashesPerBeat": 2 } }
+      ]
+    }
   ],
   "sections": [
     {
       "mode": { "type": "loop", "beats": 1 },
-      "layers": [{ "effect": "strobe", "params": { "color": { "preset": "color" } } }]
+      "layers": [
+        {
+          "effect": "strobe",
+          "params": {
+            "color": { "param": "color" },
+            "flashesPerBeat": { "param": "flashesPerBeat" }
+          }
+        }
+      ]
     }
   ]
 }
 ```
 
-The Simulator and Device animation lists show an animation's presets under it while it plays. In the Editor, params bound to a preset edit the value of the preset picked in the Preset select.
+The Simulator and Device animation lists show an animation's parameters under it while it plays. In the Editor, each parameter has a select, and params bound to a parameter edit the value of its selected option.
 
 ## API
 
 - `GET /api/animations`, `GET /api/animations/:id` — list or fetch animations
 - `POST /api/animations` — create (id derived from the name unless given), `PUT`/`DELETE /api/animations/:id`
-- `GET /api/outputs/:output`, `POST /api/outputs/:output/play {id, beat?, bpm?, section?, beats?, preset?}`, `POST /api/outputs/:output/stop`, `POST /api/outputs/:output/bpm {bpm}` — playback per output (`simulator` or `device`), each with its own animation and BPM; `beat` starts the animation that many beats in; `section` picks the starting section and `beats` stretches that section and the `once` sections that follow it to last that many beats together (reported as the state's `fit`); `preset` picks a preset by name (default the first, reported as the state's `preset`)
-- `POST /api/outputs/:output/preset {preset}` — switch the playing animation to another preset without restarting it
+- `GET /api/outputs/:output`, `POST /api/outputs/:output/play {id, beat?, bpm?, section?, beats?, params?}`, `POST /api/outputs/:output/stop`, `POST /api/outputs/:output/bpm {bpm}` — playback per output (`simulator` or `device`), each with its own animation and BPM; `beat` starts the animation that many beats in; `section` picks the starting section and `beats` stretches that section and the `once` sections that follow it to last that many beats together (reported as the state's `fit`); `params` picks options by parameter name, e.g. `{"Color": "Orange"}` (unselected parameters use their default; the full selection is reported as the state's `params`)
+- `POST /api/outputs/:output/params {params}` — change options of the playing animation without restarting it; parameters left out keep their current option
 - `POST /api/outputs/:output/beat {beat}` — move the playing animation to a beat position without restarting it, for resyncing to the music; the state's `beat` is the current position
 - `GET /api/effects` — built-in effects with JSON schemas for their params
 - `GET /api/clips`, `GET /api/clips/:id`, `GET /api/clips/:id/frames` — list clips, fetch metadata or raw 64x64 RGBA frames

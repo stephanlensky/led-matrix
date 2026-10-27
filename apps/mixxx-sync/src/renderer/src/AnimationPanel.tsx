@@ -1,4 +1,8 @@
-import type { StoredAnimation } from "@led-matrix/core";
+import {
+  type ParameterSelection,
+  type StoredAnimation,
+  getParameterSelection,
+} from "@led-matrix/core";
 import { Label } from "@led-matrix/ui/components/label";
 import {
   Select,
@@ -23,38 +27,46 @@ export function useAnimations(api: ApiClient): LoadState<StoredAnimation[]> {
   return useLoad(load);
 }
 
-export type CuePreset = {
+export type CueParams = {
   animation: StoredAnimation;
-  preset: string | undefined;
-  onChange: (preset: string) => void;
+  params: ParameterSelection | undefined;
+  onChange: (name: string, option: string) => void;
 };
 
-function CuePresetSelect({ animation, preset, onChange }: CuePreset) {
-  const value = preset ?? animation.presets?.[0]?.name ?? null;
+function CueParamSelects({ animation, params, onChange }: CueParams) {
+  const selection = getParameterSelection(animation, params);
+  const parameters = animation.parameters?.filter(({ options }) => options.length > 1) ?? [];
   return (
-    <div className="flex items-center gap-3 border-t px-3 py-2">
-      <Label htmlFor="cue-preset" className="shrink-0 text-xs text-muted-foreground">
-        Cue preset
-      </Label>
-      <Select
-        value={value}
-        onValueChange={(next: string | null) => {
-          if (next !== null) {
-            onChange(next);
-          }
-        }}
-      >
-        <SelectTrigger id="cue-preset" size="sm" className="min-w-0 flex-1">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {animation.presets?.map(({ name }) => (
-            <SelectItem key={name} value={name}>
-              {name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="flex flex-col gap-1.5 border-t px-3 py-2">
+      {parameters.map((parameter, index) => (
+        <div key={parameter.name} className="flex items-center gap-3">
+          <Label
+            htmlFor={`cue-parameter-${index}`}
+            className="w-20 shrink-0 truncate text-xs text-muted-foreground"
+          >
+            {parameter.name}
+          </Label>
+          <Select
+            value={selection[parameter.name] ?? null}
+            onValueChange={(option: string | null) => {
+              if (option !== null) {
+                onChange(parameter.name, option);
+              }
+            }}
+          >
+            <SelectTrigger id={`cue-parameter-${index}`} size="sm" className="min-w-0 flex-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {parameter.options.map(({ name }) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ))}
     </div>
   );
 }
@@ -63,13 +75,13 @@ export function AnimationPanel({
   animations,
   simulator,
   preview,
-  cuePreset,
+  cueParams,
   onPreviewChange,
 }: {
   animations: LoadState<StoredAnimation[]>;
   simulator: ReactNode;
   preview: AnimationPreview | undefined;
-  cuePreset: CuePreset | undefined;
+  cueParams: CueParams | undefined;
   onPreviewChange: (preview: AnimationPreview | undefined) => void;
 }) {
   const asideRef = useRef<HTMLElement>(null);
@@ -94,17 +106,19 @@ export function AnimationPanel({
         animations={animations.value}
         activeId={preview?.animationId}
         activeSection={preview?.section}
-        activePreset={preview?.preset}
+        activeParams={preview?.params}
         onPlay={(animationId) =>
-          onPreviewChange({ animationId, section: undefined, preset: undefined })
+          onPreviewChange({ animationId, section: undefined, params: undefined })
         }
         onSelectSection={(section) => preview && onPreviewChange({ ...preview, section })}
-        onSelectPreset={(preset) => preview && onPreviewChange({ ...preview, preset })}
-        onDragStart={(event, { animationId, section, preset }) =>
+        onSelectParam={(name, option) =>
+          preview && onPreviewChange({ ...preview, params: { ...preview.params, [name]: option } })
+        }
+        onDragStart={(event, { animationId, section, params }) =>
           setCueDrag(event, {
             animationId,
             ...(section === undefined ? {} : { section }),
-            ...(preset === undefined ? {} : { preset }),
+            ...(params === undefined ? {} : { params }),
           })
         }
       />
@@ -128,7 +142,7 @@ export function AnimationPanel({
           className="bottom-0 translate-y-1/2"
         />
       </div>
-      {cuePreset && <CuePresetSelect {...cuePreset} />}
+      {cueParams && <CueParamSelects {...cueParams} />}
       <h3 className="border-y px-3 py-2 text-sm font-medium">Animations</h3>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{getList()}</div>
     </aside>

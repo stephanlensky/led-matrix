@@ -1,13 +1,14 @@
-import { type Renderer, type StoredAnimation, createFrame } from "@led-matrix/core";
+import { type Parameter, type Renderer, type StoredAnimation, createFrame } from "@led-matrix/core";
 import {
   ContextMenu,
   ContextMenuCheckboxItem,
   ContextMenuContent,
-  ContextMenuGroup,
-  ContextMenuLabel,
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@led-matrix/ui/components/context-menu";
 import { Filmstrip } from "@led-matrix/ui/components/filmstrip";
@@ -63,7 +64,7 @@ import {
   replaceCue,
   resizeCue,
   setCueLoops,
-  setCuePreset,
+  setCueParam,
 } from "../../shared/mapping-edits.ts";
 import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
 import { getCueDrag, getCurrentCueDrag, hasCueDrag } from "./cue-drag.ts";
@@ -232,7 +233,7 @@ type BlockHandlers = {
   onClearEnd: (block: AnimationBlock) => void;
   onContextMenu: (block: AnimationBlock) => void;
   onSetStretch: (block: AnimationBlock, isStretched: boolean) => void;
-  onSetPreset: (block: AnimationBlock, preset: string) => void;
+  onSetParam: (block: AnimationBlock, name: string, option: string) => void;
 };
 
 function Handle({
@@ -322,7 +323,9 @@ function Block({
   const end = getBeatFraction(scale, block.end);
   const stop = getBeatFraction(scale, block.stop);
   const hasSections = block.animation.sections.length > 1;
-  const hasMenu = handlers !== undefined && (block.isLoop || block.preset !== null);
+  const parameters = getMenuParameters(block);
+  const optionLabel = parameters.map(({ name }) => block.params[name]).join(" · ");
+  const hasMenu = handlers !== undefined && (block.isLoop || parameters.length > 0);
 
   return (
     <>
@@ -363,9 +366,9 @@ function Block({
               {block.animation.name}
             </span>
             {hasSections && <SectionLabel block={block} section={block.section} />}
-            {block.preset !== null && (
+            {optionLabel && (
               <span className="truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 text-white/80">
-                {block.preset}
+                {optionLabel}
               </span>
             )}
           </div>
@@ -392,8 +395,12 @@ function Block({
   );
 }
 
+function getMenuParameters({ source }: AnimationBlock): Parameter[] {
+  return source.parameters?.filter(({ options }) => options.length > 1) ?? [];
+}
+
 function BlockMenu({ block, handlers }: { block: AnimationBlock; handlers: BlockHandlers }) {
-  const presets = block.preset === null ? [] : (block.source.presets ?? []);
+  const parameters = getMenuParameters(block);
   return (
     <ContextMenuContent>
       {block.isLoop && (
@@ -404,22 +411,29 @@ function BlockMenu({ block, handlers }: { block: AnimationBlock; handlers: Block
           Stretch loop to fit
         </ContextMenuCheckboxItem>
       )}
-      {block.isLoop && presets.length > 0 && <ContextMenuSeparator />}
-      {presets.length > 0 && (
-        <ContextMenuGroup>
-          <ContextMenuLabel>Preset</ContextMenuLabel>
-          <ContextMenuRadioGroup
-            value={block.preset}
-            onValueChange={(preset: string) => handlers.onSetPreset(block, preset)}
-          >
-            {presets.map(({ name }) => (
-              <ContextMenuRadioItem key={name} value={name}>
-                {name}
-              </ContextMenuRadioItem>
-            ))}
-          </ContextMenuRadioGroup>
-        </ContextMenuGroup>
-      )}
+      {block.isLoop && parameters.length > 0 && <ContextMenuSeparator />}
+      {parameters.map((parameter) => (
+        <ContextMenuSub key={parameter.name}>
+          <ContextMenuSubTrigger>
+            {parameter.name}
+            <span className="ml-auto pl-4 text-xs text-muted-foreground">
+              {block.params[parameter.name]}
+            </span>
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent>
+            <ContextMenuRadioGroup
+              value={block.params[parameter.name]}
+              onValueChange={(option: string) => handlers.onSetParam(block, parameter.name, option)}
+            >
+              {parameter.options.map(({ name }) => (
+                <ContextMenuRadioItem key={name} value={name}>
+                  {name}
+                </ContextMenuRadioItem>
+              ))}
+            </ContextMenuRadioGroup>
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+      ))}
     </ContextMenuContent>
   );
 }
@@ -560,8 +574,8 @@ export function AnimationLane({
       const loops = isStretched ? { end: block.end, count: getLoopCount(block, fps) } : undefined;
       editor?.update((file) => setCueLoops(file, location, block.index, loops));
     },
-    onSetPreset(block, preset) {
-      editor?.update((file) => setCuePreset(file, location, block.index, preset));
+    onSetParam(block, name, option) {
+      editor?.update((file) => setCueParam(file, location, block.index, name, option));
     },
   };
 
@@ -720,7 +734,7 @@ export function AnimationLane({
         replaceCue(file, location, replace, {
           animation: drag.animationId,
           ...(section === undefined ? {} : { section }),
-          ...(drag.preset === undefined ? {} : { preset: drag.preset }),
+          ...(drag.params === undefined ? {} : { params: drag.params }),
         }),
       );
       editor.onSelect({ location, index: replace, trackRange: track });
@@ -731,7 +745,7 @@ export function AnimationLane({
         beat,
         animation: drag.animationId,
         ...(section === undefined ? {} : { section }),
-        ...(drag.preset === undefined ? {} : { preset: drag.preset }),
+        ...(drag.params === undefined ? {} : { params: drag.params }),
         ...(end === undefined ? {} : { end }),
       }),
     );

@@ -1,8 +1,10 @@
 import {
   type ModeType,
+  type ParameterSelection,
   type StoredAnimation,
   animationIdSchema,
-  getPreset,
+  getParameterSelectionError,
+  parameterSelectionSchema,
 } from "@led-matrix/core";
 import { z } from "zod";
 
@@ -12,7 +14,7 @@ export const cueSchema = z
     end: z.number().optional(),
     animation: animationIdSchema.optional(),
     section: z.union([z.string(), z.int().min(0)]).optional(),
-    preset: z.string().min(1).optional(),
+    params: parameterSelectionSchema.optional(),
     loops: z.int().positive().optional(),
   })
   .refine(({ beat, end }) => end === undefined || end > beat, {
@@ -55,7 +57,7 @@ export type SectionCue = {
   beat: number;
   animationId: string;
   section: number;
-  preset: string | undefined;
+  params: ParameterSelection | undefined;
   beats: number | undefined;
 };
 
@@ -80,12 +82,12 @@ export type ExplicitCue = Cue & { animation: string };
 
 export function getExplicitCues(cues: readonly Cue[]): ExplicitCue[] {
   let animation = "";
-  let preset: string | undefined;
+  let params: ParameterSelection | undefined;
   return cues.map((cue) => {
-    preset = cue.animation === undefined ? (cue.preset ?? preset) : cue.preset;
+    params = cue.animation === undefined && params ? { ...params, ...cue.params } : cue.params;
     animation = cue.animation ?? animation;
-    const { preset: _preset, ...rest } = cue;
-    return preset === undefined ? { ...rest, animation } : { ...rest, animation, preset };
+    const { params: _params, ...rest } = cue;
+    return params === undefined ? { ...rest, animation } : { ...rest, animation, params };
   });
 }
 
@@ -106,7 +108,7 @@ export function getResolvedCues(
   const resolved: ResolvedCue[] = [];
   const errors: string[] = [];
   for (const [index, cue] of getExplicitCues(cues).entries()) {
-    const { animation: animationId, preset } = cue;
+    const { animation: animationId, params } = cue;
     const animation = animationsById.get(animationId);
     if (!animation) {
       errors.push(`beat ${cue.beat}: animation "${animationId}" not found`);
@@ -119,12 +121,13 @@ export function getResolvedCues(
       );
       continue;
     }
-    if (preset !== undefined && !getPreset(animation, preset)) {
-      errors.push(`beat ${cue.beat}: preset "${preset}" not found in "${animationId}"`);
+    const paramsError = params && getParameterSelectionError(animation, params);
+    if (paramsError) {
+      errors.push(`beat ${cue.beat}: ${paramsError} in "${animationId}"`);
       continue;
     }
     const beats = getFitBeats(cue, animation.sections[section]?.mode.type);
-    resolved.push({ beat: cue.beat, animationId, section, preset, beats });
+    resolved.push({ beat: cue.beat, animationId, section, params, beats });
     const next = cues[index + 1];
     if (cue.end !== undefined && (next === undefined || cue.end < next.beat)) {
       resolved.push({ beat: cue.end, animationId: null });

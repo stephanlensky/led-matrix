@@ -1,6 +1,7 @@
 import {
   type Output,
   type PlaybackState,
+  type ParameterSelection,
   type StoredAnimation,
   playbackStateSchema,
   storedAnimationSchema,
@@ -35,7 +36,7 @@ export type PlayRequest = {
   section: number;
   beat: number;
   bpm: number;
-  preset?: string | undefined;
+  params?: ParameterSelection | undefined;
   beats?: number;
 };
 

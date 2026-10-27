@@ -14,7 +14,8 @@ import {
   type StreamMessage,
   animationIdSchema,
   animationObjectSchema,
-  getPreset,
+  getParameterSelectionError,
+  parameterSelectionSchema,
   animationSchema,
   clipIdSchema,
   clipImportOptionsSchema,
@@ -61,13 +62,13 @@ const playSchema = z.object({
   bpm: bpmSchema.optional(),
   section: sectionIndexSchema.optional(),
   beats: z.number().positive().optional(),
-  preset: z.string().min(1).optional(),
+  params: parameterSelectionSchema.optional(),
 });
 const seekSchema = z.object({ section: sectionIndexSchema, progress: z.number().min(0).max(1) });
 const advanceSchema = z.object({ at: z.enum(["end", "now"]).optional() }).default({});
 const setBpmSchema = z.object({ bpm: bpmSchema });
 const setBeatSchema = z.object({ beat: beatSchema });
-const setPresetSchema = z.object({ preset: z.string().min(1) });
+const setParamsSchema = z.object({ params: parameterSelectionSchema });
 const setBrightnessSchema = z.object({ brightness: z.int().min(0).max(255) });
 const createAnimationSchema = z.preprocess(
   getSectionedAnimation,
@@ -317,38 +318,40 @@ export function createApp({
       return reply.code(404).send({ error: "Animation not found" });
     }
     const { id, ...rest } = animation;
-    const { bpm: requestedBpm, beat, section, beats, preset } = result.data;
+    const { bpm: requestedBpm, beat, section, beats, params } = result.data;
     if (section !== undefined && section >= rest.sections.length) {
       return reply.code(400).send({ error: "Section not found" });
     }
-    if (preset !== undefined && !getPreset(rest, preset)) {
-      return reply.code(400).send({ error: "Preset not found" });
+    const paramsError = params && getParameterSelectionError(rest, params);
+    if (paramsError) {
+      return reply.code(400).send({ error: paramsError });
     }
     if (requestedBpm !== undefined) {
       engine.setBpm(requestedBpm);
     }
-    engine.play(id, rest, { beat, section, beats, preset });
+    engine.play(id, rest, { beat, section, beats, params });
     return engine.getState();
   });
 
-  app.post("/api/outputs/:output/preset", async (request, reply) => {
+  app.post("/api/outputs/:output/params", async (request, reply) => {
     const engine = getEngine(request.params);
     if (!engine) {
       return reply.code(404).send({ error: "Output not found" });
     }
-    const result = setPresetSchema.safeParse(request.body);
+    const result = setParamsSchema.safeParse(request.body);
     if (!result.success) {
-      return reply.code(400).send(getValidationError("Invalid preset", result.error));
+      return reply.code(400).send(getValidationError("Invalid params", result.error));
     }
     const { animationId } = engine.getState();
     const animation = animationId === null ? undefined : store.get(animationId);
     if (!animation) {
       return reply.code(409).send({ error: "Nothing is playing" });
     }
-    if (!getPreset(animation, result.data.preset)) {
-      return reply.code(400).send({ error: "Preset not found" });
+    const paramsError = getParameterSelectionError(animation, result.data.params);
+    if (paramsError) {
+      return reply.code(400).send({ error: paramsError });
     }
-    engine.setPreset(result.data.preset);
+    engine.setParams(result.data.params);
     return engine.getState();
   });
 

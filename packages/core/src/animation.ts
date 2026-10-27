@@ -3,12 +3,13 @@ import { blendModes } from "./blend.ts";
 import { getEffect } from "./effects/index.ts";
 import { resolveParams } from "./keyframes.ts";
 import {
-  type Preset,
-  getPresetParams,
-  getPresetReference,
-  getPresetValues,
-  presetsSchema,
-} from "./presets.ts";
+  type Parameter,
+  type ParameterSelection,
+  getParameterReference,
+  getParameterValues,
+  getReferencedParams,
+  parametersSchema,
+} from "./parameters.ts";
 
 export const modeTypes = ["loop", "once"] as const;
 
@@ -61,28 +62,39 @@ export const folderSchema = z
 
 type LayerIssue = { path: PropertyKey[]; message: string };
 
+function getSelections(parameters: readonly Parameter[] | undefined): ParameterSelection[] {
+  const selections = (parameters ?? []).flatMap(({ name, options }) =>
+    options.map((option) => ({ [name]: option.name })),
+  );
+  return selections.length > 0 ? selections : [{}];
+}
+
+function getSelectionSuffix(selection: ParameterSelection): string {
+  const [entry] = Object.entries(selection);
+  return entry ? ` (${entry[0]} "${entry[1]}")` : "";
+}
+
 function getLayerIssues(
   layer: z.output<typeof layerSchema>,
-  presets: readonly Preset[] | undefined,
+  parameters: readonly Parameter[] | undefined,
 ): LayerIssue[] {
   const effect = getEffect(layer.effect);
   if (!effect) {
     return [];
   }
-  const defaults = getPresetValues({ presets }, undefined);
+  const defaults = getParameterValues({ parameters }, undefined);
   const missing = Object.entries(layer.params).flatMap(([key, value]) => {
-    const reference = getPresetReference(value);
+    const reference = getParameterReference(value);
     return reference === undefined || reference in defaults ? [] : [{ key, reference }];
   });
   const issues = new Map<string, LayerIssue>(
     missing.map(({ key, reference }) => [
       JSON.stringify([key]),
-      { path: ["params", key], message: `Preset value "${reference}" is not defined` },
+      { path: ["params", key], message: `Parameter value "${reference}" is not defined` },
     ]),
   );
-  const names = presets?.length ? presets.map(({ name }) => name) : [undefined];
-  for (const name of names) {
-    const params = getPresetParams(layer.params, getPresetValues({ presets }, name));
+  for (const selection of getSelections(parameters)) {
+    const params = getReferencedParams(layer.params, getParameterValues({ parameters }, selection));
     for (const progress of [0, 1]) {
       for (const issue of effect.params.safeParse(resolveParams(params, progress)).error?.issues ??
         []) {
@@ -90,9 +102,11 @@ function getLayerIssues(
           continue;
         }
         const key = JSON.stringify(issue.path);
-        const suffix = name === undefined ? "" : ` (preset "${name}")`;
         if (!issues.has(key)) {
-          issues.set(key, { path: ["params", ...issue.path], message: issue.message + suffix });
+          issues.set(key, {
+            path: ["params", ...issue.path],
+            message: issue.message + getSelectionSuffix(selection),
+          });
         }
       }
     }
@@ -104,7 +118,7 @@ export const animationObjectSchema = z
   .object({
     name: z.string().min(1).max(100),
     folder: folderSchema,
-    presets: presetsSchema.optional(),
+    parameters: parametersSchema.optional(),
     sections: z
       .array(sectionSchema)
       .min(1)
@@ -128,7 +142,7 @@ export const animationObjectSchema = z
   .superRefine((animation, context) => {
     for (const [sectionIndex, section] of animation.sections.entries()) {
       for (const [layerIndex, layer] of section.layers.entries()) {
-        for (const { path, message } of getLayerIssues(layer, animation.presets)) {
+        for (const { path, message } of getLayerIssues(layer, animation.parameters)) {
           context.addIssue({
             code: "custom",
             path: ["sections", sectionIndex, "layers", layerIndex, ...path],

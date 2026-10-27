@@ -29,29 +29,35 @@ const strobe = animationSchema.parse({
   layers: [{ effect: "strobe", params: { duty: 0.5 } }],
 });
 
-const presetStrobe = animationSchema.parse({
-  name: "Preset strobe",
-  presets: [
-    { name: "White", values: { color: "#ffffff" } },
-    { name: "Red", values: { color: "#ff0000" } },
+const parameterStrobe = animationSchema.parse({
+  name: "Parameter strobe",
+  parameters: [
+    {
+      name: "Color",
+      options: [
+        { name: "White", values: { color: "#ffffff" } },
+        { name: "Red", values: { color: "#ff0000" } },
+      ],
+    },
   ],
   mode: { type: "loop", beats: 4 },
-  layers: [{ effect: "strobe", params: { color: { preset: "color" }, duty: 0.5 } }],
+  layers: [{ effect: "strobe", params: { color: { param: "color" }, duty: 0.5 } }],
 });
 
 describe("playback engine", () => {
-  it("renders the selected preset and keeps it across animation updates", () => {
+  it("renders the selected parameters and keeps them across animation updates", () => {
     const { engine } = createEngine();
-    engine.play("strobe", presetStrobe, { preset: "Red" });
-    expect(engine.getState().preset).toBe("Red");
+    engine.play("strobe", parameterStrobe, { params: { Color: "Red" } });
+    expect(engine.getState().params).toEqual({ Color: "Red" });
     expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 0, 0]);
-    engine.updateAnimation("strobe", { ...presetStrobe, name: "Renamed" });
+    engine.updateAnimation("strobe", { ...parameterStrobe, name: "Renamed" });
     expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 0, 0]);
+    const [color] = parameterStrobe.parameters ?? [];
     engine.updateAnimation("strobe", {
-      ...presetStrobe,
-      presets: presetStrobe.presets?.slice(0, 1),
+      ...parameterStrobe,
+      parameters: color && [{ ...color, options: color.options.slice(0, 1) }],
     });
-    expect(engine.getState().preset).toBe("White");
+    expect(engine.getState().params).toEqual({ Color: "White" });
     expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 255, 255]);
   });
 
@@ -150,7 +156,7 @@ describe("playback engine", () => {
     engine.tick();
     expect(setState).toHaveBeenCalledWith({
       animationId: "strobe",
-      preset: null,
+      params: {},
       bpm: 120,
       fps: 30,
       beat: 0,

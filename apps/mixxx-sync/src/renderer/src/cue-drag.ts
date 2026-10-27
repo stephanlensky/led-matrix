@@ -1,3 +1,4 @@
+import { parameterSelectionSchema } from "@led-matrix/core";
 import type { DragEvent } from "react";
 import { z } from "zod";
 
@@ -6,7 +7,7 @@ export const CUE_DRAG_TYPE = "application/x-led-matrix-cue";
 const cueDragSchema = z.object({
   animationId: z.string(),
   section: z.int().min(0).optional(),
-  preset: z.string().optional(),
+  params: parameterSelectionSchema.optional(),
 });
 
 export type CueDrag = z.infer<typeof cueDragSchema>;

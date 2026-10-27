@@ -189,7 +189,7 @@ describe("playback", () => {
     });
     expect(played.json()).toEqual({
       animationId: "plasma",
-      preset: null,
+      params: {},
       bpm: 120,
       fps: 30,
       beat: expect.any(Number),
@@ -204,7 +204,7 @@ describe("playback", () => {
     const stopped = await app.inject({ method: "POST", url: "/api/outputs/simulator/stop" });
     expect(stopped.json()).toEqual({
       animationId: null,
-      preset: null,
+      params: {},
       bpm: 120,
       fps: 30,
       beat: null,
@@ -314,31 +314,37 @@ describe("playback", () => {
     expect(invalid.statusCode).toBe(400);
   });
 
-  it("plays animation presets", async () => {
+  it("plays animation parameters", async () => {
     const played = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/play",
-      body: { id: "strobe", preset: "Orange" },
+      body: { id: "strobe", params: { Color: "Orange" } },
     });
-    expect(played.json()).toMatchObject({ animationId: "strobe", preset: "Orange" });
+    expect(played.json()).toMatchObject({
+      animationId: "strobe",
+      params: { Color: "Orange", Speed: "Double" },
+    });
     const defaulted = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/play",
       body: { id: "strobe" },
     });
-    expect(defaulted.json()).toMatchObject({ preset: "White" });
+    expect(defaulted.json()).toMatchObject({ params: { Color: "White", Speed: "Double" } });
     const missing = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/play",
-      body: { id: "strobe", preset: "Missing" },
+      body: { id: "strobe", params: { Color: "Missing" } },
     });
     expect(missing.statusCode).toBe(400);
     const changed = await app.inject({
       method: "POST",
-      url: "/api/outputs/simulator/preset",
-      body: { preset: "Green" },
+      url: "/api/outputs/simulator/params",
+      body: { params: { Speed: "Quad" } },
     });
-    expect(changed.json()).toMatchObject({ animationId: "strobe", preset: "Green" });
+    expect(changed.json()).toMatchObject({
+      animationId: "strobe",
+      params: { Color: "White", Speed: "Quad" },
+    });
   });
 
   it("keeps playback and bpm separate per output", async () => {
@@ -353,7 +359,7 @@ describe("playback", () => {
     const simulator = await app.inject({ method: "GET", url: "/api/outputs/simulator" });
     expect(simulator.json()).toEqual({
       animationId: null,
-      preset: null,
+      params: {},
       bpm: 120,
       fps: 30,
       beat: null,
@@ -404,7 +410,7 @@ describe("playback", () => {
         type: "state",
         state: {
           animationId: null,
-          preset: null,
+          params: {},
           bpm: 120,
           fps: 30,
           beat: null,
@@ -417,7 +423,7 @@ describe("playback", () => {
         type: "state",
         state: {
           animationId: "strobe",
-          preset: "White",
+          params: { Color: "White", Speed: "Double" },
           bpm: 120,
           fps: 30,
           beat: expect.any(Number),
@@ -448,7 +454,7 @@ describe("playback", () => {
         type: "state",
         state: {
           animationId: null,
-          preset: null,
+          params: {},
           bpm: 120,
           fps: 30,
           beat: null,

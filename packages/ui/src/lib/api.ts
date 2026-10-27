@@ -4,6 +4,7 @@ import {
   type ClipInfo,
   type DeviceState,
   type Output,
+  type ParameterSelection,
   type PlaybackState,
   type StoredAnimation,
   clipInfoSchema,
@@ -53,16 +54,16 @@ export function createApiClient(baseUrl: string) {
       return request(z.array(storedAnimationSchema), "GET", `${baseUrl}/api/animations`);
     },
 
-    play(output: Output, id: string, preset?: string): Promise<PlaybackState> {
+    play(output: Output, id: string, params?: ParameterSelection): Promise<PlaybackState> {
       return request(playbackStateSchema, "POST", `${baseUrl}/api/outputs/${output}/play`, {
         id,
-        preset,
+        params,
       });
     },
 
-    setPreset(output: Output, preset: string): Promise<PlaybackState> {
-      return request(playbackStateSchema, "POST", `${baseUrl}/api/outputs/${output}/preset`, {
-        preset,
+    setParams(output: Output, params: ParameterSelection): Promise<PlaybackState> {
+      return request(playbackStateSchema, "POST", `${baseUrl}/api/outputs/${output}/params`, {
+        params,
       });
     },
 

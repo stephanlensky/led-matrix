@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { deviceStatusSchema } from "./device-protocol.ts";
+import { parameterSelectionSchema } from "./parameters.ts";
 import { sectionFitSchema } from "./sections.ts";
 
 export const outputSchema = z.enum(["simulator", "device"]);
@@ -12,7 +13,7 @@ export const sectionStateSchema = z.object({
 
 export const playbackStateSchema = z.object({
   animationId: z.string().nullable(),
-  preset: z.string().nullable(),
+  params: parameterSelectionSchema,
   bpm: z.number(),
   fps: z.number(),
   beat: z.number().nullable(),

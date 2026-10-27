@@ -9,7 +9,7 @@ import {
   replaceCue,
   resizeCue,
   setCueLoops,
-  setCuePreset,
+  setCueParam,
 } from "./mapping-edits.ts";
 
 const location = "/music/a.flac";
@@ -108,10 +108,12 @@ describe("replaceCue", () => {
   it("keeps the position and duration", () => {
     const looped = setCueLoops(file, location, 1, { end: 48, count: 2 });
     expect(
-      replaceCue(looped, location, 1, { animation: "strobe", preset: "White" }).tracks[location],
+      replaceCue(looped, location, 1, { animation: "strobe", params: { Color: "White" } }).tracks[
+        location
+      ],
     ).toEqual([
       { beat: 0, animation: "cat" },
-      { beat: 32, end: 48, animation: "strobe", preset: "White" },
+      { beat: 32, end: 48, animation: "strobe", params: { Color: "White" } },
       { beat: 64, animation: "plasma" },
     ]);
   });
@@ -213,27 +215,27 @@ describe("setCueLoops", () => {
   });
 });
 
-describe("setCuePreset", () => {
-  it("sets the preset and keeps it on cues that inherited it", () => {
-    const presets: MappingFile = {
+describe("setCueParam", () => {
+  it("sets an option and keeps the params on cues that inherited them", () => {
+    const params: MappingFile = {
       tracks: {
         [location]: [
-          { beat: 0, animation: "strobe", preset: "White" },
+          { beat: 0, animation: "strobe", params: { Color: "White" } },
           { beat: 16, section: 1 },
         ],
       },
     };
-    expect(setCuePreset(presets, location, 0, "Orange").tracks[location]).toEqual([
-      { beat: 0, animation: "strobe", preset: "Orange" },
-      { beat: 16, animation: "strobe", section: 1, preset: "White" },
+    expect(setCueParam(params, location, 0, "Speed", "Double").tracks[location]).toEqual([
+      { beat: 0, animation: "strobe", params: { Color: "White", Speed: "Double" } },
+      { beat: 16, animation: "strobe", section: 1, params: { Color: "White" } },
     ]);
   });
 
-  it("removes the preset", () => {
-    const presets: MappingFile = {
-      tracks: { [location]: [{ beat: 0, animation: "strobe", preset: "White" }] },
+  it("removes the option and empty params", () => {
+    const params: MappingFile = {
+      tracks: { [location]: [{ beat: 0, animation: "strobe", params: { Color: "White" } }] },
     };
-    expect(setCuePreset(presets, location, 0, undefined).tracks[location]).toEqual([
+    expect(setCueParam(params, location, 0, "Color", undefined).tracks[location]).toEqual([
       { beat: 0, animation: "strobe" },
     ]);
   });

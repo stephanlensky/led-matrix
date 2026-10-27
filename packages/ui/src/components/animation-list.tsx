@@ -5,12 +5,16 @@ import {
   getEffect,
   getFolderAncestors,
   getFolderTree,
-  getPresetColors,
+  type ParameterOption,
+  type ParameterSelection,
+  getOptionColors,
+  getParameterSelection,
 } from "@led-matrix/core";
 import { ChevronRightIcon, FolderIcon, MoveRightIcon, PlayIcon, RepeatIcon } from "lucide-react";
 import { type DragEvent, type ReactNode, useMemo, useState } from "react";
 import { ListEmpty, ListRow, getIndent } from "./list-row.tsx";
 import { getLengthLabel, getSectionName } from "../lib/section-labels.ts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select.tsx";
 import { TruncatedText } from "./truncated-text.tsx";
 import { cn } from "../lib/utils.ts";
 
@@ -18,10 +22,10 @@ type AnimationListProps = {
   animations: readonly StoredAnimation[];
   activeId: string | null | undefined;
   activeSection: number | undefined;
-  activePreset?: string | null | undefined;
+  activeParams?: ParameterSelection | undefined;
   onPlay: (id: string) => void;
   onSelectSection: (index: number) => void;
-  onSelectPreset?: (name: string) => void;
+  onSelectParam?: (name: string, option: string) => void;
   onDragStart?: AnimationDragHandler;
   isExpanded?: boolean;
 };
@@ -29,7 +33,7 @@ type AnimationListProps = {
 export type AnimationDrag = {
   animationId: string;
   section: number | undefined;
-  preset: string | undefined;
+  params: ParameterSelection | undefined;
 };
 
 export type AnimationDragHandler = (event: DragEvent<HTMLElement>, drag: AnimationDrag) => void;
@@ -74,7 +78,7 @@ type SectionListProps = {
   depth: number;
   isExpanded: boolean;
   activeSection: number | undefined;
-  preset: string | undefined;
+  params: ParameterSelection | undefined;
   onSelect: (index: number) => void;
   onDragStart: AnimationDragHandler | undefined;
 };
@@ -84,7 +88,7 @@ function SectionList({
   depth,
   isExpanded,
   activeSection,
-  preset,
+  params,
   onSelect,
   onDragStart,
 }: SectionListProps) {
@@ -102,7 +106,7 @@ function SectionList({
                 onClick={() => onSelect(index)}
                 draggable={onDragStart !== undefined}
                 onDragStart={(event) =>
-                  onDragStart?.(event, { animationId: animation.id, section: index, preset })
+                  onDragStart?.(event, { animationId: animation.id, section: index, params })
                 }
                 style={{ paddingLeft: getIndent(depth, 2.25) }}
                 className={cn(
@@ -122,60 +126,78 @@ function SectionList({
   );
 }
 
-type PresetListProps = {
+type ParameterListProps = {
   animation: StoredAnimation;
   depth: number;
   isExpanded: boolean;
-  activePreset: string | undefined;
-  onSelect: ((name: string) => void) | undefined;
-  onDragStart: AnimationDragHandler | undefined;
+  params: ParameterSelection;
+  onSelect: ((name: string, option: string) => void) | undefined;
 };
 
-function PresetList({
-  animation,
-  depth,
-  isExpanded,
-  activePreset,
-  onSelect,
-  onDragStart,
-}: PresetListProps) {
+function OptionLabel({ option }: { option: ParameterOption | undefined }) {
+  const colors = option ? getOptionColors(option) : [];
+  return (
+    <>
+      {colors.length > 0 && (
+        <span className="flex">
+          {colors.map((color) => (
+            <span
+              key={color}
+              className="-ml-0.5 size-2.5 rounded-full border border-foreground/20 first:ml-0"
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </span>
+      )}
+      <span className="truncate">{option?.name}</span>
+    </>
+  );
+}
+
+function ParameterList({ animation, depth, isExpanded, params, onSelect }: ParameterListProps) {
+  const parameters = animation.parameters?.filter(({ options }) => options.length > 1) ?? [];
   return (
     <Collapse isExpanded={isExpanded}>
       <div
-        className="flex flex-wrap gap-1 border-l-2 border-foreground bg-muted/40 py-1.5 pr-3"
+        className="flex flex-col gap-1 border-l-2 border-foreground bg-muted/40 py-1.5 pr-3"
         style={{ paddingLeft: getIndent(depth, 2.25) }}
       >
-        {animation.presets?.map((preset) => (
-          <button
-            key={preset.name}
-            type="button"
-            aria-pressed={preset.name === activePreset}
-            disabled={!onSelect}
-            onClick={() => onSelect?.(preset.name)}
-            draggable={onDragStart !== undefined}
-            onDragStart={(event) =>
-              onDragStart?.(event, {
-                animationId: animation.id,
-                section: undefined,
-                preset: preset.name,
-              })
-            }
-            className={cn(
-              "flex items-center gap-1.5 rounded-sm border border-transparent px-1.5 py-0.5 text-xs text-muted-foreground outline-none hover:bg-muted focus-visible:bg-muted",
-              preset.name === activePreset && "border-border bg-background text-foreground",
-            )}
-          >
-            <span className="flex">
-              {getPresetColors(preset).map((color) => (
-                <span
-                  key={color}
-                  className="-ml-0.5 size-2.5 rounded-full border border-foreground/20 first:ml-0"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+        {parameters.map((parameter) => (
+          <div key={parameter.name} className="flex items-center gap-2">
+            <span className="w-16 shrink-0 truncate text-xs text-muted-foreground">
+              {parameter.name}
             </span>
-            {preset.name}
-          </button>
+            <Select
+              value={params[parameter.name] ?? null}
+              disabled={!onSelect}
+              onValueChange={(option: string | null) => {
+                if (option !== null) {
+                  onSelect?.(parameter.name, option);
+                }
+              }}
+            >
+              <SelectTrigger
+                size="sm"
+                aria-label={parameter.name}
+                className="h-6 min-w-0 flex-1 bg-background text-xs"
+              >
+                <SelectValue>
+                  {(value: string | null) => (
+                    <OptionLabel
+                      option={parameter.options.find((option) => option.name === value)}
+                    />
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {parameter.options.map((option) => (
+                  <SelectItem key={option.name} value={option.name} className="text-xs">
+                    <OptionLabel option={option} />
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ))}
       </div>
     </Collapse>
@@ -197,10 +219,10 @@ function FolderContents(props: FolderContentsProps) {
     onToggleFolder,
     activeId,
     activeSection,
-    activePreset,
+    activeParams,
     onPlay,
     onSelectSection,
-    onSelectPreset,
+    onSelectParam,
     onDragStart,
   } = props;
   return (
@@ -236,7 +258,7 @@ function FolderContents(props: FolderContentsProps) {
       })}
       {folder.animations.map((animation) => {
         const isActive = animation.id === activeId;
-        const preset = isActive ? (activePreset ?? undefined) : undefined;
+        const params = isActive ? activeParams : undefined;
         return (
           <li key={animation.id}>
             <ListRow
@@ -250,17 +272,16 @@ function FolderContents(props: FolderContentsProps) {
               onDragStart={
                 onDragStart &&
                 ((event) =>
-                  onDragStart(event, { animationId: animation.id, section: undefined, preset }))
+                  onDragStart(event, { animationId: animation.id, section: undefined, params }))
               }
             />
-            {(animation.presets?.length ?? 0) > 1 && (
-              <PresetList
+            {animation.parameters?.some(({ options }) => options.length > 1) && (
+              <ParameterList
                 animation={animation}
                 depth={depth}
                 isExpanded={isActive}
-                activePreset={preset ?? animation.presets?.[0]?.name}
-                onSelect={onSelectPreset}
-                onDragStart={onDragStart}
+                params={getParameterSelection(animation, params)}
+                onSelect={onSelectParam}
               />
             )}
             {animation.sections.length > 1 && (
@@ -269,7 +290,7 @@ function FolderContents(props: FolderContentsProps) {
                 depth={depth}
                 isExpanded={isActive}
                 activeSection={isActive ? activeSection : undefined}
-                preset={preset}
+                params={params}
                 onSelect={onSelectSection}
                 onDragStart={onDragStart}
               />

@@ -1,4 +1,4 @@
-import type { AnimationInput, Preset } from "@led-matrix/core";
+import type { AnimationInput, Parameter } from "@led-matrix/core";
 
 type SectionInput = AnimationInput["sections"][number];
 
@@ -16,6 +16,8 @@ const PINK = "#ff0080";
 const CYAN = "#00c8ff";
 
 type Palette = readonly [string, ...string[]];
+
+type Options = Readonly<Record<string, Record<string, unknown>>>;
 
 const SINGLE_PALETTES: Readonly<Record<string, Palette>> = {
   Orange: [ORANGE],
@@ -37,14 +39,34 @@ const PALETTES = { ...SINGLE_PALETTES, ...MULTI_PALETTES };
 
 const PALETTE_KEYS = ["color1", "color2", "color3", "color4", "colorCount"] as const;
 
-const paletteParams = Object.fromEntries(PALETTE_KEYS.map((key) => [key, { preset: key }]));
+function getReferences(keys: readonly string[]): Record<string, { param: string }> {
+  return Object.fromEntries(keys.map((key) => [key, { param: key }]));
+}
 
-function getPresetNames(palettes: Readonly<Record<string, Palette>>, first: string): string[] {
-  const names = Object.keys(palettes);
-  if (!names.includes(first)) {
-    throw new Error(`Unknown palette "${first}"`);
+const paletteParams = getReferences(PALETTE_KEYS);
+
+function getParameter(name: string, options: Options, defaultOption: string): Parameter {
+  if (!(defaultOption in options)) {
+    throw new Error(`Unknown option "${defaultOption}" for parameter "${name}"`);
   }
-  return [first, ...names.filter((name) => name !== first)];
+  return {
+    name,
+    default: defaultOption,
+    options: Object.entries(options).map(([option, values]) => ({ name: option, values })),
+  };
+}
+
+function getValueParameter(
+  name: string,
+  key: string,
+  values: Readonly<Record<string, unknown>>,
+  defaultOption: string,
+): Parameter {
+  return getParameter(
+    name,
+    Object.fromEntries(Object.entries(values).map(([option, value]) => [option, { [key]: value }])),
+    defaultOption,
+  );
 }
 
 function getPaletteValues(colors: readonly string[]): Record<string, unknown> {
@@ -57,39 +79,57 @@ function getPaletteValues(colors: readonly string[]): Record<string, unknown> {
   };
 }
 
-function getBackgroundPalettePresets(first: string): Preset[] {
-  return getPresetNames(PALETTES, first).map((name) => {
-    const colors = PALETTES[name] ?? [];
-    return { name, values: getPaletteValues(colors.length === 1 ? [...colors, BLACK] : colors) };
-  });
+function getPaletteParameter(
+  palettes: Readonly<Record<string, Palette>>,
+  defaultOption: string,
+  getColors: (palette: Palette) => readonly string[] = (palette) => palette,
+): Parameter {
+  return getParameter(
+    "Color",
+    Object.fromEntries(
+      Object.entries(palettes).map(([name, palette]) => [
+        name,
+        getPaletteValues(getColors(palette)),
+      ]),
+    ),
+    defaultOption,
+  );
 }
 
-function getLightPalettePresets(
-  first: string,
+function getBackgroundColorParameter(defaultOption: string): Parameter {
+  return getPaletteParameter(PALETTES, defaultOption, (palette) =>
+    palette.length === 1 ? [...palette, BLACK] : palette,
+  );
+}
+
+function getLightColorParameter(
+  defaultOption: string,
   palettes: Readonly<Record<string, Palette>> = PALETTES,
-): Preset[] {
-  return getPresetNames(palettes, first).map((name) => ({
-    name,
-    values: getPaletteValues(palettes[name] ?? []),
-  }));
+): Parameter {
+  return getPaletteParameter(palettes, defaultOption);
 }
 
-function getColorPresets(
-  first: string,
+function getColorParameter(
+  defaultOption: string,
   colors: Readonly<Record<string, string>>,
-  key = "color",
-): Preset[] {
-  return getPresetNames(
-    Object.fromEntries(Object.entries(colors).map(([name, color]) => [name, [color]])),
-    first,
-  ).map((name) => ({ name, values: { [key]: colors[name] } }));
+): Parameter {
+  return getValueParameter("Color", "color", colors, defaultOption);
 }
 
-function getPairPresets(first: string, pairs: Readonly<Record<string, Palette>>): Preset[] {
-  return getPresetNames(pairs, first).map((name) => {
-    const [startColor, endColor = startColor] = pairs[name] ?? [BLACK];
-    return { name, values: { startColor, endColor } };
-  });
+function getPairParameter(
+  defaultOption: string,
+  pairs: Readonly<Record<string, Palette>>,
+): Parameter {
+  return getParameter(
+    "Color",
+    Object.fromEntries(
+      Object.entries(pairs).map(([name, [startColor, endColor = startColor]]) => [
+        name,
+        { startColor, endColor },
+      ]),
+    ),
+    defaultOption,
+  );
 }
 
 function getDimColor(color: string, amount: number): string {
@@ -116,24 +156,24 @@ function getLoop(
   name: string,
   beats: number,
   layers: SectionInput["layers"],
-  presets?: Preset[],
+  parameters?: Parameter[],
 ): AnimationInput {
-  return { name, presets, sections: [{ mode: { type: "loop", beats }, layers }] };
+  return { name, parameters, sections: [{ mode: { type: "loop", beats }, layers }] };
 }
 
 function getBackgroundLoop(
   name: string,
   beats: number,
-  palette: string,
   effect: string,
   params: Record<string, unknown>,
+  parameters: readonly Parameter[],
   extraLayers: readonly LayerInput[] = [],
 ): AnimationInput {
   return getLoop(
     name,
     beats,
     [{ effect, params: { ...paletteParams, ...params } }, ...extraLayers],
-    getBackgroundPalettePresets(palette),
+    [...parameters],
   );
 }
 
@@ -148,9 +188,47 @@ function getLightLoop(
     name,
     beats,
     [{ effect, params: { ...paletteParams, ...params } }],
-    getLightPalettePresets(palette),
+    [getLightColorParameter(palette)],
   );
 }
+
+const transitionSpeedParameter = getValueParameter(
+  "Speed",
+  "beatsPerColor",
+  { Double: 0.5, Beat: 1, "Half time": 2 },
+  "Beat",
+);
+
+const transitionMotionParameter = getParameter(
+  "Motion",
+  {
+    Smooth: { duration: 0.5, easing: "easeInOutCubic" },
+    Snap: { duration: 0.25, easing: "easeOutCubic" },
+    Sweep: { duration: 0.75, easing: "linear" },
+  },
+  "Smooth",
+);
+
+const transitionReferences = getReferences(["beatsPerColor", "duration", "easing"]);
+
+const splitParameters = [
+  getParameter(
+    "Shape",
+    {
+      "Left/right": { shape: "left-right" },
+      "Up/down": { shape: "up-down" },
+      Box: { shape: "box" },
+      Diamond: { shape: "diamond" },
+      Circle: { shape: "circle" },
+    },
+    "Left/right",
+  ),
+  getValueParameter("Origin", "origin", { Center: "center", Edges: "edges" }, "Center"),
+  transitionSpeedParameter,
+  transitionMotionParameter,
+];
+
+const splitReferences = { ...transitionReferences, ...getReferences(["shape", "origin"]) };
 
 const maxedScareMeter: SectionInput = {
   name: "Maxed",
@@ -187,15 +265,15 @@ function getRumbleSection(
     name: text,
     mode: { type: "once", beats },
     layers: [
-      { effect: "solid", params: { color: { preset: `${key}Background` } } },
+      { effect: "solid", params: { color: { param: `${key}Background` } } },
       {
         effect: "strobe",
-        params: { color: { preset: `${key}Strobe` }, flashesPerBeat: 2, duty: 0.5 },
+        params: { color: { param: `${key}Strobe` }, flashesPerBeat: 2, duty: 0.5 },
         blend: "add",
       },
       {
         effect: "big-text",
-        params: { text, font: "Anton", size: 40, color: { preset: `${key}Text` }, ...textParams },
+        params: { text, font: "Anton", size: 40, color: { param: `${key}Text` }, ...textParams },
       },
     ],
   };
@@ -205,43 +283,44 @@ function getRumbleValues(key: string, { background, strobe, text }: RumbleStyle)
   return { [`${key}Background`]: background, [`${key}Strobe`]: strobe, [`${key}Text`]: text };
 }
 
-function getRumblePreset(
-  name: string,
+function getRumbleStyleValues(
   wordStyles: readonly [RumbleStyle, ...RumbleStyle[]],
   rumbleStyle: RumbleStyle,
-): Preset {
-  return {
-    name,
-    values: Object.assign(
-      getRumbleValues("rumble", rumbleStyle),
-      ...RUMBLE_WORDS.map((_word, index) =>
-        getRumbleValues(`word${index + 1}`, wordStyles[index % wordStyles.length] ?? wordStyles[0]),
-      ),
+): Record<string, unknown> {
+  return Object.assign(
+    getRumbleValues("rumble", rumbleStyle),
+    ...RUMBLE_WORDS.map((_word, index) =>
+      getRumbleValues(`word${index + 1}`, wordStyles[index % wordStyles.length] ?? wordStyles[0]),
     ),
-  };
+  );
 }
 
-function getRumbleStrobePreset(name: string, background: string): Preset {
+function getRumbleStrobeValues(background: string): Record<string, unknown> {
   const style = { background, strobe: WHITE, text: BLACK };
-  return getRumblePreset(name, [style], style);
+  return getRumbleStyleValues([style], style);
 }
 
 const rumble: AnimationInput = {
   name: "Ready to rumble",
-  presets: [
-    getRumblePreset(
+  parameters: [
+    getParameter(
+      "Style",
+      {
+        Solid: getRumbleStyleValues(
+          [
+            { background: BLACK, strobe: BLACK, text: WHITE },
+            { background: RUMBLE_GREEN, strobe: BLACK, text: BLACK },
+            { background: WHITE, strobe: BLACK, text: BLACK },
+            { background: RUMBLE_GREEN, strobe: BLACK, text: BLACK },
+          ],
+          { background: BLACK, strobe: BLACK, text: WHITE },
+        ),
+        "Green strobe": getRumbleStrobeValues(RUMBLE_GREEN),
+        "Orange strobe": getRumbleStrobeValues(ORANGE),
+        "Purple strobe": getRumbleStrobeValues(PURPLE),
+      },
       "Solid",
-      [
-        { background: BLACK, strobe: BLACK, text: WHITE },
-        { background: RUMBLE_GREEN, strobe: BLACK, text: BLACK },
-        { background: WHITE, strobe: BLACK, text: BLACK },
-        { background: RUMBLE_GREEN, strobe: BLACK, text: BLACK },
-      ],
-      { background: BLACK, strobe: BLACK, text: WHITE },
     ),
-    getRumbleStrobePreset("Green strobe", RUMBLE_GREEN),
-    getRumbleStrobePreset("Orange strobe", ORANGE),
-    getRumbleStrobePreset("Purple strobe", PURPLE),
   ],
   sections: [
     ...RUMBLE_WORDS.map((word, index) => getRumbleSection(word, 1, `word${index + 1}`)),
@@ -256,8 +335,15 @@ const rumble: AnimationInput = {
   ],
 };
 
-const loadingPresets: Preset[] = Object.entries({ Red: RED, ...SINGLE_COLORS }).map(
-  ([name, color]) => ({ name, values: { color, textColor: getDimColor(color, 0.48) } }),
+const loadingParameter = getParameter(
+  "Color",
+  Object.fromEntries(
+    Object.entries({ Red: RED, ...SINGLE_COLORS }).map(([name, color]) => [
+      name,
+      { color, textColor: getDimColor(color, 0.48) },
+    ]),
+  ),
+  "Red",
 );
 
 const textColors = { White: WHITE, Orange: ORANGE, Purple: PURPLE, Green: GREEN };
@@ -269,6 +355,8 @@ const squarePairs: Readonly<Record<string, Palette>> = {
   "White/orange": [WHITE, ORANGE],
   Ice: [WHITE, ICE],
 };
+
+const flashSpeeds = { "Half time": 0.5, Beat: 1, Double: 2, Quad: 4 };
 
 export const replacedSeedIds = [
   "white-strobe",
@@ -291,6 +379,34 @@ export const replacedSeedIds = [
   "hyperspace-halloween",
   "rumble-solid",
   "rumble-green-strobe",
+  "flash-strobe",
+  "flash-pulse",
+  "flash-double-pulse",
+  "flash-alternate",
+  "flash-alternate-pulse",
+  "flash-short",
+  "split-left-right",
+  "split-up-down",
+  "split-close-left-right",
+  "split-close-up-down",
+  "split-box",
+  "split-diamond",
+  "iris-open",
+  "iris-close",
+  "split-half-time",
+  "wipe-right",
+  "wipe-down",
+  "wipe-diagonal",
+  "wipe-clock",
+  "checker-quadrants",
+  "checker-small",
+  "stripes-diagonal",
+  "stripes-hazard",
+  "stripes-vertical",
+  "stripes-horizontal",
+  "rings-tunnel",
+  "rings-squares",
+  "rings-diamond",
 ];
 
 export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
@@ -299,8 +415,43 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     strobe: getLoop(
       "Strobe",
       1,
-      [{ effect: "strobe", params: { color: { preset: "color" }, flashesPerBeat: 2, duty: 0.2 } }],
-      getColorPresets("White", SINGLE_COLORS),
+      [
+        {
+          effect: "strobe",
+          params: {
+            color: { param: "color" },
+            flashesPerBeat: { param: "flashesPerBeat" },
+            duty: 0.2,
+          },
+        },
+      ],
+      [
+        getColorParameter("White", SINGLE_COLORS),
+        getValueParameter("Speed", "flashesPerBeat", { Beat: 1, Double: 2, Quad: 4 }, "Double"),
+      ],
+    ),
+    flash: getLoop(
+      "Flash",
+      4,
+      [
+        {
+          effect: "color-flash",
+          params: { ...paletteParams, ...getReferences(["flashesPerBeat", "duty", "fade"]) },
+        },
+      ],
+      [
+        getLightColorParameter("Orange"),
+        getValueParameter("Speed", "flashesPerBeat", flashSpeeds, "Beat"),
+        getParameter(
+          "Style",
+          {
+            Hard: { duty: 0.5, fade: 0 },
+            Short: { duty: 0.25, fade: 0 },
+            Pulse: { duty: 1, fade: 1 },
+          },
+          "Hard",
+        ),
+      ],
     ),
     "spinning-squares": getLoop(
       "Spinning squares",
@@ -311,12 +462,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           params: {
             count: 4,
             rotations: 1,
-            startColor: { preset: "startColor" },
-            endColor: { preset: "endColor" },
+            startColor: { param: "startColor" },
+            endColor: { param: "endColor" },
           },
         },
       ],
-      getPairPresets("Pink/cyan", squarePairs),
+      [getPairParameter("Pink/cyan", squarePairs)],
     ),
     "text-over-plasma": getLoop(
       "Text over plasma",
@@ -328,12 +479,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           params: {
             text: "TURN IT UP",
             font: "spleen-8x16",
-            color: { preset: "color" },
+            color: { param: "color" },
             cycles: 2,
           },
         },
       ],
-      getColorPresets("White", textColors),
+      [getColorParameter("White", textColors)],
     ),
     "plasma-kaleidoscope": getLoop("Plasma kaleidoscope", 16, [
       { effect: "plasma", params: { cycles: 2, scale: 1.5 } },
@@ -366,7 +517,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       "Color fade",
       16,
       [{ effect: "color-fade", params: { ...paletteParams, beatsPerColor: 8 } }],
-      getLightPalettePresets("Orange/purple", MULTI_PALETTES),
+      [getLightColorParameter("Orange/purple", MULTI_PALETTES)],
     ),
     loading: getLoop(
       "Loading",
@@ -374,124 +525,100 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       [
         {
           effect: "loading",
-          params: { color: { preset: "color" }, textColor: { preset: "textColor" } },
+          params: { color: { param: "color" }, textColor: { param: "textColor" } },
         },
       ],
-      loadingPresets,
+      [loadingParameter],
     ),
   }),
-  ...getFolder("Basics/Splits", {
-    "split-left-right": getBackgroundLoop("Split left/right", 8, "Orange", "split", {
-      shape: "left-right",
-    }),
-    "split-up-down": getBackgroundLoop("Split up/down", 8, "Purple", "split", {
-      shape: "up-down",
-    }),
-    "split-close-left-right": getBackgroundLoop("Split close left/right", 8, "Green", "split", {
-      shape: "left-right",
-      origin: "edges",
-    }),
-    "split-close-up-down": getBackgroundLoop("Split close up/down", 8, "White", "split", {
-      shape: "up-down",
-      origin: "edges",
-    }),
-    "split-box": getBackgroundLoop("Split box", 8, "Orange/purple", "split", { shape: "box" }),
-    "split-diamond": getBackgroundLoop("Split diamond", 8, "Green/purple", "split", {
-      shape: "diamond",
-      origin: "edges",
-    }),
-    "iris-open": getBackgroundLoop("Iris open", 8, "Orange", "split", { shape: "circle" }),
-    "iris-close": getBackgroundLoop("Iris close", 8, "Purple", "split", {
-      shape: "circle",
-      origin: "edges",
-    }),
-    "split-half-time": getBackgroundLoop("Split half time", 8, "White", "split", {
-      shape: "left-right",
-      beatsPerColor: 2,
-      duration: 0.25,
-      easing: "easeOutCubic",
-    }),
+  ...getFolder("Basics/Transitions", {
+    split: getBackgroundLoop("Split", 8, "split", splitReferences, [
+      getBackgroundColorParameter("Orange"),
+      ...splitParameters,
+    ]),
     "split-strobe": getBackgroundLoop(
       "Split with strobe",
       8,
-      "Purple",
       "split",
-      { shape: "left-right" },
+      splitReferences,
+      [getBackgroundColorParameter("Purple"), ...splitParameters],
       [{ effect: "strobe", params: { flashesPerBeat: 4, duty: 0.15 }, blend: "add", opacity: 0.5 }],
     ),
-  }),
-  ...getFolder("Basics/Wipes", {
-    "wipe-right": getBackgroundLoop("Wipe right", 8, "Orange/purple", "wipe", {
-      direction: "right",
-    }),
-    "wipe-down": getBackgroundLoop("Wipe down", 8, "Green", "wipe", { direction: "down" }),
-    "wipe-diagonal": getBackgroundLoop("Wipe diagonal", 8, "Purple", "wipe", {
-      direction: "down-right",
-    }),
-    "wipe-clock": getBackgroundLoop("Clock wipe", 8, "Orange", "wipe", {
-      direction: "clockwise",
-      duration: 0.75,
-      easing: "linear",
-    }),
-  }),
-  ...getFolder("Basics/Flashes", {
-    flash: getLightLoop("Flash", 4, "Orange", "color-flash", { duty: 0.5 }),
-    "flash-strobe": getLightLoop("Flash strobe", 4, "Purple", "color-flash", {
-      flashesPerBeat: 4,
-      duty: 0.3,
-    }),
-    "flash-pulse": getLightLoop("Flash pulse", 4, "Green", "color-flash", { fade: 1 }),
-    "flash-double-pulse": getLightLoop("Flash double pulse", 4, "White", "color-flash", {
-      flashesPerBeat: 2,
-      fade: 1,
-    }),
-    "flash-alternate": getLightLoop("Flash alternate", 4, "Orange/purple", "color-flash", {
-      flashesPerBeat: 2,
-      duty: 0.5,
-    }),
-    "flash-alternate-pulse": getLightLoop(
-      "Flash alternate pulse",
-      4,
-      "Green/purple",
-      "color-flash",
-      { flashesPerBeat: 2, fade: 0.8 },
+    wipe: getBackgroundLoop(
+      "Wipe",
+      8,
+      "wipe",
+      { ...transitionReferences, ...getReferences(["direction"]) },
+      [
+        getBackgroundColorParameter("Orange/purple"),
+        getValueParameter(
+          "Direction",
+          "direction",
+          {
+            Right: "right",
+            Left: "left",
+            Down: "down",
+            Up: "up",
+            Diagonal: "down-right",
+            Clockwise: "clockwise",
+            Counterclockwise: "counterclockwise",
+          },
+          "Right",
+        ),
+        transitionSpeedParameter,
+        transitionMotionParameter,
+      ],
     ),
-    "flash-short": getLightLoop("Flash short", 4, "White/orange", "color-flash", { duty: 0.25 }),
   }),
   ...getFolder("Basics/Patterns", {
-    checker: getBackgroundLoop("Checker", 4, "Orange/purple", "checker", {}),
-    "checker-quadrants": getBackgroundLoop("Checker quadrants", 4, "Purple", "checker", {
-      size: 32,
-    }),
-    "checker-small": getBackgroundLoop("Checker small", 4, "Green", "checker", {
-      size: 4,
-      swapsPerBeat: 2,
-    }),
-    "stripes-diagonal": getBackgroundLoop("Stripes diagonal", 8, "Orange/purple", "stripes", {}),
-    "stripes-hazard": getBackgroundLoop("Stripes hazard", 4, "Orange", "stripes", {
-      width: 5,
-      angle: "anti-diagonal",
-    }),
-    "stripes-vertical": getBackgroundLoop("Stripes vertical", 8, "Green/purple", "stripes", {
-      width: 8,
-      angle: "vertical",
-      cycles: 2,
-    }),
-    "stripes-horizontal": getBackgroundLoop("Stripes horizontal", 8, "White", "stripes", {
-      width: 3,
-      angle: "horizontal",
-      cycles: 4,
-    }),
-    "rings-tunnel": getBackgroundLoop("Rings tunnel", 8, "Green", "rings", { cycles: -2 }),
-    "rings-squares": getBackgroundLoop("Rings squares", 8, "Orange", "rings", {
-      shape: "square",
-      width: 4,
-      cycles: 2,
-    }),
-    "rings-diamond": getBackgroundLoop("Rings diamond", 8, "Purple", "rings", {
-      shape: "diamond",
-      width: 6,
-    }),
+    checker: getBackgroundLoop("Checker", 4, "checker", getReferences(["size", "swapsPerBeat"]), [
+      getBackgroundColorParameter("Orange/purple"),
+      getValueParameter(
+        "Size",
+        "size",
+        { Small: 4, Medium: 8, Large: 16, Quadrants: 32 },
+        "Medium",
+      ),
+      getValueParameter("Speed", "swapsPerBeat", { "Half time": 0.5, Beat: 1, Double: 2 }, "Beat"),
+    ]),
+    stripes: getBackgroundLoop(
+      "Stripes",
+      8,
+      "stripes",
+      getReferences(["angle", "width", "cycles"]),
+      [
+        getBackgroundColorParameter("Orange/purple"),
+        getValueParameter(
+          "Angle",
+          "angle",
+          {
+            Diagonal: "diagonal",
+            "Anti-diagonal": "anti-diagonal",
+            Vertical: "vertical",
+            Horizontal: "horizontal",
+          },
+          "Diagonal",
+        ),
+        getValueParameter("Width", "width", { Thin: 3, Medium: 6, Wide: 8 }, "Medium"),
+        getValueParameter("Speed", "cycles", { Slow: 1, Medium: 2, Fast: 4 }, "Slow"),
+      ],
+    ),
+    rings: getBackgroundLoop("Rings", 8, "rings", getReferences(["shape", "width", "cycles"]), [
+      getBackgroundColorParameter("Green"),
+      getValueParameter(
+        "Shape",
+        "shape",
+        { Circle: "circle", Square: "square", Diamond: "diamond" },
+        "Circle",
+      ),
+      getValueParameter("Width", "width", { Thin: 3, Medium: 5, Wide: 8 }, "Medium"),
+      getValueParameter(
+        "Motion",
+        "cycles",
+        { "In fast": -2, In: -1, Out: 1, "Out fast": 2 },
+        "In fast",
+      ),
+    ]),
     fireflies: getLightLoop("Fireflies", 8, "Green", "twinkle", {
       perBeat: 64,
       decay: 1.5,
@@ -575,8 +702,15 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "jack-o-lantern": getLoop(
       "Jack-o'-lantern",
       32,
-      [{ effect: "pumpkin", params: { cyclesX: 3, cyclesY: 4, color: { preset: "color" } } }],
-      getColorPresets("Pumpkin", { Pumpkin: PUMPKIN, Purple: PURPLE, Green: GREEN, White: WHITE }),
+      [{ effect: "pumpkin", params: { cyclesX: 3, cyclesY: 4, color: { param: "color" } } }],
+      [
+        getColorParameter("Pumpkin", {
+          Pumpkin: PUMPKIN,
+          Purple: PURPLE,
+          Green: GREEN,
+          White: WHITE,
+        }),
+      ],
     ),
     "scare-meter-16": {
       name: "Scare meter (16 bars)",
