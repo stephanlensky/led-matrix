@@ -10,6 +10,9 @@ import { chromatic } from "./chromatic.ts";
 import { trails } from "./trails.ts";
 import { vampireMouth } from "./vampire-mouth.ts";
 import { pumpkin } from "./pumpkin.ts";
+import { pumpkinDance } from "./pumpkin-dance.ts";
+import { skeletonDance } from "./skeleton-dance.ts";
+import { skullDoot } from "./skull-doot.ts";
 import { split, wipe } from "./transitions.ts";
 import { colorFade, colorFlash } from "./color-flash.ts";
 import { checker, rings, stripes, twinkle } from "./patterns.ts";
@@ -35,6 +38,8 @@ import { loading } from "./loading.ts";
 import { cat } from "./cat.ts";
 import { catBounce, catSpawn } from "./cat-duo.ts";
 import { catDance } from "./cat-dance.ts";
+import { catHype } from "./cat-hype.ts";
+import { catRoll } from "./cat-roll.ts";
 import { catBloodSpray, catExplode } from "./cat-explode.ts";
 import { catPairSpawn } from "./cat-pair-spawn.ts";
 import { catEyes } from "./cat-eyes.ts";
@@ -72,6 +77,9 @@ export const effects: readonly Effect[] = [
   clip,
   vampireMouth,
   pumpkin,
+  pumpkinDance,
+  skullDoot,
+  skeletonDance,
   scareMeter,
   bloodDrip,
   bloodSplatter,
@@ -96,6 +104,8 @@ export const effects: readonly Effect[] = [
   catExplode,
   catBloodSpray,
   catDance,
+  catHype,
+  catRoll,
   catBroom,
   catGhosts,
   catEyes,

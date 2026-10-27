@@ -66,6 +66,7 @@ export type CanvasContext = {
     width: number;
     actualBoundingBoxAscent: number;
     actualBoundingBoxDescent: number;
+    actualBoundingBoxRight: number;
   };
   createLinearGradient(x0: number, y0: number, x1: number, y1: number): CanvasGradientLike;
   createRadialGradient(

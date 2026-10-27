@@ -251,29 +251,35 @@ describe("playback", () => {
       body: { id: "cat" },
     });
     expect(played.json()).toMatchObject({ section: { index: 0, next: null } });
+    const stare = await app.inject({
+      method: "POST",
+      url: "/api/outputs/simulator/seek",
+      body: { section: 1, progress: 0 },
+    });
+    expect(stare.json()).toMatchObject({ section: { index: 1, next: null } });
     const advanced = await app.inject({ method: "POST", url: "/api/outputs/simulator/advance" });
     const { section } = advanced.json<{ section: { next: { delay: number } } }>();
-    expect(section).toMatchObject({ index: 0, next: { index: 1 } });
+    expect(section).toMatchObject({ index: 1, next: { index: 2 } });
     expect(section.next.delay).toBeGreaterThan(15_000);
     const cut = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/advance",
       body: { at: "now" },
     });
-    expect(cut.json()).toMatchObject({ section: { index: 1, next: null } });
+    expect(cut.json()).toMatchObject({ section: { index: 2, next: null } });
     const sought = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/seek",
-      body: { section: 2, progress: 0.5 },
+      body: { section: 3, progress: 0.5 },
     });
-    expect(sought.json()).toMatchObject({ section: { index: 2, next: null } });
+    expect(sought.json()).toMatchObject({ section: { index: 3, next: null } });
     expect(sought.json<{ section: { time: number } }>().section.time).toBeCloseTo(4000, -1);
     const last = await app.inject({ method: "POST", url: "/api/outputs/simulator/advance" });
     expect(last.statusCode).toBe(409);
     const missing = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/seek",
-      body: { section: 3, progress: 0 },
+      body: { section: 4, progress: 0 },
     });
     expect(missing.statusCode).toBe(400);
   });

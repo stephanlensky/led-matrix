@@ -6,7 +6,15 @@ import { type Rotation, createRaster, getRotation, resolveRaster } from "../mesh
 import { TAU, coatParams, getCoats, toRadians } from "./cat-duo.ts";
 import { type CatPose, drawCat } from "./cat-model.ts";
 
-export const danceMoves = ["headbang", "sway", "hop", "paws-up", "twist", "conga"] as const;
+export const danceMoves = [
+  "headbang",
+  "sway",
+  "hop",
+  "paws-up",
+  "twist",
+  "conga",
+  "wiggle",
+] as const;
 
 type DanceMove = (typeof danceMoves)[number];
 
@@ -161,6 +169,28 @@ function getConga(beat: number, dancer: Dancer, size: number, progress: number):
   };
 }
 
+function getWiggle(beat: number, dancer: Dancer, size: number): DancerFrame {
+  const phase = beat + dancer.phase;
+  const step = Math.cos(phase * Math.PI);
+  const lift = Math.abs(Math.sin(phase * Math.PI));
+  const stand = toRadians(-62);
+  const clasp = toRadians(-95 + 15 * lift);
+  return {
+    x: dancer.x + step * 3,
+    y: BASE_Y - 3 - lift * 1.5,
+    size,
+    rotate: getRotation(VIEW_PITCH + stand, dancer.side * 0.2, toRadians(-10 * step)),
+    pose: {
+      head: getRotation(-stand + toRadians(-8), toRadians(-10 * step), toRadians(18 * step)),
+      tail: getRotation(toRadians(60), 0, toRadians(45 * step)),
+      frontLeftLeg: getRotation(clasp, 0, toRadians(-30)),
+      frontRightLeg: getRotation(clasp, 0, toRadians(30)),
+      backLeftLeg: getPitch(-stand + toRadians(-25 * lift * Math.max(0, -step))),
+      backRightLeg: getPitch(-stand + toRadians(-25 * lift * Math.max(0, step))),
+    },
+  };
+}
+
 const moveFrames: Record<
   DanceMove,
   (beat: number, dancer: Dancer, size: number, progress: number) => DancerFrame
@@ -171,6 +201,7 @@ const moveFrames: Record<
   "paws-up": getPawsUp,
   twist: getTwist,
   conga: getConga,
+  wiggle: getWiggle,
 };
 
 export const catDance = defineEffect({

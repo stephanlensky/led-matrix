@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { colorSchema } from "../color.ts";
+import { colorSchema, formatColor, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
-import { HEIGHT, WIDTH } from "../frame.ts";
+import type { CanvasContext } from "../canvas.ts";
+import { type Color, HEIGHT, WIDTH } from "../frame.ts";
 import { getParticles } from "../particles.ts";
-import { getRandomBetween } from "../random.ts";
+import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import {
   type PathCommand,
   getPosePath,
@@ -11,6 +12,13 @@ import {
   tracePath,
   transformPath,
 } from "../svg-path.ts";
+import {
+  type Point,
+  getBallisticPosition,
+  getCycle,
+  getModulo,
+  getScaledColor,
+} from "./blood/shared.ts";
 
 const POSE_COUNT = 3;
 const DRIP_SEED = 0x7a3;
@@ -18,6 +26,18 @@ const DRIP_HOLD = 1500;
 const DRIP_HANG_WIDTHS = 3;
 const DRIP_STRETCH = 0.25;
 const DRIP_TOP = 30;
+const LAUGH_DECAY = 3.5;
+const HEAD_LIFT = 5;
+const HEAD_SQUASH = 0.2;
+const HEAD_ROCK = 0.08;
+const HEAD_PIVOT_Y = HEIGHT + 8;
+const MOUTH_Y = 34;
+const SPRAY_SEED = 0x7a4;
+const SPRAY_STEP = 0.125;
+const SPRAY_LIFE = 1.6;
+const SPRAY_TRAIL = 0.04;
+const SPRAY_GRAVITY = 150;
+const SPRAY_SPREAD = 1.9;
 
 const upperLipPoses = [
   "M10 33 C16 28 18 24 24 24 C28 24 30 27 32 27 C34 27 36 24 40 24 C46 24 48 28 54 33 C46 33 38 33 32 33 C26 33 18 33 10 33 Z",
@@ -45,9 +65,17 @@ const fangPoses = [
 
 const lipBottoms = [44, 47, 56];
 
+const mouthCenters = [33, 35, 39];
+
 const FANG_TIP_INDEXES = [2, 6];
 
 export const dripSources = ["lip", "fangs", "both"] as const;
+
+type Head = {
+  pose: number;
+  rock: number;
+  getPoint: (x: number, y: number) => [x: number, y: number];
+};
 
 function getPoseValue(values: readonly number[], pose: number): number {
   const index = Math.min(Math.floor(pose), values.length - 2);
@@ -82,17 +110,51 @@ export const vampireMouth = defineEffect({
     dripSpeed: z.number().min(1).max(64).default(12),
     scale: z.number().min(0.5).max(2).default(1.2),
     snap: z.boolean().default(true),
+    laugh: z.number().min(0).max(1).default(0),
+    spray: z.number().int().min(0).max(64).default(0),
+    sprayBurst: z.number().int().min(0).max(128).default(0),
+    sprayPower: z.number().min(0.3).max(1.5).default(1),
   }),
   render(context, { params, beat, time, bpm }) {
-    const getPose = (atBeat: number) =>
-      Math.min(params.pose + params.chatter * (1 - (((atBeat % 1) + 1) % 1)) ** 2, POSE_COUNT - 1);
-    const pose = getPose(beat);
     const round = (value: number) => (params.snap ? Math.round(value) : value);
-    const scaleX = (x: number) => round(WIDTH / 2 + (x - WIDTH / 2) * params.scale);
-    const scaleY = (y: number) => round(HEIGHT / 2 + (y - HEIGHT / 2) * params.scale);
+    const getHead = (atBeat: number): Head => {
+      const cycle = getCycle(atBeat);
+      const open = params.laugh * Math.exp(-cycle * LAUGH_DECAY);
+      const pose = Math.min(
+        params.pose + params.chatter * (1 - cycle) ** 2 + open * (POSE_COUNT - 1),
+        POSE_COUNT - 1,
+      );
+      const lift = HEAD_LIFT * open;
+      const squash = 1 - HEAD_SQUASH * open;
+      const rock = params.laugh * HEAD_ROCK * Math.cos(Math.PI * atBeat);
+      const cos = Math.cos(rock);
+      const sin = Math.sin(rock);
+      return {
+        pose,
+        rock,
+        getPoint: (x, y) => {
+          const offsetX = (x - WIDTH / 2) * params.scale;
+          const offsetY =
+            HEIGHT / 2 +
+            ((y - MOUTH_Y) * squash + MOUTH_Y - HEIGHT / 2) * params.scale -
+            lift -
+            HEAD_PIVOT_Y;
+          return [
+            round(WIDTH / 2 + offsetX * cos - offsetY * sin),
+            round(HEAD_PIVOT_Y + offsetX * sin + offsetY * cos),
+          ];
+        },
+      };
+    };
+    const head = getHead(beat);
+    const { pose } = head;
     const getShape = (poses: readonly PathCommand[][]) =>
-      transformPath(getPosePath(poses, pose), (x, y) => [scaleX(x), scaleY(y)]);
+      transformPath(getPosePath(poses, pose), head.getPoint);
     const upperLip = getShape(upperLipPoses);
+
+    if (params.spray > 0 || params.sprayBurst > 0) {
+      drawSpray(context, params, beat, getHead);
+    }
 
     context.lineJoin = "round";
     context.strokeStyle = params.outlineColor;
@@ -137,7 +199,7 @@ export const vampireMouth = defineEffect({
         gravity: params.dripSpeed,
         period: (60_000 / bpm) * 64,
         spawn: (random, spawnTime) => {
-          const anchorPose = getPose((Math.min(time, spawnTime + DRIP_HOLD) * bpm) / 60_000);
+          const anchorPose = getHead((Math.min(time, spawnTime + DRIP_HOLD) * bpm) / 60_000).pose;
           const isFromFang =
             params.dripFrom === "fangs" || (params.dripFrom === "both" && random() < 0.5);
           if (isFromFang) {
@@ -159,9 +221,77 @@ export const vampireMouth = defineEffect({
       const hang = round(
         width * DRIP_HANG_WIDTHS * (particle.isHeld ? particle.age / DRIP_HOLD : 1),
       );
-      const top = scaleY(particle.y);
+      const [x, top] = head.getPoint(particle.x, particle.y);
       const length = Math.max(hang, 1) + round(particle.vy * DRIP_STRETCH);
-      context.fillRect(round(scaleX(particle.x) - width / 2), top, width, length);
+      context.fillRect(round(x - width / 2), top, width, length);
     }
   },
 });
+
+function drawSpray(
+  context: CanvasContext,
+  params: { bloodColor: string; spray: number; sprayBurst: number; sprayPower: number },
+  beat: number,
+  getHead: (atBeat: number) => Head,
+): void {
+  const color = parseColor(params.bloodColor);
+  const stepsPerBeat = Math.round(1 / SPRAY_STEP);
+  const first = Math.floor((beat - SPRAY_LIFE) / SPRAY_STEP) + 1;
+  const last = Math.floor(beat / SPRAY_STEP);
+  for (let step = first; step <= last; step++) {
+    const isBeat = getModulo(step, stepsPerBeat) === 0;
+    const count = params.spray + (isBeat ? params.sprayBurst : 0);
+    const random = createRandom(hashSeed(SPRAY_SEED, step));
+    for (let index = 0; index < count; index++) {
+      const spawnBeat = step * SPRAY_STEP + random() * SPRAY_STEP * (isBeat ? 0.4 : 1);
+      const age = beat - spawnBeat;
+      const spawnHead = getHead(spawnBeat);
+      const origin = spawnHead.getPoint(
+        32 + getRandomBetween(random, -7, 7),
+        getPoseValue(mouthCenters, spawnHead.pose),
+      );
+      const angle =
+        -Math.PI / 2 + spawnHead.rock * 6 + getRandomBetween(random, -1, 1) * SPRAY_SPREAD;
+      const speed = params.sprayPower * getRandomBetween(random, 45, 130) * (isBeat ? 1.2 : 1);
+      const velocity: Point = [Math.cos(angle) * speed, Math.sin(angle) * speed];
+      const shade = getRandomBetween(random, 0.9, 1.7);
+      const size = random() < 0.25 ? 2 : 1;
+      if (age < 0) {
+        continue;
+      }
+      const head = getBallisticPosition(origin, velocity, SPRAY_GRAVITY, age);
+      if (head[1] > HEIGHT + 2) {
+        continue;
+      }
+      const tail = getBallisticPosition(
+        origin,
+        velocity,
+        SPRAY_GRAVITY,
+        Math.max(0, age - SPRAY_TRAIL),
+      );
+      const particleColor = getScaledColor(color, shade);
+      drawStreak(context, tail, head, particleColor);
+      context.fillStyle = formatColor(particleColor);
+      context.fillRect(Math.round(head[0]), Math.round(head[1]), size, size);
+    }
+  }
+}
+
+function drawStreak(
+  context: CanvasContext,
+  [tailX, tailY]: Point,
+  [headX, headY]: Point,
+  color: Color,
+): void {
+  const samples = Math.max(1, Math.ceil(Math.hypot(headX - tailX, headY - tailY)));
+  for (let sample = 0; sample < samples; sample++) {
+    const along = sample / samples;
+    context.fillStyle = formatColor(getScaledColor(color, 0.35 + 0.65 * along));
+    context.fillRect(
+      Math.round(tailX + (headX - tailX) * along),
+      Math.round(tailY + (headY - tailY) * along),
+      1,
+      1,
+    );
+  }
+}

@@ -1,8 +1,35 @@
 import { z } from "zod";
 import { canvasFontFamilies } from "../canvas-fonts.ts";
+import type { CanvasContext } from "../canvas.ts";
 import { colorSchema } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { HEIGHT, WIDTH } from "../frame.ts";
+
+type BigTextLayout = {
+  text: string;
+  font: (typeof canvasFontFamilies)[number];
+  size: number;
+  outlineWidth: number;
+};
+
+function getMargin(outlineWidth: number): number {
+  return outlineWidth + 2;
+}
+
+function getScrollDistance(textWidth: number, outlineWidth: number): number {
+  return textWidth + getMargin(outlineWidth) * 2 - WIDTH;
+}
+
+export function getBigTextExitScroll(context: CanvasContext, layout: BigTextLayout): number {
+  context.font = `${layout.size}px "${layout.font}"`;
+  context.textAlign = "center";
+  const metrics = context.measureText(layout.text);
+  return (
+    0.5 +
+    (WIDTH / 2 + metrics.actualBoundingBoxRight + layout.outlineWidth) /
+      getScrollDistance(metrics.width, layout.outlineWidth)
+  );
+}
 
 export const bigText = defineEffect({
   id: "big-text",
@@ -17,7 +44,7 @@ export const bigText = defineEffect({
     outlineColor: colorSchema.default("#ff0080"),
     outlineWidth: z.number().min(0).max(8).default(0),
     pulse: z.number().min(0).max(1).default(0),
-    scroll: z.number().min(0).max(1).optional(),
+    scroll: z.number().min(0).max(2).optional(),
   }),
   render(context, { params, beat }) {
     context.font = `${params.size}px "${params.font}"`;
@@ -31,11 +58,11 @@ export const bigText = defineEffect({
         ? Math.min(1, (WIDTH - params.outlineWidth * 2) / textWidth)
         : 1;
     const scale = fitScale * (1 + params.pulse * (1 - (beat % 1)) * 0.5);
-    const margin = params.outlineWidth + 2;
     const x =
       params.scroll === undefined
         ? WIDTH / 2
-        : WIDTH / 2 + (0.5 - params.scroll) * (textWidth * scale + margin * 2 - WIDTH);
+        : WIDTH / 2 +
+          (0.5 - params.scroll) * getScrollDistance(textWidth * scale, params.outlineWidth);
     context.translate(x, HEIGHT / 2);
     context.scale(scale, scale);
     context.lineJoin = "round";

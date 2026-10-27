@@ -2,7 +2,7 @@ import type { Color, RgbaImage } from "../../frame.ts";
 import { HEIGHT, WIDTH, setRgbaPixel } from "../../frame.ts";
 import { hashSeed } from "../../random.ts";
 
-export const BLOOD_COLOR = "#8a0303";
+export { BLOOD_COLOR } from "../../color.ts";
 export const DRIED_COLOR: Color = [34, 5, 3];
 
 const DRIP_HANG = 0.65;

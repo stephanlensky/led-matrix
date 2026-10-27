@@ -29,20 +29,21 @@ export type HunterJoint =
 
 export type HunterPose = Partial<Record<HunterJoint, Rotation>>;
 
-export type HunterPlacement = {
+export type ModelPlacement = {
   x: number;
   y: number;
   size: number;
   rotate: Rotation;
   depth?: number;
-  pose?: HunterPose;
 };
+
+export type HunterPlacement = ModelPlacement & { pose?: HunterPose };
 
 type HunterGroup = { joint?: HunterJoint; mesh: Mesh<HunterPart> };
 
 type HunterModel = { pivots: Record<HunterJoint, Vector>; groups: HunterGroup[] };
 
-type JointTransform = { position: Rotation; normal: Rotation };
+export type JointTransform = { position: Rotation; normal: Rotation };
 
 const CAMERA_DISTANCE = 6;
 const MODEL_CENTER: Vector = [0, 0.4, 0];
@@ -230,37 +231,36 @@ const hunters: Readonly<Record<HunterId, { model: HunterModel; outfit: Outfit }>
   mira: { model: createHunterModel("ponytail", false, true), outfit: MIRA_OUTFIT },
 };
 
-function getJointTransforms(
-  pivots: Record<HunterJoint, Vector>,
-  pose: HunterPose,
-): Map<HunterJoint, JointTransform> {
-  const transforms = new Map<HunterJoint, JointTransform>();
-  for (const [joint, parentJoint] of JOINT_PARENTS) {
+export function getJointTransforms<J extends string>(
+  parents: readonly (readonly [joint: J, parent?: J])[],
+  pivots: Record<J, Vector>,
+  pose: Partial<Record<J, Rotation>>,
+): Map<J, JointTransform> {
+  const transforms = new Map<J, JointTransform>();
+  for (const [joint, parentJoint] of parents) {
     const parent = parentJoint ? transforms.get(parentJoint) : undefined;
     const parentPosition = parent?.position ?? ((vector: Vector) => vector);
     const parentNormal = parent?.normal ?? ((vector: Vector) => vector);
     const rotation = pose[joint] ?? ((vector: Vector) => vector);
+    const origin = rotation([0, 0, 0]);
     const pivot = pivots[joint];
     transforms.set(joint, {
       position: (vector) => {
         const [x, y, z] = rotation(subtract(vector, pivot));
         return parentPosition([x + pivot[0], y + pivot[1], z + pivot[2]]);
       },
-      normal: (vector) => parentNormal(rotation(vector)),
+      normal: (vector) => parentNormal(subtract(rotation(vector), origin)),
     });
   }
   return transforms;
 }
 
-function getProjector({
-  x: centerX,
-  y: centerY,
-  size,
-  rotate,
-  depth: depthOffset = 0,
-}: HunterPlacement): (vector: Vector) => Vector {
+export function getModelProjector(
+  center: Vector,
+  { x: centerX, y: centerY, size, rotate, depth: depthOffset = 0 }: ModelPlacement,
+): (vector: Vector) => Vector {
   return (vector) => {
-    const [x, y, depth] = rotate(subtract(vector, MODEL_CENTER));
+    const [x, y, depth] = rotate(subtract(vector, center));
     const perspective = CAMERA_DISTANCE / (CAMERA_DISTANCE - depth);
     return [
       centerX + size * x * perspective,
@@ -277,8 +277,8 @@ export function drawHunter(
   flash = 0,
 ): void {
   const { model, outfit } = hunters[hunter];
-  const project = getProjector(placement);
-  const transforms = getJointTransforms(model.pivots, placement.pose ?? {});
+  const project = getModelProjector(MODEL_CENTER, placement);
+  const transforms = getJointTransforms(JOINT_PARENTS, model.pivots, placement.pose ?? {});
   for (const { joint, mesh } of model.groups) {
     const transform = joint ? transforms.get(joint) : undefined;
     const position = transform?.position ?? ((vector: Vector) => vector);

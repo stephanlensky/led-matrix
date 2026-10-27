@@ -1,4 +1,15 @@
-import type { AnimationInput, Parameter } from "@led-matrix/core";
+import {
+  BLOOD_COLOR,
+  BLOOD_PALETTE,
+  DRIED_BLOOD_COLOR,
+  FRESH_BLOOD_COLOR,
+  HEIGHT,
+  WIDTH,
+  type AnimationInput,
+  type Parameter,
+  getBigTextExitScroll,
+} from "@led-matrix/core";
+import { nodeCanvas } from "@led-matrix/core/node-canvas";
 
 type SectionInput = AnimationInput["sections"][number];
 
@@ -24,6 +35,9 @@ const SINGLE_PALETTES: Readonly<Record<string, Palette>> = {
   Purple: [PURPLE],
   Green: [GREEN],
   White: [WHITE],
+  Blood: [BLOOD_COLOR],
+  "Dried blood": [DRIED_BLOOD_COLOR],
+  "Fresh blood": [FRESH_BLOOD_COLOR],
 };
 
 const MULTI_PALETTES: Readonly<Record<string, Palette>> = {
@@ -33,6 +47,7 @@ const MULTI_PALETTES: Readonly<Record<string, Palette>> = {
   Ice: [WHITE, ICE],
   Pastel: ["#ff9ec8", "#8fd8ff", "#c39bff", "#9cffb0"],
   Halloween: [ORANGE, PURPLE, GREEN],
+  Bloodbath: BLOOD_PALETTE,
 };
 
 const PALETTES = { ...SINGLE_PALETTES, ...MULTI_PALETTES };
@@ -252,6 +267,16 @@ const maxedScareMeter: SectionInput = {
 const RUMBLE_GREEN = "#00ff30";
 const RUMBLE_WORDS = ["ARE", "YOU", "READY", "TO"];
 const RUMBLE_TEXT = "RUUUUUUUUUUMMMMBLEEEEEEE???";
+const RUMBLE_FONT = { font: "Anton", size: 40 } as const;
+const RUMBLE_SCROLL_BEATS = 6;
+const RUMBLE_BEATS = Math.ceil(
+  RUMBLE_SCROLL_BEATS *
+    getBigTextExitScroll(nodeCanvas.createContext(WIDTH, HEIGHT), {
+      text: RUMBLE_TEXT,
+      ...RUMBLE_FONT,
+      outlineWidth: 0,
+    }),
+);
 
 type RumbleStyle = { background: string; strobe: string; text: string };
 
@@ -273,7 +298,7 @@ function getRumbleSection(
       },
       {
         effect: "big-text",
-        params: { text, font: "Anton", size: 40, color: { param: `${key}Text` }, ...textParams },
+        params: { text, ...RUMBLE_FONT, color: { param: `${key}Text` }, ...textParams },
       },
     ],
   };
@@ -318,17 +343,18 @@ const rumble: AnimationInput = {
         "Green strobe": getRumbleStrobeValues(RUMBLE_GREEN),
         "Orange strobe": getRumbleStrobeValues(ORANGE),
         "Purple strobe": getRumbleStrobeValues(PURPLE),
+        "Blood strobe": getRumbleStrobeValues(BLOOD_COLOR),
       },
       "Solid",
     ),
   ],
   sections: [
     ...RUMBLE_WORDS.map((word, index) => getRumbleSection(word, 1, `word${index + 1}`)),
-    getRumbleSection(RUMBLE_TEXT, 6, "rumble", {
+    getRumbleSection(RUMBLE_TEXT, RUMBLE_BEATS, "rumble", {
       scroll: {
         keyframes: [
           { at: 0, value: 0 },
-          { at: 1, value: 1 },
+          { at: 1, value: RUMBLE_BEATS / RUMBLE_SCROLL_BEATS },
         ],
       },
     }),
@@ -352,6 +378,7 @@ const squarePairs: Readonly<Record<string, Palette>> = {
   "Green/purple": [GREEN, PURPLE],
   "White/orange": [WHITE, ORANGE],
   Ice: [WHITE, ICE],
+  Blood: [FRESH_BLOOD_COLOR, DRIED_BLOOD_COLOR],
 };
 
 const flashSpeeds = { "Half time": 0.5, Beat: 1, Double: 2, Quad: 4 };
@@ -422,7 +449,13 @@ function getRamp(from: number, to: number, easing?: string): { keyframes: unknow
 const blackCatParameter = getValueParameter(
   "Black cat",
   "color",
-  { Purple: "#4b1d7a", Midnight: "#24243a", Ginger: "#c0601c", Ghost: "#b0c8d8" },
+  {
+    Purple: "#4b1d7a",
+    Midnight: "#24243a",
+    Ginger: "#c0601c",
+    Ghost: "#b0c8d8",
+    "Dried blood": DRIED_BLOOD_COLOR,
+  },
   "Purple",
 );
 
@@ -882,6 +915,11 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     cat: {
       name: "Cat",
       sections: [
+        {
+          name: "Arrive",
+          mode: { type: "once", beats: 16 },
+          layers: [{ effect: "cat-pair-spawn", params: { cats: "black" } }],
+        },
         { name: "Stare", mode: { type: "loop", beats: 32 }, layers: [{ effect: "cat" }] },
         { name: "Spawn", mode: { type: "once", beats: 16 }, layers: [{ effect: "cat-spawn" }] },
         { name: "Bounce", mode: { type: "loop", beats: 16 }, layers: [{ effect: "cat-bounce" }] },
@@ -982,6 +1020,38 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
       ],
     ),
+    "cat-wiggle": getLoop(
+      "Cat wiggle",
+      8,
+      [{ effect: "cat-dance", params: { move: "wiggle", ...getReferences(["offbeat"]) } }],
+      [getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Alternating")],
+    ),
+    "cat-hype": getLoop(
+      "Cat hype",
+      8,
+      [
+        {
+          effect: "cat-hype",
+          params: { ...catColorParams, ...getReferences(["slamsPerBeat"]) },
+        },
+      ],
+      [
+        getValueParameter("Speed", "slamsPerBeat", { Hype: 1, Hyper: 2, Frenzy: 4 }, "Hyper"),
+        blackCatParameter,
+      ],
+    ),
+    "chrome-cat-roll": getLoop(
+      "Chrome cat roll",
+      16,
+      [
+        { effect: "cat-roll", params: getReferences(["beatsPerRoll"]) },
+        { effect: "trails", params: getReferences(["decay"]) },
+      ],
+      [
+        getValueParameter("Speed", "beatsPerRoll", { Lazy: 8, Roll: 4, Hyper: 2 }, "Roll"),
+        getValueParameter("Trail", "decay", { Off: 0, Short: 0.6, Long: 0.85 }, "Short"),
+      ],
+    ),
     "cat-hunters": getLoop("Cat hunters", 32, [
       { effect: "demon-hunters", params: { players: "cats" } },
     ]),
@@ -1072,6 +1142,31 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
     },
+    "vampire-laugh": {
+      name: "Vampire laugh",
+      sections: [
+        {
+          mode: { type: "loop", beats: 16 },
+          layers: [
+            {
+              effect: "vampire-mouth",
+              params: {
+                pose: 1,
+                laugh: 1,
+                snap: false,
+                bloodColor: "#800010",
+                dripFrom: "fangs",
+                drips: 2,
+                scale: 1,
+                spray: 8,
+                sprayBurst: 48,
+              },
+              antialias: true,
+            },
+          ],
+        },
+      ],
+    },
     "jack-o-lantern": getLoop(
       "Jack-o'-lantern",
       32,
@@ -1082,7 +1177,77 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           Purple: PURPLE,
           Green: GREEN,
           White: WHITE,
+          Blood: BLOOD_COLOR,
+          "Fresh blood": FRESH_BLOOD_COLOR,
         }),
+      ],
+    ),
+    "pumpkin-dance": getLoop(
+      "Pumpkin dance",
+      16,
+      [{ effect: "pumpkin-dance", params: getReferences(["move", "count", "size", "sync"]) }],
+      [
+        getValueParameter(
+          "Move",
+          "move",
+          { Kick: "kick", Spin: "spin", Jig: "jig", Headbang: "headbang" },
+          "Kick",
+        ),
+        getParameter(
+          "Lineup",
+          {
+            Solo: { count: 1, size: 18 },
+            Trio: { count: 3, size: 12 },
+          },
+          "Solo",
+        ),
+        getValueParameter(
+          "Sync",
+          "sync",
+          { Together: "together", Alternating: "alternate", Wave: "wave" },
+          "Together",
+        ),
+      ],
+    ),
+    "skeleton-dance": getLoop(
+      "Skeleton dance",
+      16,
+      [{ effect: "skeleton-dance", params: getReferences(["move", "count", "size", "sync"]) }],
+      [
+        getValueParameter(
+          "Move",
+          "move",
+          { Jig: "jig", Rattle: "rattle", Charleston: "charleston", "Head toss": "toss" },
+          "Jig",
+        ),
+        getParameter(
+          "Lineup",
+          {
+            Solo: { count: 1, size: 20 },
+            Trio: { count: 3, size: 13 },
+          },
+          "Solo",
+        ),
+        getValueParameter(
+          "Sync",
+          "sync",
+          { Together: "together", Alternating: "alternate", Wave: "wave" },
+          "Together",
+        ),
+      ],
+    ),
+    "doot-doot": getLoop(
+      "Doot doot",
+      16,
+      [{ effect: "skull-doot", params: getReferences(["pattern", "count"]) }],
+      [
+        getValueParameter(
+          "Pattern",
+          "pattern",
+          { "Doot doot": "doot-doot", "Every beat": "beat", Offbeat: "offbeat", Gallop: "gallop" },
+          "Doot doot",
+        ),
+        getValueParameter("Horns", "count", { Solo: 1, Trio: 3 }, "Solo"),
       ],
     ),
     "scare-meter-16": {

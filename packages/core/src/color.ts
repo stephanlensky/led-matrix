@@ -6,6 +6,11 @@ export const colorSchema = z
   .regex(/^#[0-9a-f]{6}$/i, "Expected a #rrggbb color")
   .meta({ format: "color" });
 
+export const BLOOD_COLOR = "#8a0303";
+export const DRIED_BLOOD_COLOR = "#4c0704";
+export const FRESH_BLOOD_COLOR = "#d0001c";
+export const BLOOD_PALETTE = [DRIED_BLOOD_COLOR, BLOOD_COLOR, FRESH_BLOOD_COLOR] as const;
+
 export function parseColor(hex: string): Color {
   const value = Number.parseInt(hex.slice(1), 16);
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
