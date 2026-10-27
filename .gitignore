@@ -4,3 +4,4 @@ dist
 .env
 data
 out/
+apps/mixxx-sync/mapping.json
