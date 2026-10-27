@@ -14,8 +14,10 @@ import {
 } from "react";
 import {
   type AnimationBlock,
+  type LiveBlock,
   getAnimationLane,
   getBlockPosition,
+  getLiveBlock,
 } from "../../shared/animation-lane.ts";
 import { type Beats, getBeat, getPosition } from "../../shared/beats.ts";
 import {
@@ -33,6 +35,7 @@ import {
   getTrackRange,
 } from "../../shared/lane-edit.ts";
 import type { MixxxCue } from "../../shared/library.ts";
+import type { CueStatus } from "../../shared/api.ts";
 import type { Cue, MappingFile } from "../../shared/mapping.ts";
 import { addCue, clearCueEnd, moveCue, resizeCue } from "../../shared/mapping-edits.ts";
 import { getFraction } from "../../shared/track-scale.ts";
@@ -49,7 +52,7 @@ export type AnimationSource = {
 
 type Scale = { beats: Beats; duration: number };
 
-export type CueSelection = { location: string; index: number };
+export type CueSelection = { location: string; index: number; trackRange: BeatRange };
 
 export type LaneEditor = {
   update: MappingEditor["update"];
@@ -202,12 +205,14 @@ function Block({
   scale,
   source,
   isSelected,
+  live,
   handlers,
 }: {
   block: AnimationBlock;
   scale: Scale;
   source: AnimationSource;
   isSelected: boolean;
+  live: LiveBlock | undefined;
   handlers: BlockHandlers | undefined;
 }) {
   const start = getBeatFraction(scale, block.beat);
@@ -247,6 +252,7 @@ function Block({
           {hasSections && <SectionLabel block={block} section={block.section} />}
         </div>
         {block.hasEnd && <div className="absolute inset-y-0 right-0 w-0.5 bg-white/80" />}
+        {live && !live.isBlank && <LiveOutline />}
         {handlers && (
           <>
             <Handle side="start" block={block} isSelected={isSelected} handlers={handlers} />
@@ -258,9 +264,20 @@ function Block({
         <div
           className="absolute inset-y-0 border-y border-dashed border-white/15 bg-black/40"
           style={getSpanStyle(end, stop)}
-        />
+        >
+          {live?.isBlank && <LiveOutline />}
+        </div>
       )}
     </>
+  );
+}
+
+function LiveOutline() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-[6] ring-2 ring-emerald-400 ring-inset"
+      title="Live in Mixxx"
+    />
   );
 }
 
@@ -283,6 +300,7 @@ export function AnimationLane({
   location,
   source,
   editor,
+  liveCue,
 }: {
   duration: number;
   beats: Beats | undefined;
@@ -291,6 +309,7 @@ export function AnimationLane({
   location: string;
   source: AnimationSource;
   editor: LaneEditor | undefined;
+  liveCue: CueStatus | undefined;
 }) {
   const { animationsById, fps } = source;
   const laneRef = useRef<HTMLDivElement>(null);
@@ -309,6 +328,7 @@ export function AnimationLane({
         : undefined,
     [displayCues, beats, animationsById, duration, fps],
   );
+  const live = lane && getLiveBlock(lane.blocks, liveCue);
   const isEditable = editor !== undefined && lane !== undefined && lane.errors.length === 0;
 
   function getLaneScale(): { laneScale: LaneScale; left: number } | undefined {
@@ -355,7 +375,7 @@ export function AnimationLane({
         current: value,
         isMoved: false,
       };
-      editor.onSelect({ location, index: block.index });
+      editor.onSelect({ location, index: block.index, trackRange: track });
     },
     onClick(event) {
       if (isClickSuppressedRef.current) {
@@ -452,7 +472,7 @@ export function AnimationLane({
     const drag = getCueDrag(event);
     const dropped = getGhost(event);
     setGhost(undefined);
-    if (!editor || !dropped || !drag) {
+    if (!editor || !dropped || !drag || !track) {
       return;
     }
     event.preventDefault();
@@ -471,7 +491,11 @@ export function AnimationLane({
           : { beat, animation: drag.animationId, section },
       ),
     );
-    editor.onSelect({ location, index: savedCues.filter((cue) => cue.beat < beat).length });
+    editor.onSelect({
+      location,
+      index: savedCues.filter((cue) => cue.beat < beat).length,
+      trackRange: track,
+    });
   }
 
   function handleClick(event: MouseEvent<HTMLDivElement>) {
@@ -531,6 +555,7 @@ export function AnimationLane({
           isSelected={
             editor?.selection?.location === location && editor.selection.index === block.index
           }
+          live={live?.index === block.index ? live : undefined}
           handlers={isEditable ? handlers : undefined}
         />
       ))}

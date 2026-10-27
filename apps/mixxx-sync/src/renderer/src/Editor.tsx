@@ -8,9 +8,12 @@ import type { AnimationSource, CueSelection, LaneEditor } from "./AnimationLane.
 import { AnimationPanel, useAnimations } from "./AnimationPanel.tsx";
 import { LibraryNav } from "./LibraryNav.tsx";
 import { PlaybackSimulator } from "./Playback.tsx";
-import { removeCue } from "../../shared/mapping-edits.ts";
+import { getNudgedBeat } from "../../shared/lane-edit.ts";
+import { moveCue, removeCue } from "../../shared/mapping-edits.ts";
+import { BEATS_PER_BAR } from "../../shared/track-scale.ts";
 import { type Player, createPlayer } from "./player.ts";
-import { TrackList } from "./TrackList.tsx";
+import { type LiveTrack, TrackList } from "./TrackList.tsx";
+import { useDaemonStatus } from "./useDaemon.ts";
 import {
   type LibrarySelection,
   createTrackDataCache,
@@ -42,11 +45,7 @@ function useEditorKeys(
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : undefined;
-      if (
-        event.repeat ||
-        target?.closest(INTERACTIVE_SELECTOR) ||
-        !rootRef.current?.checkVisibility()
-      ) {
+      if (target?.closest(INTERACTIVE_SELECTOR) || !rootRef.current?.checkVisibility()) {
         return;
       }
       if (handlerRef.current(event)) {
@@ -58,9 +57,16 @@ function useEditorKeys(
   }, [rootRef]);
 }
 
-function useLaneEditor(mapping: MappingEditor): LaneEditor & { remove: () => void } {
+type EditorActions = {
+  remove: () => void;
+  nudge: (delta: number) => void;
+  undo: () => boolean;
+  redo: () => boolean;
+};
+
+function useLaneEditor(mapping: MappingEditor): LaneEditor & EditorActions {
   const [selection, setSelection] = useState<CueSelection>();
-  const { update } = mapping;
+  const { mapping: file, update, undo, redo } = mapping;
   return useMemo(
     () => ({
       update,
@@ -68,13 +74,35 @@ function useLaneEditor(mapping: MappingEditor): LaneEditor & { remove: () => voi
       onSelect: setSelection,
       remove() {
         if (selection) {
-          update((file) => removeCue(file, selection.location, selection.index));
+          update((current) => removeCue(current, selection.location, selection.index));
           setSelection(undefined);
         }
       },
+      nudge(delta) {
+        const cues = selection && file?.tracks[selection.location];
+        const beat = cues && getNudgedBeat(cues, selection.index, delta, selection.trackRange);
+        if (selection && beat !== undefined && beat !== cues?.[selection.index]?.beat) {
+          update((current) => moveCue(current, selection.location, selection.index, beat));
+        }
+      },
+      undo() {
+        setSelection(undefined);
+        return undo();
+      },
+      redo() {
+        setSelection(undefined);
+        return redo();
+      },
     }),
-    [update, selection],
+    [file, update, undo, redo, selection],
   );
+}
+
+function useLiveTrack(): LiveTrack | undefined {
+  const status = useDaemonStatus();
+  const location = status?.isRunning ? status.trackLocation : undefined;
+  const cue = status?.cue;
+  return useMemo(() => (location === undefined ? undefined : { location, cue }), [location, cue]);
 }
 
 function getSelectionTitle(
@@ -119,14 +147,41 @@ function EditorContent({ settings }: { settings: Settings }) {
   const [cache] = useState(createTrackDataCache);
   const player = usePlayer();
   const editor = useLaneEditor(mapping);
+  const live = useLiveTrack();
   const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   useEditorKeys(rootRef, (event) => {
+    const isModified = event.ctrlKey || event.metaKey;
+    const key = event.key.toLowerCase();
+    if (isModified && key === "f") {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+      return true;
+    }
+    if (isModified && key === "z") {
+      return event.shiftKey ? editor.redo() : editor.undo();
+    }
+    if (isModified && key === "y") {
+      return editor.redo();
+    }
+    if (isModified || event.altKey) {
+      return false;
+    }
     if (event.code === "Space") {
-      player.toggle();
+      if (!event.repeat) {
+        player.toggle();
+      }
+      return true;
+    }
+    if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && editor.selection) {
+      const step = event.shiftKey ? BEATS_PER_BAR : 1;
+      editor.nudge(event.key === "ArrowLeft" ? -step : step);
       return true;
     }
     if ((event.key === "Delete" || event.key === "Backspace") && editor.selection) {
-      editor.remove();
+      if (!event.repeat) {
+        editor.remove();
+      }
       return true;
     }
     if (event.key === "Escape" && editor.selection) {
@@ -149,6 +204,8 @@ function EditorContent({ settings }: { settings: Settings }) {
           source={source}
           player={player}
           editor={editor}
+          live={live}
+          searchRef={searchRef}
         />
         <AnimationPanel
           animations={animations}

@@ -6,6 +6,7 @@ import {
   getRenderPosition,
 } from "@led-matrix/core";
 import { type Beats, getBeat, getBpm } from "./beats.ts";
+import type { CueStatus } from "./api.ts";
 import { type Cue, type SectionCue, getResolvedCues } from "./mapping.ts";
 
 export type SectionBoundary = { beat: number; section: number };
@@ -121,4 +122,20 @@ export function getLanePosition(
   const block = blocks.findLast((candidate) => candidate.beat <= beat);
   const position = block && getBlockPosition(block, beat, fps);
   return block && position ? { block, position } : undefined;
+}
+
+export type LiveBlock = { index: number; isBlank: boolean };
+
+export function getLiveBlock(
+  blocks: readonly AnimationBlock[],
+  cue: CueStatus | undefined,
+): LiveBlock | undefined {
+  if (!cue) {
+    return undefined;
+  }
+  const block =
+    cue.animationId === null
+      ? blocks.find(({ hasEnd, end }) => hasEnd && end === cue.beat)
+      : blocks.find(({ beat, animation }) => beat === cue.beat && animation.id === cue.animationId);
+  return block && { index: block.index, isBlank: cue.animationId === null };
 }

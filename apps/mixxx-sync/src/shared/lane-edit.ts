@@ -52,6 +52,16 @@ export function getEndRange(cues: readonly Cue[], index: number, track: BeatRang
   };
 }
 
+export function getNudgedBeat(
+  cues: readonly Cue[],
+  index: number,
+  delta: number,
+  track: BeatRange,
+): number | undefined {
+  const cue = cues[index];
+  return cue && getClampedBeat(cue.beat + delta, getMoveRange(cues, index, track));
+}
+
 export function getDropRange(track: BeatRange): BeatRange {
   return { min: track.min, max: track.max - MIN_CUE_BEATS };
 }

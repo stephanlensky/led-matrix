@@ -6,6 +6,7 @@ import {
   getEndRange,
   getMoveRange,
   getMoveSnap,
+  getNudgedBeat,
   getSnap,
   getSnapTargets,
   getStartRange,
@@ -41,6 +42,15 @@ describe("ranges", () => {
     expect(getStartRange(cues, 2, track)).toEqual({ min: 48, max: 198 });
     expect(getEndRange(cues, 1, track)).toEqual({ min: 33, max: 64 });
     expect(getEndRange(cues, 2, track)).toEqual({ min: 65, max: 199 });
+  });
+});
+
+describe("getNudgedBeat", () => {
+  it("moves a cue by the delta without crossing its neighbours", () => {
+    expect(getNudgedBeat(cues, 1, 4, track)).toBe(36);
+    expect(getNudgedBeat(cues, 1, 32, track)).toBe(48);
+    expect(getNudgedBeat(cues, 0, -4, track)).toBe(-1);
+    expect(getNudgedBeat(cues, 3, 1, track)).toBeUndefined();
   });
 });
 

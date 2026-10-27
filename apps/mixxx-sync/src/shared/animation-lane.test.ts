@@ -1,6 +1,11 @@
 import { type StoredAnimation, storedAnimationSchema } from "@led-matrix/core";
 import { describe, expect, it } from "vitest";
-import { getAnimationLane, getBlockPosition, getLanePosition } from "./animation-lane.ts";
+import {
+  getAnimationLane,
+  getBlockPosition,
+  getLanePosition,
+  getLiveBlock,
+} from "./animation-lane.ts";
 import type { Beats } from "./beats.ts";
 
 const FPS = 30;
@@ -157,5 +162,31 @@ describe("getLanePosition", () => {
     expect(getLanePosition(blocks, 18, FPS)?.position).toEqual(
       getBlockPosition(blocks[1]!, 18, FPS),
     );
+  });
+});
+
+describe("getLiveBlock", () => {
+  const { blocks } = getLane([
+    { beat: 4, animation: "plasma" },
+    { beat: 16, end: 20, animation: "intro" },
+  ]);
+
+  it("finds the block of the live cue", () => {
+    expect(getLiveBlock(blocks, { beat: 16, animationId: "intro", section: 0 })).toEqual({
+      index: 1,
+      isBlank: false,
+    });
+  });
+
+  it("finds the block whose end gap is live", () => {
+    expect(getLiveBlock(blocks, { beat: 20, animationId: null })).toEqual({
+      index: 1,
+      isBlank: true,
+    });
+  });
+
+  it("ignores cues that are not on the lane", () => {
+    expect(getLiveBlock(blocks, undefined)).toBeUndefined();
+    expect(getLiveBlock(blocks, { beat: 4, animationId: "intro", section: 0 })).toBeUndefined();
   });
 });

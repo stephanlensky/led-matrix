@@ -1,10 +1,13 @@
+import { Button } from "@led-matrix/ui/components/button";
 import { Input } from "@led-matrix/ui/components/input";
 import { Label } from "@led-matrix/ui/components/label";
 import { ListEmpty } from "@led-matrix/ui/components/list-row";
 import { Switch } from "@led-matrix/ui/components/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@led-matrix/ui/components/tooltip";
 import { TruncatedText } from "@led-matrix/ui/components/truncated-text";
-import { SearchIcon } from "lucide-react";
+import { KeyboardIcon, RadioIcon, SearchIcon } from "lucide-react";
 import {
+  Fragment,
   type MouseEvent,
   type ReactNode,
   type RefObject,
@@ -16,6 +19,7 @@ import {
   useState,
 } from "react";
 import type { MixxxCue, Track } from "../../shared/library.ts";
+import type { CueStatus } from "../../shared/api.ts";
 import type { Cue, MappingFile } from "../../shared/mapping.ts";
 import {
   getBpmLabel,
@@ -34,6 +38,19 @@ import { WaveformLane } from "./WaveformLane.tsx";
 const ROW_HEIGHT = 112;
 const OVERSCAN = 4;
 const NO_CUES: readonly MixxxCue[] = [];
+const SHORTCUTS = [
+  ["Space", "Play or pause"],
+  ["← →", "Move the selected block by a beat"],
+  ["Shift + ← →", "Move the selected block by a bar"],
+  ["Delete", "Remove the selected block"],
+  ["Escape", "Clear the selection"],
+  ["Ctrl + Z", "Undo"],
+  ["Ctrl + Shift + Z", "Redo"],
+  ["Ctrl + F", "Search"],
+  ["Alt + drag", "Place without snapping"],
+] as const;
+
+export type LiveTrack = { location: string; cue: CueStatus | undefined };
 
 function Lane({ className, children }: { className: string; children?: ReactNode }) {
   return (
@@ -50,11 +67,12 @@ type LaneProps = {
   cues: readonly Cue[] | undefined;
   source: AnimationSource;
   editor: LaneEditor;
+  liveCue: CueStatus | undefined;
 };
 
-type RowProps = LaneProps & { track: Track; player: Player };
+type RowProps = LaneProps & { track: Track; player: Player; isLive: boolean };
 
-function TrackLanes({ track, cache, cues, source, editor }: LaneProps & { track: Track }) {
+function TrackLanes({ track, cache, cues, source, editor, liveCue }: LaneProps & { track: Track }) {
   const data = useTrackData(cache, track.id);
 
   if (data.status === "error") {
@@ -87,6 +105,7 @@ function TrackLanes({ track, cache, cues, source, editor }: LaneProps & { track:
           location={track.location}
           source={source}
           editor={editor}
+          liveCue={liveCue}
         />
       ) : (
         <Lane className="h-8" />
@@ -95,7 +114,7 @@ function TrackLanes({ track, cache, cues, source, editor }: LaneProps & { track:
   );
 }
 
-function TrackRow({ track, player, ...props }: RowProps) {
+function TrackRow({ track, player, isLive, ...props }: RowProps) {
   const isCurrent = usePlayerState(player).track?.id === track.id;
 
   function seek(event: MouseEvent<HTMLDivElement>) {
@@ -106,7 +125,9 @@ function TrackRow({ track, player, ...props }: RowProps) {
   }
 
   return (
-    <div className="flex h-full flex-col gap-1.5 border-b px-3 py-2">
+    <div
+      className={`flex h-full flex-col gap-1.5 border-b border-l-2 px-3 py-2 ${isLive ? "border-l-emerald-400 bg-emerald-400/5" : "border-l-transparent"}`}
+    >
       <div className="flex h-5 items-center gap-3 text-sm">
         <PlayButton player={player} track={track} />
         <span className="w-8 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
@@ -123,6 +144,11 @@ function TrackRow({ track, player, ...props }: RowProps) {
         <TruncatedText className="max-w-[40%] font-medium">
           {track.title || track.location}
         </TruncatedText>
+        {isLive && (
+          <span className="shrink-0 rounded-sm bg-emerald-400/15 px-1 text-[10px] font-medium text-emerald-400 uppercase">
+            Live
+          </span>
+        )}
         <TruncatedText className="max-w-[25%] text-muted-foreground">{track.artist}</TruncatedText>
         <TruncatedText className="flex-1 text-muted-foreground">{track.album}</TruncatedText>
         <span className="w-12 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
@@ -165,21 +191,24 @@ function useViewport(scrollRef: RefObject<HTMLElement | null>) {
 }
 
 function VirtualTrackList({
+  scrollRef,
   tracks,
   mapping,
   cache,
   source,
   player,
   editor,
+  live,
 }: {
+  scrollRef: RefObject<HTMLDivElement | null>;
   tracks: readonly Track[];
   mapping: MappingFile | undefined;
   cache: TrackDataCache;
   source: AnimationSource;
   player: Player;
   editor: LaneEditor;
+  live: LiveTrack | undefined;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const { top, height } = useViewport(scrollRef);
   const start = Math.max(0, Math.floor(top / ROW_HEIGHT) - OVERSCAN);
   const end = Math.min(tracks.length, Math.ceil((top + height) / ROW_HEIGHT) + OVERSCAN);
@@ -187,27 +216,54 @@ function VirtualTrackList({
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
       <div className="relative w-full" style={{ height: tracks.length * ROW_HEIGHT }}>
-        {tracks.slice(start, end).map((track, offset) => (
-          <div
-            key={track.id}
-            className="absolute inset-x-0 top-0"
-            style={{
-              height: ROW_HEIGHT,
-              transform: `translateY(${(start + offset) * ROW_HEIGHT}px)`,
-            }}
-          >
-            <TrackRow
-              track={track}
-              cache={cache}
-              cues={mapping?.tracks[track.location]}
-              source={source}
-              player={player}
-              editor={editor}
-            />
-          </div>
-        ))}
+        {tracks.slice(start, end).map((track, offset) => {
+          const isLive = track.location === live?.location;
+          return (
+            <div
+              key={track.id}
+              className="absolute inset-x-0 top-0"
+              style={{
+                height: ROW_HEIGHT,
+                transform: `translateY(${(start + offset) * ROW_HEIGHT}px)`,
+              }}
+            >
+              <TrackRow
+                track={track}
+                cache={cache}
+                cues={mapping?.tracks[track.location]}
+                source={source}
+                player={player}
+                editor={editor}
+                isLive={isLive}
+                liveCue={isLive ? live?.cue : undefined}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+function ShortcutsHint() {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<Button variant="ghost" size="icon-sm" aria-label="Keyboard shortcuts" />}
+      >
+        <KeyboardIcon />
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="end" className="max-w-none">
+        <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1">
+          {SHORTCUTS.map(([keys, action]) => (
+            <Fragment key={keys}>
+              <dt className="font-mono">{keys}</dt>
+              <dd>{action}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -220,6 +276,8 @@ export function TrackList({
   source,
   player,
   editor,
+  live,
+  searchRef,
 }: {
   title: string;
   tracks: LoadState<Track[]>;
@@ -229,8 +287,11 @@ export function TrackList({
   source: AnimationSource;
   player: Player;
   editor: LaneEditor;
+  live: LiveTrack | undefined;
+  searchRef: RefObject<HTMLInputElement | null>;
 }) {
   const id = useId();
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
   const [isMappedOnly, setIsMappedOnly] = useState(false);
   const deferredSearch = useDeferredValue(search);
@@ -242,6 +303,19 @@ export function TrackList({
         : [],
     [allTracks, deferredSearch, isMappedOnly, mapping],
   );
+  const liveIndex = live
+    ? filteredTracks.findIndex(({ location }) => location === live.location)
+    : -1;
+
+  function scrollToLive() {
+    const element = scrollRef.current;
+    if (element && liveIndex !== -1) {
+      element.scrollTo({
+        top: liveIndex * ROW_HEIGHT - (element.clientHeight - ROW_HEIGHT) / 2,
+        behavior: "smooth",
+      });
+    }
+  }
 
   function getContent() {
     if (tracks.status === "error") {
@@ -262,6 +336,8 @@ export function TrackList({
     return (
       <VirtualTrackList
         key={title}
+        scrollRef={scrollRef}
+        live={live}
         tracks={filteredTracks}
         mapping={mapping}
         cache={cache}
@@ -283,6 +359,7 @@ export function TrackList({
           <div className="relative w-64">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              ref={searchRef}
               aria-label="Search tracks"
               placeholder="Search title or artist"
               className="pl-8"
@@ -294,6 +371,17 @@ export function TrackList({
             <Switch id={`${id}-mapped`} checked={isMappedOnly} onCheckedChange={setIsMappedOnly} />
             <Label htmlFor={`${id}-mapped`}>Mapped only</Label>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={liveIndex === -1}
+            title={live ? live.location : "No live track"}
+            onClick={scrollToLive}
+          >
+            <RadioIcon />
+            Live
+          </Button>
+          <ShortcutsHint />
         </div>
         {mappingError && (
           <p className="text-xs whitespace-pre-line text-destructive">{mappingError}</p>
