@@ -52,7 +52,7 @@ GitHub Actions builds `ghcr.io/stephanlensky/led-matrix` from the `Dockerfile` o
 pnpm mixxx-sync
 ```
 
-Settings are edited in the app while the daemon is stopped and saved to `settings.json` in the Electron user data directory (`~/.config/Mixxx Sync`). Defaults: server `LED_MATRIX_URL` or `http://localhost:3000`, output `LED_MATRIX_OUTPUT` or `device`, socket `MIXXX_SOCKET` or `$XDG_RUNTIME_DIR/mixxx-deck-state.sock`, mapping file `apps/mixxx-sync/mapping.json`.
+Settings are edited in the app while the daemon is stopped and saved to `settings.json` in the Electron user data directory (`~/.config/Mixxx Sync`). Defaults: server `LED_MATRIX_URL` or `https://led-matrix.cardinal.slensky.com`, output `LED_MATRIX_OUTPUT` or `device`, socket `MIXXX_SOCKET` or `$XDG_RUNTIME_DIR/mixxx-deck-state.sock`, mapping file `apps/mixxx-sync/mapping.json`.
 
 The app is split into `src/main` (Electron main process: daemon, Mixxx socket, server client), `src/preload` (IPC bridge exposed as `window.api`), `src/shared` (IPC types) and `src/renderer` (React UI).
 

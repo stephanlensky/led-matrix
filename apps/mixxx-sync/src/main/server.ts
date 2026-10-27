@@ -17,6 +17,19 @@ export class ServerError extends Error {
   }
 }
 
+function getFetchErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+  const { cause } = error;
+  if (cause instanceof AggregateError) {
+    return [...new Set(cause.errors.map((inner: unknown) => getFetchErrorMessage(inner)))].join(
+      ", ",
+    );
+  }
+  return cause instanceof Error ? getFetchErrorMessage(cause) : error.message;
+}
+
 export type PlayRequest = {
   id: string;
   section: number;
@@ -35,12 +48,18 @@ export type ServerClient = {
 
 export function createServerClient(baseUrl: string, output: Output): ServerClient {
   async function request<T>(schema: z.ZodType<T>, path: string, body?: unknown): Promise<T> {
-    const response = await fetch(new URL(path, baseUrl), {
-      method: body === undefined ? "GET" : "POST",
-      headers: body === undefined ? undefined : { "content-type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(2000),
-    });
+    const url = new URL(path, baseUrl);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: body === undefined ? "GET" : "POST",
+        headers: body === undefined ? undefined : { "content-type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(2000),
+      });
+    } catch (error) {
+      throw new Error(`${url.href}: ${getFetchErrorMessage(error)}`, { cause: error });
+    }
     if (!response.ok) {
       throw new ServerError(
         response.status,

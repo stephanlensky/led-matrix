@@ -13,7 +13,7 @@ export const settingsSchema = z.object({
 
 export function getDefaultSettings(appPath: string): Settings {
   return {
-    serverUrl: process.env["LED_MATRIX_URL"] ?? "http://localhost:3000",
+    serverUrl: process.env["LED_MATRIX_URL"] ?? "https://led-matrix.cardinal.slensky.com",
     output: outputSchema.catch("device").parse(process.env["LED_MATRIX_OUTPUT"]),
     socketPath:
       process.env["MIXXX_SOCKET"] ??
