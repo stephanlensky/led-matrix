@@ -67,7 +67,11 @@ export function Timeline({
   const clipsVersion = useClipsVersion();
   const sections = animation?.sections ?? [];
   const current = position && sections[position.index];
-  const canAdvance = position !== undefined && position.index < sections.length - 1;
+  const canAdvance =
+    position !== undefined &&
+    position.nextIndex === undefined &&
+    current?.mode.type === "loop" &&
+    position.index < sections.length - 1;
 
   function seekTo(clientX: number) {
     const rects = segmentRefs.current
