@@ -36,6 +36,28 @@ describe("health", () => {
   });
 });
 
+describe("cors", () => {
+  it("allows cross-origin requests", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: { origin: "http://localhost:5174" },
+    });
+    expect(response.headers["access-control-allow-origin"]).toBe("http://localhost:5174");
+  });
+
+  it("answers preflight requests for all methods used by the api", async () => {
+    const response = await app.inject({
+      method: "OPTIONS",
+      url: "/api/animations/plasma",
+      headers: { origin: "null", "access-control-request-method": "DELETE" },
+    });
+    expect(response.statusCode).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe("null");
+    expect(response.headers["access-control-allow-methods"]).toContain("DELETE");
+  });
+});
+
 describe("effects", () => {
   it("lists effects with JSON schemas for their params", async () => {
     const response = await app.inject({ method: "GET", url: "/api/effects" });

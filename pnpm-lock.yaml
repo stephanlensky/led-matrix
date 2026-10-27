@@ -239,6 +239,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@fastify/cors':
+        specifier: ^11.3.1
+        version: 11.3.1
       '@fastify/multipart':
         specifier: ^10.1.6
         version: 10.1.6
@@ -553,6 +556,9 @@ packages:
 
   '@fastify/busboy@3.2.4':
     resolution: {integrity: sha512-lQS8xcXT54rdJb+wlG/Q7SMSdtkZEpLPHooSDUZyyZm9LJD7X1kONPhVoPaHq+dsPtWUGGLIz9gBNhs9qKbylw==}
+
+  '@fastify/cors@11.3.1':
+    resolution: {integrity: sha512-gZXNzd6FLHzOIfvoK4+Az3Wko2V6Y0MIsLxpyo4AEYl7a9q1JBPwPaxLea4nkr++8FCiJiPpYYo6E02uZW0dqw==}
 
   '@fastify/deepmerge@3.2.4':
     resolution: {integrity: sha512-kc8GQq5gX9RRhw0rov3DMrN8wS8yRlxJRdDzsYwwdBV/wazuVgc/1K7CKL90tlvu3RlHan6Y0R0aE3nJtBz2eQ==}
@@ -3509,6 +3515,11 @@ snapshots:
       fast-uri: 4.2.3
 
   '@fastify/busboy@3.2.4': {}
+
+  '@fastify/cors@11.3.1':
+    dependencies:
+      fastify-plugin: 6.0.1
+      toad-cache: 3.7.4
 
   '@fastify/deepmerge@3.2.4': {}
 

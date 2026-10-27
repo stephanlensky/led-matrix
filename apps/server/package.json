@@ -9,6 +9,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@fastify/cors": "^11.3.1",
     "@fastify/multipart": "^10.1.6",
     "@fastify/static": "^10.1.7",
     "@fastify/websocket": "^11.3.4",

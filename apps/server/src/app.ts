@@ -1,4 +1,5 @@
 import { basename, extname } from "node:path";
+import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
@@ -150,6 +151,7 @@ export function createApp({
     database.close();
   });
 
+  app.register(cors, { origin: true, methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] });
   app.register(websocket);
   app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES, files: MAX_UPLOAD_FILES } });
 
