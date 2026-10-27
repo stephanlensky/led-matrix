@@ -51,7 +51,25 @@ export const sectionSchema = z.object({
 
 export const animationObjectSchema = z.object({
   name: z.string().min(1).max(100),
-  sections: z.array(sectionSchema).min(1),
+  sections: z
+    .array(sectionSchema)
+    .min(1)
+    .superRefine((sections, context) => {
+      const names = new Set<string>();
+      for (const [index, { name }] of sections.entries()) {
+        if (name === undefined) {
+          continue;
+        }
+        if (names.has(name)) {
+          context.addIssue({
+            code: "custom",
+            path: [index, "name"],
+            message: `Duplicate section name "${name}"`,
+          });
+        }
+        names.add(name);
+      }
+    }),
 });
 
 export const animationIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);

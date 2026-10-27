@@ -67,6 +67,17 @@ describe("animationSchema", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("rejects duplicate section names", () => {
+    const section = {
+      name: "Drop",
+      mode: { type: "loop", beats: 4 },
+      layers: [{ effect: "solid" }],
+    };
+    const result = animationSchema.safeParse({ name: "x", sections: [section, section] });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(["sections", 1, "name"]);
+  });
 });
 
 describe("getAnimationTiming", () => {

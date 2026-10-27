@@ -160,6 +160,26 @@ describe("playback engine", () => {
     expect(engine.getState().beat).toBe(3);
   });
 
+  it("seeks and advances now relative to the music, ahead by the latency", () => {
+    const { clock, engine } = createEngine(undefined, 250);
+    const sections = animationSchema.parse({
+      name: "Sections",
+      sections: [
+        { mode: { type: "loop", beats: 4 }, layers: [{ effect: "solid" }] },
+        { mode: { type: "loop", beats: 4 }, layers: [{ effect: "strobe", params: { duty: 0.5 } }] },
+        { mode: { type: "loop", beats: 4 }, layers: [{ effect: "strobe", params: { duty: 0.5 } }] },
+      ],
+    });
+    engine.play("sections", sections);
+    clock.time = 1000;
+    engine.seek(1, 0);
+    expect(engine.getState().section).toEqual({ index: 1, time: 0, next: null });
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
+    engine.advance("now");
+    expect(engine.getState().section).toEqual({ index: 2, time: 0, next: null });
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
+  });
+
   it("freezes the animation and beat while paused", () => {
     const { clock, engine } = createEngine();
     engine.play("strobe", strobe);

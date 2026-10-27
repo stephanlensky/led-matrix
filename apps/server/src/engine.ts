@@ -208,7 +208,7 @@ export function createPlaybackEngine({
     },
     seek(section: number, progress: number): void {
       if (active) {
-        const time = getRenderTime();
+        const time = getPlaybackTime();
         active.sections = {
           current: getSectionCursor(active.animation, section, progress, time, bpm, fps),
           next: undefined,
@@ -225,7 +225,10 @@ export function createPlaybackEngine({
       if (!next) {
         return false;
       }
-      active.sections = { current: getCurrentPlayback(active.sections, time).current, next };
+      active.sections = {
+        current: getCurrentPlayback(active.sections, time).current,
+        next: timing === "now" ? { ...next, startedAt: getPlaybackTime() } : next,
+      };
       updateState();
       return true;
     },
