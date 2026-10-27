@@ -90,12 +90,12 @@ export function Device({ stream, animations, showGrid, onShowGridChange }: Devic
 
   return (
     <>
-      <Card className="self-start md:w-80">
+      <Card className="max-h-[calc(100svh-3rem)] self-start md:w-80">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Device</CardTitle>
           <DeviceBadge stream={stream} />
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex min-h-0 flex-col gap-4">
           <dl className="grid grid-cols-2 gap-y-1 text-sm">
             <StatusRow
               label="Address"

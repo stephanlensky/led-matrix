@@ -89,7 +89,7 @@ export function PlaybackControls({
         <Switch id={`${output}-pixel-grid`} checked={showGrid} onCheckedChange={onShowGridChange} />
       </div>
       <Separator />
-      <div className="flex flex-col gap-3">
+      <div className="flex min-h-0 flex-col gap-3">
         <h3 className="text-sm font-medium">Animations</h3>
         <div className="relative">
           <SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -100,7 +100,7 @@ export function PlaybackControls({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <div className="-mx-(--card-spacing)">
+        <div className="-mx-(--card-spacing) min-h-24 overflow-y-auto overscroll-contain scrollbar-thin">
           <AnimationList
             animations={getMatches(animations, query)}
             activeId={state?.animationId}

@@ -21,14 +21,14 @@ export function Simulator({
 }: SimulatorProps) {
   return (
     <>
-      <Card className="self-start md:w-80">
+      <Card className="max-h-[calc(100svh-3rem)] self-start md:w-80">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Simulator</CardTitle>
           <Badge variant={isConnected ? "secondary" : "destructive"}>
             {isConnected ? "Connected" : "Disconnected"}
           </Badge>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex min-h-0 flex-col gap-4">
           <PlaybackControls
             output="simulator"
             state={state}
