@@ -2,11 +2,13 @@ import { createRenderer } from "@led-matrix/core";
 import { createApiClient } from "@led-matrix/ui/lib/api";
 import { browserCanvas } from "@led-matrix/ui/lib/browser-canvas";
 import { ClipsContext, createBrowserClips } from "@led-matrix/ui/lib/clips";
-import { useMemo, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { Settings } from "../../shared/api.ts";
 import type { AnimationSource } from "./AnimationLane.tsx";
 import { AnimationPanel, useAnimations } from "./AnimationPanel.tsx";
 import { LibraryNav } from "./LibraryNav.tsx";
+import { PlaybackSimulator } from "./Playback.tsx";
+import { type Player, createPlayer } from "./player.ts";
 import { TrackList } from "./TrackList.tsx";
 import {
   type LibrarySelection,
@@ -18,6 +20,34 @@ import { useMapping } from "./useMapping.ts";
 import { useSettings } from "./useSettings.ts";
 
 const FPS = 30;
+const INTERACTIVE_SELECTOR =
+  "input, textarea, select, button, [contenteditable='true'], [role='button'], [role='switch']";
+
+function usePlayer(): Player {
+  const [player] = useState(createPlayer);
+  useEffect(() => () => player.close(), [player]);
+  return player;
+}
+
+function useSpaceToggle(player: Player, rootRef: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target instanceof Element ? event.target : undefined;
+      if (
+        event.code !== "Space" ||
+        event.repeat ||
+        target?.closest(INTERACTIVE_SELECTOR) ||
+        !rootRef.current?.checkVisibility()
+      ) {
+        return;
+      }
+      event.preventDefault();
+      player.toggle();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [player, rootRef]);
+}
 
 function getSelectionTitle(
   selection: LibrarySelection,
@@ -59,10 +89,13 @@ function EditorContent({ settings }: { settings: Settings }) {
   );
   const mapping = useMapping();
   const [cache] = useState(createTrackDataCache);
+  const player = usePlayer();
+  const rootRef = useRef<HTMLDivElement>(null);
+  useSpaceToggle(player, rootRef);
 
   return (
     <ClipsContext value={clips}>
-      <div className="flex h-full">
+      <div ref={rootRef} className="flex h-full">
         <LibraryNav playlists={playlists} selection={selection} onSelect={setSelection} />
         <TrackList
           title={getSelectionTitle(selection, playlists)}
@@ -71,8 +104,19 @@ function EditorContent({ settings }: { settings: Settings }) {
           mappingError={mapping.error}
           cache={cache}
           source={source}
+          player={player}
         />
-        <AnimationPanel animations={animations} />
+        <AnimationPanel
+          animations={animations}
+          simulator={
+            <PlaybackSimulator
+              player={player}
+              mapping={mapping.mapping}
+              cache={cache}
+              source={source}
+            />
+          }
+        />
       </div>
     </ClipsContext>
   );

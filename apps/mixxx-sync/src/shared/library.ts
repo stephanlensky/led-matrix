@@ -45,3 +45,9 @@ export type Waveform = {
   high: Uint8Array;
   all: Uint8Array;
 };
+
+export const TRACK_AUDIO_SCHEME = "mixxx-track";
+
+export function getTrackAudioUrl(trackId: number): string {
+  return `${TRACK_AUDIO_SCHEME}://track/${trackId}`;
+}

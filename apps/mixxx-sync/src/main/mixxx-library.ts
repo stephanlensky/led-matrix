@@ -248,6 +248,13 @@ export function createMixxxLibrary(getDatabasePath: () => string) {
     };
   }
 
+  function getTrackLocation(trackId: number): string | undefined {
+    const row = getConnection()
+      .prepare(`SELECT tl.location AS location FROM ${trackSource} AND l.id = ?`)
+      .get(trackId);
+    return row ? z.object({ location: z.string() }).parse(row).location : undefined;
+  }
+
   async function getTrackWaveform(
     trackId: number,
     type: WaveformType,
@@ -288,5 +295,5 @@ export function createMixxxLibrary(getDatabasePath: () => string) {
     return waveform;
   }
 
-  return { getPlaylists, getTracks, getTrackDetails, getTrackWaveform, close };
+  return { getPlaylists, getTracks, getTrackDetails, getTrackLocation, getTrackWaveform, close };
 }

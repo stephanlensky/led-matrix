@@ -109,3 +109,15 @@ export function getBlockPosition(
   const playback = { current: { index: block.section, startedAt: 0 }, next: undefined };
   return getRenderPosition(block.animation, block.fit, playback, time, block.bpm, fps);
 }
+
+export type LanePosition = { block: AnimationBlock; position: RenderPosition };
+
+export function getLanePosition(
+  blocks: readonly AnimationBlock[],
+  beat: number,
+  fps: number,
+): LanePosition | undefined {
+  const block = blocks.findLast((candidate) => candidate.beat <= beat);
+  const position = block && getBlockPosition(block, beat, fps);
+  return block && position ? { block, position } : undefined;
+}

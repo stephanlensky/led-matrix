@@ -236,6 +236,15 @@ describe("createMixxxLibrary", () => {
     library.close();
   });
 
+  it("gets locations of available tracks only", () => {
+    const library = createMixxxLibrary(() => databasePath);
+    expect(library.getTrackLocation(1)).toBe("/music/a.flac");
+    expect(library.getTrackLocation(3)).toBeUndefined();
+    expect(library.getTrackLocation(4)).toBeUndefined();
+    expect(library.getTrackLocation(99)).toBeUndefined();
+    library.close();
+  });
+
   it("reads waveforms from the analysis directory", async () => {
     const library = createMixxxLibrary(() => databasePath);
     const waveform = await library.getTrackWaveform(1, "summary");

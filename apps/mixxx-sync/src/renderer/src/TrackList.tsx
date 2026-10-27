@@ -5,6 +5,7 @@ import { Switch } from "@led-matrix/ui/components/switch";
 import { TruncatedText } from "@led-matrix/ui/components/truncated-text";
 import { SearchIcon } from "lucide-react";
 import {
+  type MouseEvent,
   type ReactNode,
   type RefObject,
   useDeferredValue,
@@ -23,7 +24,10 @@ import {
   getFilteredTracks,
   getTrackNumberLabel,
 } from "../../shared/track-list.ts";
+import { getFraction } from "../../shared/track-scale.ts";
 import { type AnimationSource, AnimationLane } from "./AnimationLane.tsx";
+import { PlayButton, Playhead } from "./Playback.tsx";
+import { type Player, usePlayerState } from "./player.ts";
 import { type LoadState, type TrackDataCache, useTrackData } from "./useLibrary.ts";
 import { WaveformLane } from "./WaveformLane.tsx";
 
@@ -46,6 +50,8 @@ type LaneProps = {
   cues: readonly Cue[] | undefined;
   source: AnimationSource;
 };
+
+type RowProps = LaneProps & { track: Track; player: Player };
 
 function TrackLanes({ track, cache, cues, source }: LaneProps & { track: Track }) {
   const data = useTrackData(cache, track.id);
@@ -85,10 +91,20 @@ function TrackLanes({ track, cache, cues, source }: LaneProps & { track: Track }
   );
 }
 
-function TrackRow({ track, ...props }: LaneProps & { track: Track }) {
+function TrackRow({ track, player, ...props }: RowProps) {
+  const isCurrent = usePlayerState(player).track?.id === track.id;
+
+  function seek(event: MouseEvent<HTMLDivElement>) {
+    const { left, width } = event.currentTarget.getBoundingClientRect();
+    if (width > 0) {
+      player.seek(track, getFraction((event.clientX - left) / width, 1) * track.duration);
+    }
+  }
+
   return (
     <div className="flex h-full flex-col gap-1.5 border-b px-3 py-2">
       <div className="flex h-5 items-center gap-3 text-sm">
+        <PlayButton player={player} track={track} />
         <span className="w-8 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
           {getTrackNumberLabel(track)}
         </span>
@@ -112,8 +128,11 @@ function TrackRow({ track, ...props }: LaneProps & { track: Track }) {
           {getDurationLabel(track.duration)}
         </span>
       </div>
-      <div className="flex flex-1 flex-col gap-1 pl-11">
-        <TrackLanes track={track} {...props} />
+      <div className="flex flex-1 flex-col pl-20">
+        <div className="relative flex flex-1 cursor-text flex-col gap-1" onClick={seek}>
+          <TrackLanes track={track} {...props} />
+          {isCurrent && <Playhead player={player} duration={track.duration} />}
+        </div>
       </div>
     </div>
   );
@@ -146,11 +165,13 @@ function VirtualTrackList({
   mapping,
   cache,
   source,
+  player,
 }: {
   tracks: readonly Track[];
   mapping: MappingFile | undefined;
   cache: TrackDataCache;
   source: AnimationSource;
+  player: Player;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { top, height } = useViewport(scrollRef);
@@ -174,6 +195,7 @@ function VirtualTrackList({
               cache={cache}
               cues={mapping?.tracks[track.location]}
               source={source}
+              player={player}
             />
           </div>
         ))}
@@ -189,6 +211,7 @@ export function TrackList({
   mappingError,
   cache,
   source,
+  player,
 }: {
   title: string;
   tracks: LoadState<Track[]>;
@@ -196,6 +219,7 @@ export function TrackList({
   mappingError: string | undefined;
   cache: TrackDataCache;
   source: AnimationSource;
+  player: Player;
 }) {
   const id = useId();
   const [search, setSearch] = useState("");
@@ -233,6 +257,7 @@ export function TrackList({
         mapping={mapping}
         cache={cache}
         source={source}
+        player={player}
       />
     );
   }

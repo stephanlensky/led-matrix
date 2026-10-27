@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { BrowserWindow, app, dialog, ipcMain } from "electron";
+import { BrowserWindow, app, dialog, ipcMain, protocol } from "electron";
 import {
   type FileSetting,
   LOG_LIMIT,
@@ -8,12 +8,20 @@ import {
   channels,
   daemonSettingKeys,
 } from "../shared/api.ts";
-import type { WaveformType } from "../shared/library.ts";
+import { TRACK_AUDIO_SCHEME, type WaveformType } from "../shared/library.ts";
 import type { MappingFile } from "../shared/mapping.ts";
 import { createDaemon } from "./daemon.ts";
 import { createMappingFile } from "./mapping-file.ts";
 import { createMixxxLibrary } from "./mixxx-library.ts";
 import { getDefaultSettings, getStoredSettings, setStoredSettings } from "./settings.ts";
+import { createTrackAudioHandler } from "./track-audio.ts";
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: TRACK_AUDIO_SCHEME,
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true },
+  },
+]);
 
 const settingsPath = join(app.getPath("userData"), "settings.json");
 let settings: Settings = await getStoredSettings(
@@ -108,7 +116,13 @@ function createWindow(): void {
   }
 }
 
-void app.whenReady().then(createWindow);
+void app.whenReady().then(() => {
+  protocol.handle(
+    TRACK_AUDIO_SCHEME,
+    createTrackAudioHandler((trackId) => library.getTrackLocation(trackId)),
+  );
+  createWindow();
+});
 
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {

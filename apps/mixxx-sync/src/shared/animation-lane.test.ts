@@ -1,6 +1,6 @@
 import { type StoredAnimation, storedAnimationSchema } from "@led-matrix/core";
 import { describe, expect, it } from "vitest";
-import { getAnimationLane, getBlockPosition } from "./animation-lane.ts";
+import { getAnimationLane, getBlockPosition, getLanePosition } from "./animation-lane.ts";
 import type { Beats } from "./beats.ts";
 
 const FPS = 30;
@@ -116,5 +116,35 @@ describe("getBlockPosition", () => {
   it("is blank before the cue", () => {
     const [block] = getLane([{ beat: 4, animation: "plasma" }]).blocks;
     expect(getBlockPosition(block!, 2, FPS)).toBeUndefined();
+  });
+});
+
+describe("getLanePosition", () => {
+  const { blocks } = getLane([
+    { beat: 4, animation: "plasma" },
+    { beat: 16, end: 20, animation: "intro" },
+    { beat: 32, animation: "plasma" },
+  ]);
+
+  it("is blank before the first cue", () => {
+    expect(getLanePosition(blocks, 3.5, FPS)).toBeUndefined();
+  });
+
+  it("uses the latest cue at or before the beat", () => {
+    expect(getLanePosition(blocks, 4, FPS)?.block.beat).toBe(4);
+    expect(getLanePosition(blocks, 15.9, FPS)?.block.beat).toBe(4);
+    expect(getLanePosition(blocks, 16, FPS)?.block.animation.id).toBe("intro");
+    expect(getLanePosition(blocks, 40, FPS)?.block.beat).toBe(32);
+  });
+
+  it("is blank between a cue end and the next cue", () => {
+    expect(getLanePosition(blocks, 20, FPS)).toBeUndefined();
+    expect(getLanePosition(blocks, 31.9, FPS)).toBeUndefined();
+  });
+
+  it("matches the block position", () => {
+    expect(getLanePosition(blocks, 18, FPS)?.position).toEqual(
+      getBlockPosition(blocks[1]!, 18, FPS),
+    );
   });
 });

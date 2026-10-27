@@ -1,19 +1,22 @@
-import { type StoredAnimation, createFrame } from "@led-matrix/core";
+import type { StoredAnimation } from "@led-matrix/core";
 import { AnimationList } from "@led-matrix/ui/components/animation-list";
 import { ListEmpty } from "@led-matrix/ui/components/list-row";
-import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
 import type { ApiClient } from "@led-matrix/ui/lib/api";
-import { useCallback, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { type LoadState, useLoad } from "./useLibrary.ts";
-
-const blankFrame = createFrame();
 
 export function useAnimations(api: ApiClient): LoadState<StoredAnimation[]> {
   const load = useCallback(() => api.getAnimations(), [api]);
   return useLoad(load);
 }
 
-export function AnimationPanel({ animations }: { animations: LoadState<StoredAnimation[]> }) {
+export function AnimationPanel({
+  animations,
+  simulator,
+}: {
+  animations: LoadState<StoredAnimation[]>;
+  simulator: ReactNode;
+}) {
   const [activeId, setActiveId] = useState<string>();
   const [activeSection, setActiveSection] = useState<number>();
 
@@ -46,7 +49,7 @@ export function AnimationPanel({ animations }: { animations: LoadState<StoredAni
 
   return (
     <aside className="flex w-96 shrink-0 flex-col border-l">
-      <MatrixFrame frame={blankFrame} showGrid />
+      {simulator}
       <h3 className="border-y px-3 py-2 text-sm font-medium">Animations</h3>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{getList()}</div>
     </aside>
