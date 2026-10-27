@@ -15,6 +15,13 @@ export type SyncOptions = {
   stateInterval?: number;
   getTime?: () => number;
   log?: (message: string) => void;
+  onStatus?: (status: SyncStatus) => void;
+};
+
+export type SyncStatus = {
+  liveDeck: string | undefined;
+  trackLocation: string | undefined;
+  cue: ResolvedCue | undefined;
 };
 
 type Target = {
@@ -39,6 +46,7 @@ export function createSync({
   stateInterval = 2000,
   getTime = () => Date.now(),
   log = console.log,
+  onStatus,
 }: SyncOptions) {
   let busy = false;
   let liveGroup: string | undefined;
@@ -46,6 +54,7 @@ export function createSync({
   let model: ServerModel | undefined;
   let lastNudgeAt = -Infinity;
   let lastError: string | undefined;
+  let status: SyncStatus = { liveDeck: undefined, trackLocation: undefined, cue: undefined };
 
   function getTarget({ tracks, decks }: MixxxState, time: number): Target | undefined {
     const deck = decks.decks.find(({ group }) => group === liveGroup);
@@ -134,6 +143,18 @@ export function createSync({
     }
   }
 
+  function setStatus(next: SyncStatus): void {
+    if (
+      next.liveDeck === status.liveDeck &&
+      next.trackLocation === status.trackLocation &&
+      next.cue === status.cue
+    ) {
+      return;
+    }
+    status = next;
+    onStatus?.(status);
+  }
+
   return {
     async update(state: MixxxState): Promise<void> {
       if (busy) {
@@ -141,6 +162,11 @@ export function createSync({
       }
       setLiveGroup(state);
       const target = getTarget(state, getTime());
+      setStatus({
+        liveDeck: liveGroup,
+        trackLocation: liveGroup === undefined ? undefined : state.tracks.get(liveGroup)?.location,
+        cue: target?.cue,
+      });
       if (!target) {
         return;
       }

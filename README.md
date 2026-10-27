@@ -7,7 +7,7 @@ Animation designer, simulator and server for a 64x64 HUB75 LED matrix driven by 
 - `packages/core` — frame model, effects, animation schema and renderer shared by server and web
 - `apps/server` — Fastify API and playback engine (runs TypeScript directly on Node)
 - `apps/web` — Vite + React frontend with the panel simulator
-- `apps/mixxx-sync` — laptop daemon that follows Mixxx and plays mapped animations in time with the music
+- `apps/mixxx-sync` — Electron app that runs the laptop daemon following Mixxx and plays mapped animations in time with the music
 - `firmware` — PlatformIO (Arduino) firmware for the Matrix Portal S3
 
 ## Development
@@ -46,15 +46,17 @@ GitHub Actions builds `ghcr.io/stephanlensky/led-matrix` from the `Dockerfile` o
 
 ## Mixxx sync
 
-`apps/mixxx-sync` reads deck state from the Mixxx deck state server (Preferences → Decks → "Deck state server") and drives one output of the server.
+`apps/mixxx-sync` is an Electron app that reads deck state from the Mixxx deck state server (Preferences → Decks → "Deck state server") and drives one output of the server. Start and stop the sync daemon from its window, which also shows the live deck, track, current cue and a log.
 
 ```sh
-pnpm --filter @led-matrix/mixxx-sync start --server https://led-matrix.cardinal.slensky.com
+pnpm mixxx-sync
 ```
 
-Options: `--server` (`LED_MATRIX_URL`, default `http://localhost:3000`), `--output` (`LED_MATRIX_OUTPUT`, default `device`), `--socket` (`MIXXX_SOCKET`, default `$XDG_RUNTIME_DIR/mixxx-deck-state.sock`).
+Settings are edited in the app while the daemon is stopped and saved to `settings.json` in the Electron user data directory (`~/.config/Mixxx Sync`). Defaults: server `LED_MATRIX_URL` or `http://localhost:3000`, output `LED_MATRIX_OUTPUT` or `device`, socket `MIXXX_SOCKET` or `$XDG_RUNTIME_DIR/mixxx-deck-state.sock`, mapping file `apps/mixxx-sync/mapping.json`.
 
-The mapping file (`apps/mixxx-sync/mapping.json` unless a path is given) maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. With `end`, the section is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song. Beats before the first grid beat are negative, so a cue at `-1` starts on the beat just before a track that doesn't begin on a beat. The file is reloaded when it changes.
+The app is split into `src/main` (Electron main process: daemon, Mixxx socket, server client), `src/preload` (IPC bridge exposed as `window.api`), `src/shared` (IPC types) and `src/renderer` (React UI).
+
+The mapping file maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. With `end`, the section is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song. Beats before the first grid beat are negative, so a cue at `-1` starts on the beat just before a track that doesn't begin on a beat. The file is reloaded when it changes.
 
 ```json
 {

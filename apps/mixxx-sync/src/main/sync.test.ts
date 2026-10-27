@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Mapping } from "./mapping.ts";
 import type { Deck, MixxxState, Track } from "./mixxx.ts";
 import type { PlayRequest, ServerClient } from "./server.ts";
-import { createSync, getPhaseDrift } from "./sync.ts";
+import { type SyncStatus, createSync, getPhaseDrift } from "./sync.ts";
 
 const location = "/music/a.flac";
 
@@ -65,11 +65,13 @@ function createHarness(mapping: Mapping) {
   const clock = { time: 0 };
   const fake = createFakeServer(clock);
   const log: string[] = [];
+  const statuses: SyncStatus[] = [];
   const sync = createSync({
     server: fake.server,
     getMapping: () => mapping,
     getTime: () => clock.time,
     log: (message) => log.push(message),
+    onStatus: (status) => statuses.push(status),
   });
   const tracks = new Map<string, Track | null>([
     ["[Channel1]", { location }],
@@ -98,7 +100,7 @@ function createHarness(mapping: Mapping) {
     await sync.update(state);
   }
 
-  return { clock, fake, update, log };
+  return { clock, fake, update, log, statuses };
 }
 
 const mapping: Mapping = new Map([
@@ -125,6 +127,19 @@ describe("sync", () => {
     await update([{ beat: 20.5 }]);
     expect(fake.calls).toEqual([
       { type: "play", body: { id: "cat", section: 0, beat: 4.5, bpm: 120 } },
+    ]);
+  });
+
+  it("reports the live deck, track and cue when they change", async () => {
+    const { update, statuses } = createHarness(mapping);
+    await update([{ beat: 8 }]);
+    await update([{ beat: 9 }]);
+    await update([{ beat: 20 }]);
+    await update([{ beat: 0, volume: 0.5 }, { beat: 0 }]);
+    expect(statuses).toEqual([
+      { liveDeck: "[Channel1]", trackLocation: location, cue: undefined },
+      { liveDeck: "[Channel1]", trackLocation: location, cue: mapping.get(location)?.[0] },
+      { liveDeck: "[Channel2]", trackLocation: "/music/unmapped.flac", cue: undefined },
     ]);
   });
 

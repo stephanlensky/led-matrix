@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "dev": "pnpm --parallel --filter './apps/*' --filter '!@led-matrix/mixxx-sync' dev",
+    "mixxx-sync": "pnpm --filter @led-matrix/mixxx-sync dev",
     "build": "pnpm --recursive build",
     "typecheck": "pnpm --recursive typecheck",
     "fake-device": "pnpm --filter @led-matrix/server fake-device",
