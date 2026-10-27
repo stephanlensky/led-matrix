@@ -42,7 +42,6 @@ const maxedScareMeter: SectionInput = {
       effect: "scare-meter",
       params: {
         level: 1,
-        shake: 2,
         textShake: 3,
         pulse: 4,
         rain: 44,
@@ -53,6 +52,56 @@ const maxedScareMeter: SectionInput = {
     },
   ],
 };
+
+const RUMBLE_GREEN = "#00ff30";
+const RUMBLE_WORDS = ["ARE", "YOU", "READY", "TO"];
+
+type RumbleStyle = { background: string; strobe?: string; text: string };
+
+function getRumbleSection(
+  text: string,
+  beats: number,
+  style: RumbleStyle,
+  textParams: Record<string, unknown> = {},
+): SectionInput {
+  return {
+    name: text,
+    mode: { type: "once", beats },
+    layers: [
+      { effect: "solid", params: { color: style.background } },
+      ...(style.strobe
+        ? [{ effect: "strobe", params: { color: style.strobe, flashesPerBeat: 2, duty: 0.5 } }]
+        : []),
+      {
+        effect: "big-text",
+        params: { text, font: "Anton", size: 40, color: style.text, ...textParams },
+      },
+    ],
+  };
+}
+
+function getRumble(
+  name: string,
+  wordStyles: readonly [RumbleStyle, ...RumbleStyle[]],
+  rumbleStyle: RumbleStyle,
+): AnimationInput {
+  return {
+    name,
+    sections: [
+      ...RUMBLE_WORDS.map((word, index) =>
+        getRumbleSection(word, 1, wordStyles[index % wordStyles.length] ?? wordStyles[0]),
+      ),
+      getRumbleSection("RUUUUUUUUUUMMMMBLEEEEEEE???", 8, rumbleStyle, {
+        scroll: {
+          keyframes: [
+            { at: 0, value: 0 },
+            { at: 1, value: 1 },
+          ],
+        },
+      }),
+    ],
+  };
+}
 
 export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("Basics", {
@@ -429,5 +478,22 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         maxedScareMeter,
       ],
     },
+  }),
+  ...getFolder("One-offs", {
+    "rumble-solid": getRumble(
+      "Ready to rumble (solid)",
+      [
+        { background: BLACK, text: WHITE },
+        { background: RUMBLE_GREEN, text: BLACK },
+        { background: WHITE, text: BLACK },
+        { background: RUMBLE_GREEN, text: BLACK },
+      ],
+      { background: BLACK, text: WHITE },
+    ),
+    "rumble-green-strobe": getRumble(
+      "Ready to rumble (green strobe)",
+      [{ background: RUMBLE_GREEN, strobe: WHITE, text: BLACK }],
+      { background: RUMBLE_GREEN, strobe: WHITE, text: BLACK },
+    ),
   }),
 };

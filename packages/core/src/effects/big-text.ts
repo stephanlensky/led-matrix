@@ -17,6 +17,7 @@ export const bigText = defineEffect({
     outlineColor: colorSchema.default("#ff0080"),
     outlineWidth: z.number().min(0).max(8).default(0),
     pulse: z.number().min(0).max(1).default(0),
+    scroll: z.number().min(0).max(1).optional(),
   }),
   render(context, { params, beat }) {
     context.font = `${params.size}px "${params.font}"`;
@@ -26,11 +27,16 @@ export const bigText = defineEffect({
     const textWidth = metrics.width;
     const baseline = (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
     const fitScale =
-      params.fitWidth && textWidth > 0
+      params.fitWidth && params.scroll === undefined && textWidth > 0
         ? Math.min(1, (WIDTH - params.outlineWidth * 2) / textWidth)
         : 1;
     const scale = fitScale * (1 + params.pulse * (1 - (beat % 1)) * 0.5);
-    context.translate(WIDTH / 2, HEIGHT / 2);
+    const margin = params.outlineWidth + 2;
+    const x =
+      params.scroll === undefined
+        ? WIDTH / 2
+        : WIDTH / 2 + (0.5 - params.scroll) * (textWidth * scale + margin * 2 - WIDTH);
+    context.translate(x, HEIGHT / 2);
     context.scale(scale, scale);
     context.lineJoin = "round";
     if (params.outlineWidth > 0) {
