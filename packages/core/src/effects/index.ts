@@ -13,6 +13,7 @@ import { pumpkin } from "./pumpkin.ts";
 import { split, wipe } from "./transitions.ts";
 import { colorFade, colorFlash } from "./color-flash.ts";
 import { checker, rings, stripes, twinkle } from "./patterns.ts";
+import { hyperspace } from "./hyperspace.ts";
 import { scareMeter } from "./scare-meter.ts";
 import { loading } from "./loading.ts";
 import { cat } from "./cat.ts";
@@ -38,6 +39,7 @@ export const effects: readonly Effect[] = [
   stripes,
   rings,
   twinkle,
+  hyperspace,
   plasma,
   squares,
   text,

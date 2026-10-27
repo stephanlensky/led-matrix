@@ -8,6 +8,15 @@ const PURPLE = "#9000ff";
 const BLACK = "#000000";
 const WHITE = "#ffffff";
 
+const PASTELS = {
+  color1: "#ff9ec8",
+  color2: "#8fd8ff",
+  color3: "#c39bff",
+  color4: "#9cffb0",
+  colorCount: 4,
+};
+const HALLOWEEN = { color1: ORANGE, color2: PURPLE, color3: GREEN };
+
 function getColors(color1: string, color2 = BLACK) {
   return { color1, color2, colorCount: 2 };
 }
@@ -277,6 +286,39 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         effect: "twinkle",
         params: { ...getColors(WHITE), colorCount: 1, perBeat: 96, decay: 0.5, period: 8 },
       },
+    ]),
+  }),
+  ...getFolder("Basics/Hyperspace", {
+    "hyperspace-white": getLoop("Hyperspace white", 8, [{ effect: "hyperspace" }]),
+    "hyperspace-ice": getLoop("Hyperspace ice", 8, [
+      { effect: "hyperspace", params: { ...getColors(WHITE, "#80b0ff") } },
+    ]),
+    "hyperspace-pastel": getLoop("Hyperspace pastel", 8, [
+      { effect: "hyperspace", params: PASTELS },
+    ]),
+    "hyperspace-orange": getLoop("Hyperspace orange", 8, [
+      { effect: "hyperspace", params: { ...getColors(ORANGE), colorCount: 1 } },
+    ]),
+    "hyperspace-purple": getLoop("Hyperspace purple", 8, [
+      { effect: "hyperspace", params: { ...getColors(PURPLE), colorCount: 1 } },
+    ]),
+    "hyperspace-green": getLoop("Hyperspace green", 8, [
+      { effect: "hyperspace", params: { ...getColors(GREEN), colorCount: 1 } },
+    ]),
+    "hyperspace-orange-purple": getLoop("Hyperspace orange/purple", 8, [
+      { effect: "hyperspace", params: getColors(ORANGE, PURPLE) },
+    ]),
+    "hyperspace-green-purple": getLoop("Hyperspace green/purple", 8, [
+      { effect: "hyperspace", params: getColors(GREEN, PURPLE) },
+    ]),
+    "hyperspace-halloween": getLoop("Hyperspace Halloween", 8, [
+      { effect: "hyperspace", params: { ...HALLOWEEN, colorCount: 3 } },
+    ]),
+    "hyperspace-warp": getLoop("Hyperspace warp", 4, [
+      { effect: "hyperspace", params: { perBeat: 10, life: 1, trail: 0.5, period: 4 } },
+    ]),
+    "hyperspace-drift": getLoop("Hyperspace drift", 16, [
+      { effect: "hyperspace", params: { ...PASTELS, perBeat: 3, life: 4, trail: 0.2, period: 16 } },
     ]),
   }),
   ...getFolder("Cats", {
