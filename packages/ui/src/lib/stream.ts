@@ -1,7 +1,6 @@
 import {
   type DeviceState,
   type Frame,
-  type Output,
   type PlaybackState,
   createFrame,
   streamMessageSchema,
@@ -17,12 +16,7 @@ export type Stream = {
   isConnected: boolean;
 };
 
-function getStreamUrl(output: Output): string {
-  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${location.host}/api/stream/${output}`;
-}
-
-export function useStream(output: Output): Stream {
+export function useStream(url: string): Stream {
   const [frame, setFrame] = useState<Frame>(createFrame);
   const [state, setState] = useState<PlaybackState>();
   const [device, setDevice] = useState<DeviceState>();
@@ -34,7 +28,7 @@ export function useStream(output: Output): Stream {
     let isClosed = false;
 
     function connect() {
-      socket = new WebSocket(getStreamUrl(output));
+      socket = new WebSocket(url);
       socket.binaryType = "arraybuffer";
       socket.addEventListener("open", () => setIsConnected(true));
       socket.addEventListener("message", (event: MessageEvent<ArrayBuffer | string>) => {
@@ -63,7 +57,7 @@ export function useStream(output: Output): Stream {
       clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, [output]);
+  }, [url]);
 
   return { frame, state, device, isConnected };
 }

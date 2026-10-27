@@ -3,7 +3,7 @@ import { LiveTimeline } from "./LiveTimeline.tsx";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
 import { TIMELINE_HEIGHT } from "@led-matrix/ui/components/timeline";
 import { PlaybackControls } from "./PlaybackControls.tsx";
-import type { Stream } from "./useStream.ts";
+import type { Stream } from "@led-matrix/ui/lib/stream";
 import { Badge } from "@led-matrix/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@led-matrix/ui/components/card";
 

@@ -371,6 +371,8 @@ export function TrackList({
   player,
   editor,
   live,
+  isLiveView,
+  onLiveViewChange,
   searchRef,
 }: {
   title: string;
@@ -382,6 +384,8 @@ export function TrackList({
   player: Player;
   editor: LaneEditor;
   live: LiveTrack | undefined;
+  isLiveView: boolean;
+  onLiveViewChange: (isLiveView: boolean) => void;
   searchRef: RefObject<HTMLInputElement | null>;
 }) {
   const id = useId();
@@ -468,11 +472,17 @@ export function TrackList({
             <Label htmlFor={`${id}-mapped`}>Mapped only</Label>
           </div>
           <Button
-            variant="outline"
+            variant={isLiveView ? "default" : "outline"}
             size="sm"
-            disabled={liveIndex === -1}
+            aria-pressed={isLiveView}
+            disabled={!live && !isLiveView}
             title={live ? live.location : "No live track"}
-            onClick={scrollToLive}
+            onClick={() => {
+              if (!isLiveView) {
+                scrollToLive();
+              }
+              onLiveViewChange(!isLiveView);
+            }}
           >
             <RadioIcon />
             Live

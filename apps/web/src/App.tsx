@@ -1,4 +1,4 @@
-import type { ClipInfo, StoredAnimation } from "@led-matrix/core";
+import type { ClipInfo, Output, StoredAnimation } from "@led-matrix/core";
 import { FilmIcon, MonitorIcon, PencilRulerIcon, RadioTowerIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, browserClips } from "./api.ts";
@@ -8,7 +8,7 @@ import { Editor } from "./Editor.tsx";
 import { Navigation, type NavigationItem } from "@led-matrix/ui/components/navigation";
 import { Simulator } from "./Simulator.tsx";
 import { navigate, usePathname } from "./usePathname.ts";
-import { useStream } from "./useStream.ts";
+import { useStream } from "@led-matrix/ui/lib/stream";
 import { TooltipProvider } from "@led-matrix/ui/components/tooltip";
 import { ClipsContext } from "@led-matrix/ui/lib/clips";
 
@@ -45,9 +45,14 @@ const views: readonly NavigationItem<View>[] = [
 const DEFAULT_BPM = 120;
 const DEFAULT_FPS = 30;
 
+function getStreamUrl(output: Output): string {
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${location.host}/api/stream/${output}`;
+}
+
 export function App() {
-  const stream = useStream("simulator");
-  const deviceStream = useStream("device");
+  const stream = useStream(getStreamUrl("simulator"));
+  const deviceStream = useStream(getStreamUrl("device"));
   const [animations, setAnimations] = useState<StoredAnimation[]>();
   const [clips, setClips] = useState<ClipInfo[]>();
   const [showGrid, setShowGrid] = useState(true);

@@ -9,6 +9,7 @@ import {
 import { Button } from "@led-matrix/ui/components/button";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
 import { useBrowserClips } from "@led-matrix/ui/lib/clips";
+import { useStream } from "@led-matrix/ui/lib/stream";
 import { PauseIcon, PlayIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAnimationLane, getLanePosition } from "../../shared/animation-lane.ts";
@@ -177,20 +178,29 @@ function PreviewSimulator({
   return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
 }
 
+function LiveSimulator({ streamUrl }: { streamUrl: string }) {
+  const { frame } = useStream(streamUrl);
+  return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
+}
+
 export function PlaybackSimulator({
   player,
   mapping,
   cache,
   source,
   preview,
+  liveStreamUrl,
   onPreviewChange,
+  onLiveViewEnd,
 }: {
   player: Player;
   mapping: MappingFile | undefined;
   cache: TrackDataCache;
   source: AnimationSource;
   preview: AnimationPreview | undefined;
+  liveStreamUrl: string | undefined;
   onPreviewChange: (preview: AnimationPreview | undefined) => void;
+  onLiveViewEnd: () => void;
 }) {
   const { track, isPlaying } = usePlayerState(player);
   const cues = track && mapping?.tracks[track.location];
@@ -208,6 +218,15 @@ export function PlaybackSimulator({
     }
   }, [isTrackActive, onPreviewChange]);
 
+  useEffect(() => {
+    if (isPlaying) {
+      onLiveViewEnd();
+    }
+  }, [isPlaying, onLiveViewEnd]);
+
+  if (liveStreamUrl !== undefined) {
+    return <LiveSimulator streamUrl={liveStreamUrl} />;
+  }
   if (preview && previewAnimation && !isTrackActive) {
     return (
       <PreviewSimulator
