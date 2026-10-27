@@ -7,7 +7,7 @@ import {
   getFolderTree,
 } from "@led-matrix/core";
 import { ChevronRightIcon, FolderIcon, MoveRightIcon, PlayIcon, RepeatIcon } from "lucide-react";
-import { type DragEvent, type ReactNode, useState } from "react";
+import { type DragEvent, type ReactNode, useMemo, useState } from "react";
 import { ListEmpty, ListRow, getIndent } from "./list-row.tsx";
 import { getLengthLabel, getSectionName } from "../lib/section-labels.ts";
 import { TruncatedText } from "./truncated-text.tsx";
@@ -44,11 +44,18 @@ function getEffectsLabel({ sections }: StoredAnimation): string {
 }
 
 function Collapse({ isExpanded, children }: { isExpanded: boolean; children: ReactNode }) {
+  const [hasExpanded, setHasExpanded] = useState(isExpanded);
+  if (isExpanded && !hasExpanded) {
+    setHasExpanded(true);
+  }
+  if (!hasExpanded) {
+    return null;
+  }
   return (
     <div
       inert={!isExpanded}
       className={cn(
-        "grid transition-[grid-template-rows] duration-200 ease-out",
+        "grid transition-[grid-template-rows] duration-200 ease-out starting:grid-rows-[0fr]",
         isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
       )}
     >
@@ -208,10 +215,11 @@ export function AnimationList({ animations, isExpanded = false, ...props }: Anim
     setRevealedFolder(activeFolder);
     setExpandedFolders(new Set([...expandedFolders, ...getFolderAncestors(activeFolder)]));
   }
+  const tree = useMemo(() => getFolderTree(animations), [animations]);
+  const allFolders = useMemo(() => new Set(getAllFolders(tree)), [tree]);
   if (animations.length === 0) {
     return <ListEmpty>No animations</ListEmpty>;
   }
-  const tree = getFolderTree(animations);
 
   function toggleFolder(path: string) {
     const next = new Set(expandedFolders);
@@ -226,7 +234,7 @@ export function AnimationList({ animations, isExpanded = false, ...props }: Anim
       {...props}
       folder={tree}
       depth={0}
-      expandedFolders={isExpanded ? new Set(getAllFolders(tree)) : expandedFolders}
+      expandedFolders={isExpanded ? allFolders : expandedFolders}
       onToggleFolder={toggleFolder}
     />
   );

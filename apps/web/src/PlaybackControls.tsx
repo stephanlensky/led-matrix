@@ -1,6 +1,6 @@
 import type { Output, PlaybackState, StoredAnimation } from "@led-matrix/core";
 import { SearchIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { AnimationList } from "@led-matrix/ui/components/animation-list";
 import { api } from "./api.ts";
 import { Input } from "@led-matrix/ui/components/input";
@@ -30,7 +30,7 @@ function getMatches(items: readonly StoredAnimation[], query: string): StoredAni
   );
 }
 
-export function PlaybackControls({
+export const PlaybackControls = memo(function PlaybackControls({
   output,
   state,
   animations,
@@ -38,6 +38,7 @@ export function PlaybackControls({
   onShowGridChange,
 }: PlaybackControlsProps) {
   const [query, setQuery] = useState("");
+  const matches = useMemo(() => getMatches(animations, query), [animations, query]);
   const [error, setError] = useState<string>();
   const [bpmDraft, setBpmDraft] = useState<string>();
   const bpmTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -104,7 +105,7 @@ export function PlaybackControls({
         </div>
         <div className="-mx-(--card-spacing) min-h-24 overflow-y-auto overscroll-contain scrollbar-thin">
           <AnimationList
-            animations={getMatches(animations, query)}
+            animations={matches}
             isExpanded={query.trim() !== ""}
             activeId={state?.animationId}
             activeSection={state?.section?.index}
@@ -116,4 +117,4 @@ export function PlaybackControls({
       {error && <p className="text-sm text-destructive">{error}</p>}
     </>
   );
-}
+});
