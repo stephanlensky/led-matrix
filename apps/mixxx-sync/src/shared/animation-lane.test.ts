@@ -4,7 +4,7 @@ import {
   getAnimationLane,
   getBlockPosition,
   getCueKeys,
-  getFitEnd,
+  getDropEnd,
   getLanePosition,
   getLiveBlock,
   isSameRender,
@@ -75,7 +75,7 @@ describe("getAnimationLane", () => {
       stop: 32,
       hasEnd: true,
       fit: { section: 0, beats: 16 },
-      boundaries: [],
+      boundaries: [{ beat: 32 / 3, section: 1 }],
     });
     expect(getBlockPosition(blocks[0]!, 16, FPS)).toBeUndefined();
   });
@@ -152,28 +152,31 @@ describe("getCueKeys", () => {
   });
 });
 
-describe("getFitEnd", () => {
+describe("getDropEnd", () => {
   const intro = animationsById.get("intro")!;
   const plasma = animationsById.get("plasma")!;
 
-  it("fits a once section to a smaller space", () => {
-    expect(getFitEnd(intro, 0, 16, 20, 120, FPS)).toBe(20);
+  it("ends after the chain of once sections", () => {
+    expect(getDropEnd(intro, 0, 16, 40, 120, FPS)).toBe(28);
+    expect(getDropEnd(intro, 1, 16, 40, 120, FPS)).toBe(20);
   });
 
-  it("keeps a once section that fits", () => {
-    expect(getFitEnd(intro, 0, 16, 24, 120, FPS)).toBeUndefined();
+  it("ends after one iteration of a loop section", () => {
+    expect(getDropEnd(intro, 2, 16, 40, 120, FPS)).toBe(20);
+    expect(getDropEnd(plasma, 0, 16, 40, 120, FPS)).toBe(24);
   });
 
-  it("ignores loop sections", () => {
-    expect(getFitEnd(intro, 2, 16, 18, 120, FPS)).toBeUndefined();
-    expect(getFitEnd(plasma, 0, 16, 18, 120, FPS)).toBeUndefined();
+  it("stops at the next cue", () => {
+    expect(getDropEnd(intro, 0, 16, 20, 120, FPS)).toBe(20);
+    expect(getDropEnd(plasma, 0, 16, 18, 120, FPS)).toBe(18);
   });
 });
 
 describe("getBlockPosition", () => {
-  it("stretches a fitted once section over the block", () => {
+  it("stretches the chain of once sections over the block", () => {
     const [block] = getLane([{ beat: 4, end: 20, animation: "intro" }]).blocks;
-    expect(getBlockPosition(block!, 12, FPS)).toEqual({ index: 0, time: 2000 });
+    expect(getBlockPosition(block!, 12, FPS)).toEqual({ index: 0, time: 3000 });
+    expect(getBlockPosition(block!, 18, FPS)?.index).toBe(1);
   });
 
   it("repeats a loop at its native length", () => {

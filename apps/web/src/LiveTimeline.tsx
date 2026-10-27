@@ -59,7 +59,7 @@ export function LiveTimeline({ output, state, animations }: LiveTimelineProps) {
           time: sectionTime,
           length,
         } = getSectionPosition(
-          getFittedAnimation(animation, state.fit),
+          getFittedAnimation(animation, state.fit, state.bpm, state.fps),
           playback,
           time,
           state.bpm,

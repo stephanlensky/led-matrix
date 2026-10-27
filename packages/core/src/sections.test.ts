@@ -106,19 +106,31 @@ describe("getRenderPosition", () => {
     });
   });
 
-  it("scales a fitted section to its natural length", () => {
-    const fit = { section: 1, beats: 4 };
+  it("scales the chain of once sections to fill the fit", () => {
+    const fit = { section: 1, beats: 6 };
     expect(getRenderPosition(animation, fit, getPlayback(1), 1000, 120, 30)).toEqual({
       index: 1,
       time: 500,
     });
-  });
-
-  it("plays the following sections at their natural length after a fitted section", () => {
-    const fit = { section: 1, beats: 4 };
-    expect(getRenderPosition(animation, fit, getPlayback(1), 2250, 120, 30)).toEqual({
+    expect(getRenderPosition(animation, fit, getPlayback(1), 2500, 120, 30)).toEqual({
       index: 2,
       time: 250,
+    });
+  });
+
+  it("plays loop sections after the fitted chain at their natural length", () => {
+    const fit = { section: 1, beats: 6 };
+    expect(getRenderPosition(animation, fit, getPlayback(1), 3500, 120, 30)).toEqual({
+      index: 3,
+      time: 500,
+    });
+  });
+
+  it("does not fit loop sections", () => {
+    const fit = { section: 0, beats: 2 };
+    expect(getRenderPosition(animation, fit, getPlayback(0), 1500, 120, 30)).toEqual({
+      index: 0,
+      time: 1500,
     });
   });
 });

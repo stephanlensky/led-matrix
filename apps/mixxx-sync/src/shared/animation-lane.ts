@@ -1,8 +1,11 @@
 import {
+  type Animation,
   type RenderPosition,
   type SectionFit,
   type StoredAnimation,
   getAnimationLength,
+  getFittedAnimation,
+  getOnceSections,
   getPresetAnimation,
   getPresetName,
   getRenderPosition,
@@ -30,13 +33,13 @@ export type AnimationBlock = {
 
 export type AnimationLane = { blocks: AnimationBlock[]; errors: string[] };
 
-function getSectionBeats(animation: StoredAnimation, section: number, bpm: number, fps: number) {
+function getSectionBeats(animation: Animation, section: number, bpm: number, fps: number) {
   const mode = animation.sections[section]?.mode;
   return mode ? (getAnimationLength(mode, bpm, fps) * bpm) / 60_000 : 0;
 }
 
 function getBoundaries(
-  animation: StoredAnimation,
+  animation: Animation,
   section: number,
   beat: number,
   end: number,
@@ -58,16 +61,27 @@ function getBoundaries(
   return boundaries;
 }
 
-export function getFitEnd(
+export function getNaturalBeats(
+  animation: StoredAnimation,
+  section: number,
+  bpm: number,
+  fps: number,
+): number {
+  const once = getOnceSections(animation, section);
+  return once.length === 0
+    ? getSectionBeats(animation, section, bpm, fps)
+    : once.reduce((sum, index) => sum + getSectionBeats(animation, index, bpm, fps), 0);
+}
+
+export function getDropEnd(
   animation: StoredAnimation,
   section: number,
   beat: number,
   stop: number,
   bpm: number,
   fps: number,
-): number | undefined {
-  const isOnce = animation.sections[section]?.mode.type === "once";
-  return isOnce && getSectionBeats(animation, section, bpm, fps) > stop - beat ? stop : undefined;
+): number {
+  return Math.min(beat + getNaturalBeats(animation, section, bpm, fps), stop);
 }
 
 export function getAnimationLane(
@@ -108,10 +122,14 @@ export function getAnimationLane(
         stop,
         hasEnd,
         fit,
-        boundaries:
-          cueEnd === undefined
-            ? getBoundaries(animation, cue.section, cue.beat, end, bpm, fps)
-            : [],
+        boundaries: getBoundaries(
+          getFittedAnimation(animation, fit, bpm, fps),
+          cue.section,
+          cue.beat,
+          end,
+          bpm,
+          fps,
+        ),
       },
     ];
   });

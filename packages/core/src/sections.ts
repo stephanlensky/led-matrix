@@ -91,14 +91,34 @@ export function getNextSection(
   return { index: position.index + 1, startedAt };
 }
 
-export function getFittedAnimation(animation: Animation, fit: SectionFit | null): Animation {
-  const section = fit && animation.sections[fit.section];
-  if (!fit || !section) {
+export function getOnceSections({ sections }: Animation, section: number): number[] {
+  const indices: number[] = [];
+  for (let index = section; sections[index]?.mode.type === "once"; index++) {
+    indices.push(index);
+  }
+  return indices;
+}
+
+export function getFittedAnimation(
+  animation: Animation,
+  fit: SectionFit | null,
+  bpm: number,
+  fps: number,
+): Animation {
+  if (!fit) {
     return animation;
   }
-  const sections = animation.sections.with(fit.section, {
-    ...section,
-    mode: { type: section.mode.type, beats: fit.beats },
+  const lengths = getOnceSections(animation, fit.section).map((index) => {
+    const mode = animation.sections[index]?.mode;
+    return mode ? getAnimationLength(mode, bpm, fps) : 0;
+  });
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  const sections = animation.sections.map((section, index) => {
+    const offset = index - fit.section;
+    const length = lengths[offset];
+    return length === undefined
+      ? section
+      : { ...section, mode: { type: "once" as const, beats: (fit.beats * length) / total } };
   });
   return { ...animation, sections };
 }
@@ -113,7 +133,13 @@ export function getRenderPosition(
   bpm: number,
   fps: number,
 ): RenderPosition {
-  const position = getSectionPosition(getFittedAnimation(source, fit), playback, time, bpm, fps);
+  const position = getSectionPosition(
+    getFittedAnimation(source, fit, bpm, fps),
+    playback,
+    time,
+    bpm,
+    fps,
+  );
   const mode = source.sections[position.index]?.mode;
   const scale = mode ? getAnimationLength(mode, bpm, fps) / position.length : 1;
   return { index: position.index, time: position.time * scale };

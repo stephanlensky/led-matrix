@@ -189,7 +189,7 @@ export function createPlaybackEngine({
       document,
       preset,
       source,
-      animation: getFittedAnimation(source, fit),
+      animation: getFittedAnimation(source, fit, bpm, fps),
       fit,
       failed: false,
     };
@@ -221,7 +221,7 @@ export function createPlaybackEngine({
         document: animation,
         preset: getPresetName(animation, preset),
         source,
-        animation: getFittedAnimation(source, fit),
+        animation: getFittedAnimation(source, fit, bpm, fps),
         fit,
         startedAt,
         sections: { current: { index: section, startedAt }, next: undefined },
@@ -307,6 +307,7 @@ export function createPlaybackEngine({
       const mode = active.animation.sections[position.index]?.mode;
       const scale = mode && "beats" in mode ? bpm / value : 1;
       bpm = value;
+      active.animation = getFittedAnimation(active.source, active.fit, bpm, fps);
       active.startedAt = getPlaybackTime() - beat * getBeatDuration();
       active.sections = {
         current: { index: position.index, startedAt: time - position.time * scale },

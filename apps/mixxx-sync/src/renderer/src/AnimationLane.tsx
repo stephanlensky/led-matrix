@@ -18,8 +18,9 @@ import {
   getAnimationLane,
   getBlockPosition,
   getCueKeys,
-  getFitEnd,
+  getDropEnd,
   getLiveBlock,
+  getNaturalBeats,
   isSameRender,
 } from "../../shared/animation-lane.ts";
 import { type Beats, getBeat, getBpm, getPosition } from "../../shared/beats.ts";
@@ -526,16 +527,19 @@ export function AnimationLane({
     const drag = getCurrentCueDrag();
     const animation = drag && animationsById?.get(drag.animationId);
     const section = drag?.section ?? 0;
-    const getEnd = (start: number, stop: number) =>
-      animation && getFitEnd(animation, section, start, stop, getBpm(beats, start), fps);
     const gap = getGap(savedCues, pointerBeat, track);
-    const isGapFilled = gap !== undefined && getEnd(gap.min, gap.max) !== undefined;
+    const isGapFilled =
+      animation !== undefined &&
+      gap !== undefined &&
+      getNaturalBeats(animation, section, getBpm(beats, gap.min), fps) > gap.max - gap.min;
     const ghostBeat = isGapFilled ? gap.min : pointerBeat;
     const stop = savedCues.find((cue) => cue.beat > ghostBeat)?.beat ?? track.max;
+    const end =
+      animation && getDropEnd(animation, section, ghostBeat, stop, getBpm(beats, ghostBeat), fps);
     return {
       beat: ghostBeat,
       stop,
-      end: getEnd(ghostBeat, stop),
+      end,
       name: animation?.name ?? "",
       snap: isGapFilled ? ghostBeat : ghostBeat === snap.beat ? snap.target : undefined,
     };
@@ -658,7 +662,7 @@ export function AnimationLane({
           className="pointer-events-none absolute inset-y-0 z-20 border-2 border-dashed border-sky-400 bg-sky-400/20"
           style={getSpanStyle(
             getBeatFraction(scale, ghost.beat),
-            getBeatFraction(scale, ghost.stop),
+            getBeatFraction(scale, ghost.end ?? ghost.stop),
           )}
         >
           <span className="absolute top-0.5 left-0.5 truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 font-medium text-white">
