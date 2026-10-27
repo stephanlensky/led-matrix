@@ -210,7 +210,7 @@ function getLightLoop(
 const transitionSpeedParameter = getValueParameter(
   "Speed",
   "beatsPerColor",
-  { Double: 0.5, Beat: 1, "Half time": 2 },
+  { Double: 0.5, Beat: 1, "Half time": 2, "Quarter time": 4, "Eighth time": 8 },
   "Beat",
 );
 
@@ -381,7 +381,14 @@ const squarePairs: Readonly<Record<string, Palette>> = {
   Blood: [FRESH_BLOOD_COLOR, DRIED_BLOOD_COLOR],
 };
 
-const flashSpeeds = { "Half time": 0.5, Beat: 1, Double: 2, Quad: 4 };
+const flashSpeeds = {
+  "Eighth time": 0.125,
+  "Quarter time": 0.25,
+  "Half time": 0.5,
+  Beat: 1,
+  Double: 2,
+  Quad: 4,
+};
 
 export const replacedSeedIds = [
   "white-strobe",
@@ -721,9 +728,15 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         ),
       ],
     ),
+    solid: getLoop(
+      "Solid",
+      1,
+      [{ effect: "solid", params: { color: { param: "color" } } }],
+      [getColorParameter("White", { Red: RED, ...SINGLE_COLORS })],
+    ),
     strobe: getLoop(
       "Strobe",
-      1,
+      4,
       [
         {
           effect: "strobe",
@@ -736,12 +749,17 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       ],
       [
         getColorParameter("White", SINGLE_COLORS),
-        getValueParameter("Speed", "flashesPerBeat", { Beat: 1, Double: 2, Quad: 4 }, "Double"),
+        getValueParameter(
+          "Speed",
+          "flashesPerBeat",
+          { "Quarter time": 0.25, "Half time": 0.5, Beat: 1, Double: 2, Quad: 4 },
+          "Double",
+        ),
       ],
     ),
     flash: getLoop(
       "Flash",
-      4,
+      32,
       [
         {
           effect: "color-flash",
@@ -797,13 +815,13 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     ),
   }),
   ...getFolder("Basics/Transitions", {
-    split: getBackgroundLoop("Split", 8, "split", splitReferences, [
+    split: getBackgroundLoop("Split", 32, "split", splitReferences, [
       getBackgroundColorParameter("Orange"),
       ...splitParameters,
     ]),
     "split-strobe": getBackgroundLoop(
       "Split with strobe",
-      8,
+      32,
       "split",
       splitReferences,
       [getBackgroundColorParameter("Purple"), ...splitParameters],
@@ -811,7 +829,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     ),
     wipe: getBackgroundLoop(
       "Wipe",
-      8,
+      32,
       "wipe",
       { ...transitionReferences, ...getReferences(["direction"]) },
       [
@@ -836,7 +854,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     ),
   }),
   ...getFolder("Basics/Patterns", {
-    checker: getBackgroundLoop("Checker", 4, "checker", getReferences(["size", "swapsPerBeat"]), [
+    checker: getBackgroundLoop("Checker", 16, "checker", getReferences(["size", "swapsPerBeat"]), [
       getBackgroundColorParameter("Orange/purple"),
       getValueParameter(
         "Size",
@@ -844,7 +862,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         { Small: 4, Medium: 8, Large: 16, Quadrants: 32 },
         "Medium",
       ),
-      getValueParameter("Speed", "swapsPerBeat", { "Half time": 0.5, Beat: 1, Double: 2 }, "Beat"),
+      getValueParameter(
+        "Speed",
+        "swapsPerBeat",
+        { "Eighth time": 0.125, "Quarter time": 0.25, "Half time": 0.5, Beat: 1, Double: 2 },
+        "Beat",
+      ),
     ]),
     stripes: getBackgroundLoop(
       "Stripes",
