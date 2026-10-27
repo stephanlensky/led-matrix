@@ -147,6 +147,14 @@ describe("getSnapTargets", () => {
     ];
     expect(getSnapTargets(cues, 1, mixxxCues, beats)).toEqual([0, 64, 4, 20]);
   });
+
+  it("rounds Mixxx cues that sit just off the grid to the nearest beat", () => {
+    const mixxxCues: MixxxCue[] = [
+      { type: "hotcue", hotcue: 0, label: "", color: 0, start: 2.265, end: undefined },
+      { type: "hotcue", hotcue: 1, label: "", color: 0, start: 4.375, end: undefined },
+    ];
+    expect(getSnapTargets(cues, 1, mixxxCues, beats)).toEqual([0, 64, 4, 8.25]);
+  });
 });
 
 describe("getSnap", () => {
@@ -171,10 +179,14 @@ describe("getSnap", () => {
 describe("getMoveSnap", () => {
   it("snaps whichever edge is closer to a target", () => {
     expect(getMoveSnap(21.4, 16, [37.6, 10], scale)).toMatchObject({
-      beat: expect.closeTo(21.6),
+      beat: 21.6,
       target: 37.6,
     });
     expect(getMoveSnap(21.4, 16, [21.3, 37.6], scale)).toMatchObject({ beat: 21.3, target: 21.3 });
+  });
+
+  it("rounds away floating point error when the end snaps", () => {
+    expect(getMoveSnap(0.15, 0.1, [0.3], scale)).toMatchObject({ beat: 0.2, target: 0.3 });
   });
 
   it("snaps the start of a block without end", () => {

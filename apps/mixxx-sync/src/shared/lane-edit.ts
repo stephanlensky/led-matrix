@@ -5,6 +5,8 @@ import { BEATS_PER_BAR } from "./track-scale.ts";
 
 export const MIN_CUE_BEATS = 1;
 export const SNAP_DISTANCE = 8;
+export const GRID_SNAP_BEATS = 0.2;
+const BEAT_PRECISION = 1e6;
 
 export type BeatRange = { min: number; max: number };
 
@@ -118,6 +120,11 @@ function getNearestBeat(beat: number, ranges: readonly BeatRange[]) {
   return nearest;
 }
 
+export function getGridBeat(beat: number): number {
+  const whole = Math.round(beat);
+  return Math.abs(whole - beat) <= GRID_SNAP_BEATS ? whole : beat;
+}
+
 export function getSnapTargets(
   cues: readonly Cue[],
   exclude: number | undefined,
@@ -133,7 +140,7 @@ export function getSnapTargets(
     }
     for (const position of [cue.start, cue.end]) {
       if (position !== undefined) {
-        targets.push(getBeat(beats, position));
+        targets.push(getGridBeat(getBeat(beats, position)));
       }
     }
   }
@@ -205,7 +212,7 @@ export function getMoveSnap(
   }
   const end = getSnap(beat + length, targets, scale);
   if (end.target !== undefined && (start.target === undefined || end.distance < start.distance)) {
-    return { ...end, beat: end.beat - length };
+    return { ...end, beat: Math.round((end.beat - length) * BEAT_PRECISION) / BEAT_PRECISION };
   }
   return start;
 }
