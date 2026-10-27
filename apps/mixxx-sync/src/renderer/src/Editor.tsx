@@ -4,10 +4,11 @@ import { browserCanvas } from "@led-matrix/ui/lib/browser-canvas";
 import { ClipsContext, createBrowserClips } from "@led-matrix/ui/lib/clips";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { Settings } from "../../shared/api.ts";
-import type { AnimationSource } from "./AnimationLane.tsx";
+import type { AnimationSource, CueSelection, LaneEditor } from "./AnimationLane.tsx";
 import { AnimationPanel, useAnimations } from "./AnimationPanel.tsx";
 import { LibraryNav } from "./LibraryNav.tsx";
 import { PlaybackSimulator } from "./Playback.tsx";
+import { removeCue } from "../../shared/mapping-edits.ts";
 import { type Player, createPlayer } from "./player.ts";
 import { TrackList } from "./TrackList.tsx";
 import {
@@ -16,7 +17,7 @@ import {
   usePlaylists,
   useTracks,
 } from "./useLibrary.ts";
-import { useMapping } from "./useMapping.ts";
+import { type MappingEditor, useMapping } from "./useMapping.ts";
 import { useSettings } from "./useSettings.ts";
 
 const FPS = 30;
@@ -29,24 +30,51 @@ function usePlayer(): Player {
   return player;
 }
 
-function useSpaceToggle(player: Player, rootRef: RefObject<HTMLElement | null>) {
+function useEditorKeys(
+  rootRef: RefObject<HTMLElement | null>,
+  onKeyDown: (event: KeyboardEvent) => boolean,
+) {
+  const handlerRef = useRef(onKeyDown);
+  useEffect(() => {
+    handlerRef.current = onKeyDown;
+  });
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : undefined;
       if (
-        event.code !== "Space" ||
         event.repeat ||
         target?.closest(INTERACTIVE_SELECTOR) ||
         !rootRef.current?.checkVisibility()
       ) {
         return;
       }
-      event.preventDefault();
-      player.toggle();
+      if (handlerRef.current(event)) {
+        event.preventDefault();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [player, rootRef]);
+  }, [rootRef]);
+}
+
+function useLaneEditor(mapping: MappingEditor): LaneEditor & { remove: () => void } {
+  const [selection, setSelection] = useState<CueSelection>();
+  const { update } = mapping;
+  return useMemo(
+    () => ({
+      update,
+      selection,
+      onSelect: setSelection,
+      remove() {
+        if (selection) {
+          update((file) => removeCue(file, selection.location, selection.index));
+          setSelection(undefined);
+        }
+      },
+    }),
+    [update, selection],
+  );
 }
 
 function getSelectionTitle(
@@ -90,8 +118,23 @@ function EditorContent({ settings }: { settings: Settings }) {
   const mapping = useMapping();
   const [cache] = useState(createTrackDataCache);
   const player = usePlayer();
+  const editor = useLaneEditor(mapping);
   const rootRef = useRef<HTMLDivElement>(null);
-  useSpaceToggle(player, rootRef);
+  useEditorKeys(rootRef, (event) => {
+    if (event.code === "Space") {
+      player.toggle();
+      return true;
+    }
+    if ((event.key === "Delete" || event.key === "Backspace") && editor.selection) {
+      editor.remove();
+      return true;
+    }
+    if (event.key === "Escape" && editor.selection) {
+      editor.onSelect(undefined);
+      return true;
+    }
+    return false;
+  });
 
   return (
     <ClipsContext value={clips}>
@@ -105,6 +148,7 @@ function EditorContent({ settings }: { settings: Settings }) {
           cache={cache}
           source={source}
           player={player}
+          editor={editor}
         />
         <AnimationPanel
           animations={animations}

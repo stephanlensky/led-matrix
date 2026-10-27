@@ -56,7 +56,7 @@ Settings are edited in the app's Settings tab and saved automatically to `settin
 
 The app is split into `src/main` (Electron main process: daemon, Mixxx socket, server client), `src/preload` (IPC bridge exposed as `window.api`), `src/shared` (IPC types) and `src/renderer` (React UI).
 
-The mapping file maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. With `end`, the section is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song. Beats before the first grid beat are negative, so a cue at `-1` starts on the beat just before a track that doesn't begin on a beat. The file is reloaded when it changes.
+The mapping file maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. Without `end`, a cue plays until the next one: `once` sections flow into the following sections and the last one holds, `loop` sections repeat. With `end`, the cue stops there and the display goes blank until the next cue (or the end of the track). A `once` section with `end` is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song; a `loop` section keeps its own speed and just repeats until `end`. Beats before the first grid beat are negative, so a cue at `-1` starts on the beat just before a track that doesn't begin on a beat. The file is reloaded when it changes.
 
 ```json
 {
@@ -73,6 +73,9 @@ The mapping file maps track file paths to cues. Each cue shows a section (name o
 - The live deck is the playing deck with the highest volume after the crossfader; another deck takes over only once it is clearly louder.
 - When the live deck enters a new cue, the daemon plays its section from the beats since the cue, so the server's own section chaining (`once` into the next section) stays in time with the track. Loops and jumps in Mixxx are followed by moving the beat, or by replaying when they cross a cue.
 - On unmapped tracks and before the first cue, the current animation keeps playing; the daemon only follows the BPM and aligns the beat phase.
+- Between a cue's `end` and the next cue, the daemon stops the output.
+
+The Editor tab reads the Mixxx library (read-only, also while Mixxx runs) and shows every track with its waveform, Mixxx cues and an animation lane. Drag an animation or one of its sections from the right panel onto a lane to add a cue, drag a block to move it, and drag its left or right arrow handle to change its start or set its end (double-click the right handle to clear the end). Edits snap to Mixxx cues, other blocks, bars and whole beats; hold Alt to place freely. Delete or Backspace removes the selected block. Play a track to hear it and see the mapped animation in the simulator; changes are saved to the mapping file automatically.
 
 ## API
 

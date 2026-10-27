@@ -72,6 +72,17 @@ describe("getAnimationLane", () => {
     expect(getBlockPosition(blocks[0]!, 16, FPS)).toBeUndefined();
   });
 
+  it("ignores the blank cue after an end and keeps the cue index", () => {
+    const { blocks } = getLane([
+      { beat: 0, end: 16, animation: "intro" },
+      { beat: 32, animation: "plasma" },
+    ]);
+    expect(blocks.map(({ index, beat }) => ({ index, beat }))).toEqual([
+      { index: 0, beat: 0 },
+      { index: 1, beat: 32 },
+    ]);
+  });
+
   it("fits only once sections", () => {
     const { blocks } = getLane([{ beat: 0, end: 20, animation: "plasma" }]);
     expect(blocks[0]?.fit).toBeNull();

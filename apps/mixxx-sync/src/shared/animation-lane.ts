@@ -6,11 +6,12 @@ import {
   getRenderPosition,
 } from "@led-matrix/core";
 import { type Beats, getBeat, getBpm } from "./beats.ts";
-import { type Cue, getResolvedCues } from "./mapping.ts";
+import { type Cue, type SectionCue, getResolvedCues } from "./mapping.ts";
 
 export type SectionBoundary = { beat: number; section: number };
 
 export type AnimationBlock = {
+  index: number;
   animation: StoredAnimation;
   section: number;
   bpm: number;
@@ -64,21 +65,21 @@ export function getAnimationLane(
     return { blocks: [], errors: resolved.errors };
   }
   const trackEnd = getBeat(beats, duration);
-  const blocks = resolved.cues.flatMap((cue, index): AnimationBlock[] => {
+  const sectionCues = resolved.cues.filter((cue): cue is SectionCue => cue.animationId !== null);
+  const blocks = sectionCues.flatMap((cue, index): AnimationBlock[] => {
     const animation = animationsById.get(cue.animationId);
     if (!animation) {
       return [];
     }
-    const stop = Math.max(resolved.cues[index + 1]?.beat ?? trackEnd, cue.beat);
+    const stop = Math.max(sectionCues[index + 1]?.beat ?? trackEnd, cue.beat);
     const cueEnd = cues[index]?.end;
     const hasEnd = cueEnd !== undefined && cueEnd < stop;
     const end = hasEnd ? cueEnd : stop;
     const bpm = getBpm(beats, cue.beat);
-    const isOnce = animation.sections[cue.section]?.mode.type === "once";
-    const fit =
-      cueEnd !== undefined && isOnce ? { section: cue.section, beats: cueEnd - cue.beat } : null;
+    const fit = cue.beats === undefined ? null : { section: cue.section, beats: cue.beats };
     return [
       {
+        index,
         animation,
         section: cue.section,
         bpm,

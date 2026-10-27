@@ -76,12 +76,47 @@ describe("getResolvedMapping", () => {
 });
 
 describe("cue end", () => {
-  it("fits the section between the cue and its end beat", () => {
+  it("fits a once section between the cue and its end beat", () => {
+    const file = mappingSchema.parse({
+      tracks: {
+        a: [
+          { beat: 8, end: 24, animation: "cat", section: "Spawn" },
+          { beat: 24, section: "Bounce" },
+        ],
+      },
+    });
+    expect(getResolvedMapping(file, animations).mapping.get("a")).toEqual([
+      { beat: 8, animationId: "cat", section: 1, beats: 16 },
+      { beat: 24, animationId: "cat", section: 2, beats: undefined },
+    ]);
+  });
+
+  it("does not fit loop sections", () => {
     const file = mappingSchema.parse({
       tracks: { a: [{ beat: 8, end: 696, animation: "plasma" }] },
     });
+    expect(getResolvedMapping(file, animations).mapping.get("a")?.[0]).toEqual({
+      beat: 8,
+      animationId: "plasma",
+      section: 0,
+      beats: undefined,
+    });
+  });
+
+  it("adds a blank cue at an end before the next cue or the track end", () => {
+    const file = mappingSchema.parse({
+      tracks: {
+        a: [
+          { beat: 0, end: 16, animation: "cat", section: "Spawn" },
+          { beat: 32, end: 64, animation: "plasma" },
+        ],
+      },
+    });
     expect(getResolvedMapping(file, animations).mapping.get("a")).toEqual([
-      { beat: 8, animationId: "plasma", section: 0, beats: 688 },
+      { beat: 0, animationId: "cat", section: 1, beats: 16 },
+      { beat: 16, animationId: null },
+      { beat: 32, animationId: "plasma", section: 0, beats: undefined },
+      { beat: 64, animationId: null },
     ]);
   });
 

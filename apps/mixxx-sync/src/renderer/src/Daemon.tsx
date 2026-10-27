@@ -35,6 +35,9 @@ function getCueLabel({ cue }: DaemonStatus): string {
   if (!cue) {
     return "None";
   }
+  if (cue.animationId === null) {
+    return `Blank from beat ${cue.beat}`;
+  }
   return `${cue.animationId}, section ${cue.section} from beat ${cue.beat}`;
 }
 

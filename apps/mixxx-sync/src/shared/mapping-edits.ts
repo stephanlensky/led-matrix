@@ -50,7 +50,17 @@ function setTrackCues(file: MappingFile, location: string, cues: readonly Cue[])
 
 export function addCue(file: MappingFile, location: string, cue: AnimationCue): MappingFile {
   const cues = getTrackCues(file, location).filter(({ beat }) => beat !== cue.beat);
+  const previous = cues.findLast(({ beat }) => beat < cue.beat);
+  if (previous?.end !== undefined && previous.end > cue.beat) {
+    previous.end = cue.beat;
+  }
   return setTrackCues(file, location, [...cues, cue]);
+}
+
+export function clearCueEnd(file: MappingFile, location: string, index: number): MappingFile {
+  const cues = getTrackCues(file, location);
+  cues[index] = getCueWithEnd(getCueAt(cues, index), undefined);
+  return setTrackCues(file, location, cues);
 }
 
 export function moveCue(

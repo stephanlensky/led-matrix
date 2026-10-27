@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MappingFile } from "./mapping.ts";
-import { addCue, moveCue, removeCue, resizeCue } from "./mapping-edits.ts";
+import { addCue, clearCueEnd, moveCue, removeCue, resizeCue } from "./mapping-edits.ts";
 
 const location = "/music/a.flac";
 
@@ -30,6 +30,12 @@ describe("addCue", () => {
       beat: 64,
       animation: "cat",
     });
+  });
+
+  it("ends a previous cue that overlaps the new cue", () => {
+    expect(addCue(file, location, { beat: 40, animation: "plasma" }).tracks[location]?.[1]).toEqual(
+      { beat: 32, end: 40, animation: "cat", section: "Spawn" },
+    );
   });
 
   it("creates a track", () => {
@@ -102,5 +108,15 @@ describe("removeCue", () => {
 
   it("rejects a missing cue", () => {
     expect(() => removeCue(file, location, 3)).toThrow("Cue 3 not found");
+  });
+});
+
+describe("clearCueEnd", () => {
+  it("removes the end of a cue", () => {
+    expect(clearCueEnd(file, location, 1).tracks[location]?.[1]).toEqual({
+      beat: 32,
+      animation: "cat",
+      section: "Spawn",
+    });
   });
 });

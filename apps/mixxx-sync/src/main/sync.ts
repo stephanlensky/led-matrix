@@ -1,6 +1,6 @@
 import type { PlaybackState } from "@led-matrix/core";
 import { getAudibleBeat, getBeatDelta, getLiveDeck } from "./decks.ts";
-import { type Mapping, type ResolvedCue, getCue } from "../shared/mapping.ts";
+import { type Mapping, type ResolvedCue, type SectionCue, getCue } from "../shared/mapping.ts";
 import type { MixxxState } from "./mixxx.ts";
 import type { ServerClient } from "./server.ts";
 
@@ -35,6 +35,12 @@ type ServerModel = { state: PlaybackState; receivedAt: number };
 
 export function getPhaseDrift(drift: number): number {
   return drift - Math.round(drift);
+}
+
+function getCueKey(location: string | undefined, cue: ResolvedCue): string {
+  return cue.animationId === null
+    ? [location, cue.beat].join("\n")
+    : [location, cue.beat, cue.animationId, cue.section, cue.beats].join("\n");
 }
 
 export function createSync({
@@ -94,7 +100,13 @@ export function createSync({
     return state.paused ? state.beat : state.beat + getBeatDelta(time - receivedAt, state.bpm);
   }
 
-  async function play(target: Target, cue: ResolvedCue, key: string): Promise<void> {
+  async function stop(cue: ResolvedCue, key: string): Promise<void> {
+    setModel(await server.stop());
+    playedKey = key;
+    log(`Stopped at blank cue beat ${cue.beat}`);
+  }
+
+  async function play(target: Target, cue: SectionCue, key: string): Promise<void> {
     const beat = Math.max(target.getBeat(getTime()) - cue.beat, 0);
     const { animationId: id, section, beats } = cue;
     setModel(await server.play({ id, section, beat, bpm: target.bpm, beats }));
@@ -105,8 +117,15 @@ export function createSync({
   async function apply(target: Target): Promise<void> {
     let current = await getModel();
     const { cue } = target;
+    if (cue?.animationId === null) {
+      const key = getCueKey(target.location, cue);
+      if (key !== playedKey || current.state.animationId !== null) {
+        await stop(cue, key);
+      }
+      return;
+    }
     if (cue) {
-      const key = [target.location, cue.beat, cue.animationId, cue.section, cue.beats].join("\n");
+      const key = getCueKey(target.location, cue);
       if (key !== playedKey || current.state.animationId !== cue.animationId) {
         await play(target, cue, key);
         return;

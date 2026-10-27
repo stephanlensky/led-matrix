@@ -44,12 +44,16 @@ export type Cue = z.infer<typeof cueSchema>;
 
 export type MappingFile = z.infer<typeof mappingSchema>;
 
-export type ResolvedCue = {
+export type SectionCue = {
   beat: number;
   animationId: string;
   section: number;
   beats: number | undefined;
 };
+
+export type BlankCue = { beat: number; animationId: null };
+
+export type ResolvedCue = SectionCue | BlankCue;
 
 export type Mapping = ReadonlyMap<string, readonly ResolvedCue[]>;
 
@@ -71,7 +75,7 @@ export function getResolvedCues(
   const resolved: ResolvedCue[] = [];
   const errors: string[] = [];
   let animationId = "";
-  for (const cue of cues) {
+  for (const [index, cue] of cues.entries()) {
     animationId = cue.animation ?? animationId;
     const animation = animationsById.get(animationId);
     if (!animation) {
@@ -85,8 +89,13 @@ export function getResolvedCues(
       );
       continue;
     }
-    const beats = cue.end === undefined ? undefined : cue.end - cue.beat;
+    const isOnce = animation.sections[section]?.mode.type === "once";
+    const beats = cue.end === undefined || !isOnce ? undefined : cue.end - cue.beat;
     resolved.push({ beat: cue.beat, animationId, section, beats });
+    const next = cues[index + 1];
+    if (cue.end !== undefined && (next === undefined || cue.end < next.beat)) {
+      resolved.push({ beat: cue.end, animationId: null });
+    }
   }
   return { cues: resolved, errors };
 }

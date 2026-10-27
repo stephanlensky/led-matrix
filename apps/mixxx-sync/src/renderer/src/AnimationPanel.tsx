@@ -3,6 +3,7 @@ import { AnimationList } from "@led-matrix/ui/components/animation-list";
 import { ListEmpty } from "@led-matrix/ui/components/list-row";
 import type { ApiClient } from "@led-matrix/ui/lib/api";
 import { type ReactNode, useCallback, useState } from "react";
+import { setCueDrag } from "./cue-drag.ts";
 import { type LoadState, useLoad } from "./useLibrary.ts";
 
 export function useAnimations(api: ApiClient): LoadState<StoredAnimation[]> {
@@ -43,6 +44,9 @@ export function AnimationPanel({
           setActiveSection(undefined);
         }}
         onSelectSection={setActiveSection}
+        onDragStart={(event, animationId, section) =>
+          setCueDrag(event, section === undefined ? { animationId } : { animationId, section })
+        }
       />
     );
   }

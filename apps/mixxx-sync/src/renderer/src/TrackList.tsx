@@ -25,7 +25,7 @@ import {
   getTrackNumberLabel,
 } from "../../shared/track-list.ts";
 import { getFraction } from "../../shared/track-scale.ts";
-import { type AnimationSource, AnimationLane } from "./AnimationLane.tsx";
+import { type AnimationSource, type LaneEditor, AnimationLane } from "./AnimationLane.tsx";
 import { PlayButton, Playhead } from "./Playback.tsx";
 import { type Player, usePlayerState } from "./player.ts";
 import { type LoadState, type TrackDataCache, useTrackData } from "./useLibrary.ts";
@@ -49,11 +49,12 @@ type LaneProps = {
   cache: TrackDataCache;
   cues: readonly Cue[] | undefined;
   source: AnimationSource;
+  editor: LaneEditor;
 };
 
 type RowProps = LaneProps & { track: Track; player: Player };
 
-function TrackLanes({ track, cache, cues, source }: LaneProps & { track: Track }) {
+function TrackLanes({ track, cache, cues, source, editor }: LaneProps & { track: Track }) {
   const data = useTrackData(cache, track.id);
 
   if (data.status === "error") {
@@ -82,7 +83,10 @@ function TrackLanes({ track, cache, cues, source }: LaneProps & { track: Track }
           duration={track.duration}
           beats={details?.beats}
           cues={cues}
+          mixxxCues={details?.cues ?? NO_CUES}
+          location={track.location}
           source={source}
+          editor={editor}
         />
       ) : (
         <Lane className="h-8" />
@@ -166,12 +170,14 @@ function VirtualTrackList({
   cache,
   source,
   player,
+  editor,
 }: {
   tracks: readonly Track[];
   mapping: MappingFile | undefined;
   cache: TrackDataCache;
   source: AnimationSource;
   player: Player;
+  editor: LaneEditor;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { top, height } = useViewport(scrollRef);
@@ -196,6 +202,7 @@ function VirtualTrackList({
               cues={mapping?.tracks[track.location]}
               source={source}
               player={player}
+              editor={editor}
             />
           </div>
         ))}
@@ -212,6 +219,7 @@ export function TrackList({
   cache,
   source,
   player,
+  editor,
 }: {
   title: string;
   tracks: LoadState<Track[]>;
@@ -220,6 +228,7 @@ export function TrackList({
   cache: TrackDataCache;
   source: AnimationSource;
   player: Player;
+  editor: LaneEditor;
 }) {
   const id = useId();
   const [search, setSearch] = useState("");
@@ -258,6 +267,7 @@ export function TrackList({
         cache={cache}
         source={source}
         player={player}
+        editor={editor}
       />
     );
   }

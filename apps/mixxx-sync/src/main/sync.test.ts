@@ -32,6 +32,11 @@ function createFakeServer(clock: { time: number }) {
   const server: ServerClient = {
     getState: async () => getState(),
     getAnimations: async () => [],
+    stop: async () => {
+      calls.push({ type: "stop" });
+      animationId = null;
+      return getState();
+    },
     play: async (body: PlayRequest) => {
       calls.push({ type: "play", body });
       animationId = body.id;
@@ -198,6 +203,32 @@ describe("sync", () => {
     expect(fake.calls).toHaveLength(1);
     expect(fake.calls[0]?.type).toBe("beat");
     expect(fake.calls[0]?.body).toBeCloseTo(2);
+  });
+
+  it("stops once at a blank cue and replays at the next cue", async () => {
+    const blank: Mapping = new Map([
+      [
+        location,
+        [
+          { beat: 16, animationId: "cat", section: 0, beats: undefined },
+          { beat: 32, animationId: null },
+          { beat: 64, animationId: "plasma", section: 0, beats: undefined },
+        ],
+      ],
+    ]);
+    const { clock, fake, update } = createHarness(blank);
+    await update([{ beat: 20 }]);
+    clock.time = 1000;
+    await update([{ beat: 33 }]);
+    clock.time = 3000;
+    await update([{ beat: 37 }]);
+    clock.time = 4000;
+    await update([{ beat: 64.5 }]);
+    expect(fake.calls).toEqual([
+      { type: "play", body: { id: "cat", section: 0, beat: 4, bpm: 120 } },
+      { type: "stop" },
+      { type: "play", body: { id: "plasma", section: 0, beat: 0.5, bpm: 120 } },
+    ]);
   });
 
   it("does nothing before the first cue while nothing is playing", async () => {

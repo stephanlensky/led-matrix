@@ -19,11 +19,9 @@ export const daemonSettingKeys = [
 
 export type FileSetting = "mappingFile" | "mixxxDatabasePath";
 
-export type CueStatus = {
-  beat: number;
-  animationId: string;
-  section: number;
-};
+export type CueStatus =
+  | { beat: number; animationId: string; section: number }
+  | { beat: number; animationId: null };
 
 export type DaemonStatus = {
   isRunning: boolean;
