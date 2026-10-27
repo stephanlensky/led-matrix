@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Track } from "../../shared/library.ts";
+import type { MixxxCue, Track } from "../../shared/library.ts";
 import type { MappingFile } from "../../shared/mapping.ts";
 import {
   getBpmLabel,
@@ -24,9 +24,11 @@ import {
   getTrackNumberLabel,
 } from "../../shared/track-list.ts";
 import { type LoadState, type TrackDataCache, useTrackData } from "./useLibrary.ts";
+import { WaveformLane } from "./WaveformLane.tsx";
 
 const ROW_HEIGHT = 112;
 const OVERSCAN = 4;
+const NO_CUES: readonly MixxxCue[] = [];
 
 function Lane({ className, children }: { className: string; children?: ReactNode }) {
   return (
@@ -64,7 +66,16 @@ function TrackLanes({
   const isLoaded = data.status === "loaded";
   return (
     <>
-      <Lane className="h-10">{isLoaded && !waveform && "No analysis"}</Lane>
+      {isLoaded ? (
+        <WaveformLane
+          duration={track.duration}
+          waveform={waveform}
+          beats={details?.beats}
+          cues={details?.cues ?? NO_CUES}
+        />
+      ) : (
+        <Lane className="h-10" />
+      )}
       <Lane className="h-8">
         {isLoaded &&
           (details?.beats ? (cueCount > 0 ? getCueCountLabel(cueCount) : "") : "No beat grid")}
