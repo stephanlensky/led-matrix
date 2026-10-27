@@ -7,6 +7,7 @@ Animation designer, simulator and server for a 64x64 HUB75 LED matrix driven by 
 - `packages/core` — frame model, effects, animation schema and renderer shared by server and web
 - `apps/server` — Fastify API and playback engine (runs TypeScript directly on Node)
 - `apps/web` — Vite + React frontend with the panel simulator
+- `apps/mixxx-sync` — laptop daemon that follows Mixxx and plays mapped animations in time with the music
 - `firmware` — PlatformIO (Arduino) firmware for the Matrix Portal S3
 
 ## Development
@@ -42,6 +43,33 @@ Flashing needs access to the serial port: on Arch, add yourself to the `uucp` gr
 ## Deployment
 
 GitHub Actions builds `ghcr.io/stephanlensky/led-matrix` from the `Dockerfile` on every push to `main`. The image serves the web build (`WEB_ROOT`) and the API on port 3000, listens for device status on UDP 7701 and keeps its database at `/data/led-matrix.db`. On cardinal it runs at `led-matrix.cardinal.slensky.com`; broadcasts don't reach the pod there, so the board needs `server_host = 192.168.1.183`.
+
+## Mixxx sync
+
+`apps/mixxx-sync` reads deck state from the Mixxx deck state server (Preferences → Decks → "Deck state server") and drives one output of the server.
+
+```sh
+pnpm --filter @led-matrix/mixxx-sync start mapping.json --server https://led-matrix.cardinal.slensky.com
+```
+
+Options: `--server` (`LED_MATRIX_URL`, default `http://localhost:3000`), `--output` (`LED_MATRIX_OUTPUT`, default `device`), `--socket` (`MIXXX_SOCKET`, default `$XDG_RUNTIME_DIR/mixxx-deck-state.sock`).
+
+The mapping file maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. The file is reloaded when it changes.
+
+```json
+{
+  "tracks": {
+    "/mnt/music/track.flac": [
+      { "beat": 0, "animation": "cat", "section": "Stare" },
+      { "beat": 128, "section": "Spawn" }
+    ]
+  }
+}
+```
+
+- The live deck is the playing deck with the highest volume after the crossfader; another deck takes over only once it is clearly louder.
+- When the live deck enters a new cue, the daemon plays its section from the beats since the cue, so the server's own section chaining (`once` into the next section) stays in time with the track. Loops and jumps in Mixxx are followed by moving the beat, or by replaying when they cross a cue.
+- On unmapped tracks and before the first cue, the current animation keeps playing; the daemon only follows the BPM and aligns the beat phase.
 
 ## API
 
