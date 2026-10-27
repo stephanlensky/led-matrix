@@ -2,7 +2,7 @@ import { type Animation, createRenderer, getAnimationLength } from "@led-matrix/
 import { RepeatIcon, SkipForwardIcon } from "lucide-react";
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { browserCanvas } from "../lib/browser-canvas.ts";
-import { useBrowserClips, useClipsVersion } from "../lib/clips.ts";
+import { useBrowserClips } from "../lib/clips.ts";
 import { getPositionLabel, getSectionName } from "../lib/section-labels.ts";
 import { cn } from "../lib/utils.ts";
 import { Button } from "./button.tsx";
@@ -50,7 +50,6 @@ export function Timeline({
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   const { clips } = useBrowserClips();
   const [renderer] = useState(() => createRenderer({ fps, canvas: browserCanvas, clips }));
-  const clipsVersion = useClipsVersion();
   const sections = animation?.sections ?? [];
   const current = position && sections[position.index];
   const canAdvance =
@@ -126,7 +125,6 @@ export function Timeline({
                   bpm={bpm}
                   fps={fps}
                   renderer={renderer}
-                  clipsVersion={clipsVersion}
                 />
                 {!isCurrent && <div className="absolute inset-0 bg-black/35" />}
                 <div

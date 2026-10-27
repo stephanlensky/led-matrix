@@ -1,6 +1,5 @@
 import { type Renderer, type StoredAnimation, createFrame } from "@led-matrix/core";
 import { Filmstrip } from "@led-matrix/ui/components/filmstrip";
-import { useClipsVersion } from "@led-matrix/ui/lib/clips";
 import { getSectionName } from "@led-matrix/ui/lib/section-labels";
 import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from "lucide-react";
 import {
@@ -168,7 +167,6 @@ function BlockFilmstrip({
   end: number;
   source: AnimationSource;
 }) {
-  const clipsVersion = useClipsVersion();
   const renderBlock = useRenderBlock(block);
   const { renderer, fps } = source;
   const getFrame = useCallback(
@@ -181,7 +179,7 @@ function BlockFilmstrip({
     },
     [renderBlock, scale, start, end, renderer, fps],
   );
-  return <Filmstrip getFrame={getFrame} version={clipsVersion} />;
+  return <Filmstrip getFrame={getFrame} />;
 }
 
 function SectionLabel({ block, section }: { block: AnimationBlock; section: number }) {

@@ -1,5 +1,5 @@
 import { type Clip, type ClipLibrary, createClip } from "@led-matrix/core";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext } from "react";
 import type { ApiClient } from "./api.ts";
 
 export type BrowserClips = {
@@ -64,11 +64,4 @@ export function useBrowserClips(): BrowserClips {
     throw new Error("Missing ClipsContext provider");
   }
   return clips;
-}
-
-export function useClipsVersion(): number {
-  const { subscribe } = useBrowserClips();
-  const [version, setVersion] = useState(0);
-  useEffect(() => subscribe(() => setVersion((current) => current + 1)), [subscribe]);
-  return version;
 }

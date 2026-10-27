@@ -78,20 +78,20 @@ export function LiveTimeline({ output, state, animations }: LiveTimelineProps) {
       .catch((cause: unknown) => setError(String(cause)));
   }
 
-  async function sendSeeks() {
-    isSeeking.current = true;
-    while (pendingSeek.current) {
-      const { index, progress } = pendingSeek.current;
-      pendingSeek.current = undefined;
-      await run(() => api.seek(output, index, progress));
+  function sendSeeks() {
+    const seek = pendingSeek.current;
+    isSeeking.current = seek !== undefined;
+    if (!seek) {
+      return;
     }
-    isSeeking.current = false;
+    pendingSeek.current = undefined;
+    void run(() => api.seek(output, seek.index, seek.progress)).then(sendSeeks);
   }
 
   function seekTo(index: number, progress: number) {
     pendingSeek.current = { index, progress };
     if (!isSeeking.current) {
-      void sendSeeks();
+      sendSeeks();
     }
   }
 

@@ -9,12 +9,12 @@ import {
   getAnimationLength,
 } from "@led-matrix/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useBrowserClips } from "../lib/clips.ts";
 
 const RENDER_DELAY_MS = 150;
 
 type FilmstripProps = {
   getFrame: (progress: number) => Frame;
-  version: unknown;
 };
 
 type Size = { width: number; height: number };
@@ -28,14 +28,11 @@ function getImageData(frame: Frame): ImageData {
   return image;
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export function Filmstrip({ getFrame, version }: FilmstripProps) {
+export function Filmstrip({ getFrame }: FilmstripProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState<Size>();
+  const { subscribe } = useBrowserClips();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -57,7 +54,6 @@ export function Filmstrip({ getFrame, version }: FilmstripProps) {
     if (!canvas || !size || size.width === 0 || size.height === 0) {
       return undefined;
     }
-    let isCancelled = false;
     const tile = size.height;
     const count = Math.ceil(size.width / tile);
     const pixels = new OffscreenCanvas(WIDTH, HEIGHT);
@@ -65,35 +61,38 @@ export function Filmstrip({ getFrame, version }: FilmstripProps) {
 
     const strip = new OffscreenCanvas(size.width, tile);
     const stripContext = strip.getContext("2d");
+    if (!pixelContext || !stripContext) {
+      return undefined;
+    }
+    stripContext.imageSmoothingQuality = "high";
 
-    async function draw() {
+    function drawTile(index: number) {
       if (!canvas || !pixelContext || !stripContext) {
         return;
       }
-      await wait(RENDER_DELAY_MS);
-      stripContext.imageSmoothingQuality = "high";
-      for (let index = 0; index < count; index++) {
-        if (isCancelled) {
-          return;
-        }
-        const progress = Math.min(((index + 0.5) * tile) / strip.width, 1);
-        pixelContext.putImageData(getImageData(getFrame(progress)), 0, 0);
-        stripContext.drawImage(pixels, index * tile, 0, tile, tile);
-        await wait(0);
-      }
-      if (!isCancelled) {
+      if (index === count) {
         canvas.width = strip.width;
         canvas.height = strip.height;
         canvas.style.width = `${strip.width / devicePixelRatio}px`;
         canvas.getContext("2d")?.drawImage(strip, 0, 0);
+        return;
       }
+      const progress = Math.min(((index + 0.5) * tile) / strip.width, 1);
+      pixelContext.putImageData(getImageData(getFrame(progress)), 0, 0);
+      stripContext.drawImage(pixels, index * tile, 0, tile, tile);
+      timeout = setTimeout(() => drawTile(index + 1), 0);
     }
 
-    draw().catch(() => undefined);
+    let timeout = setTimeout(() => drawTile(0), RENDER_DELAY_MS);
+    const unsubscribe = subscribe(() => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => drawTile(0), RENDER_DELAY_MS);
+    });
     return () => {
-      isCancelled = true;
+      clearTimeout(timeout);
+      unsubscribe();
     };
-  }, [getFrame, version, size]);
+  }, [getFrame, size, subscribe]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 overflow-hidden">
@@ -108,7 +107,6 @@ type SectionFilmstripProps = {
   bpm: number;
   fps: number;
   renderer: Renderer;
-  clipsVersion: number;
 };
 
 export function SectionFilmstrip({
@@ -117,7 +115,6 @@ export function SectionFilmstrip({
   bpm,
   fps,
   renderer,
-  clipsVersion,
 }: SectionFilmstripProps) {
   const getFrame = useCallback(
     (progress: number) => {
@@ -127,5 +124,5 @@ export function SectionFilmstrip({
     },
     [animation, section, bpm, fps, renderer],
   );
-  return <Filmstrip getFrame={getFrame} version={clipsVersion} />;
+  return <Filmstrip getFrame={getFrame} />;
 }

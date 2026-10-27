@@ -6,7 +6,7 @@ import {
 } from "@led-matrix/core";
 import { Button } from "@led-matrix/ui/components/button";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
-import { useClipsVersion } from "@led-matrix/ui/lib/clips";
+import { useBrowserClips } from "@led-matrix/ui/lib/clips";
 import { PauseIcon, PlayIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAnimationLane, getLanePosition } from "../../shared/animation-lane.ts";
@@ -78,7 +78,7 @@ function TrackSimulator({
   cache: TrackDataCache;
   source: AnimationSource;
 }) {
-  const clipsVersion = useClipsVersion();
+  const { subscribe } = useBrowserClips();
   const load = useCallback(() => cache.get(track.id), [cache, track.id]);
   const data = useLoad(load);
   const beats = data.status === "loaded" ? data.value.details?.beats : undefined;
@@ -116,8 +116,14 @@ function TrackSimulator({
       }
     };
     request = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(request);
-  }, [beats, blocks, player, renderer, fps, clipsVersion]);
+    const unsubscribe = subscribe(() => {
+      lastKey = undefined;
+    });
+    return () => {
+      cancelAnimationFrame(request);
+      unsubscribe();
+    };
+  }, [beats, blocks, player, renderer, fps, subscribe]);
 
   return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
 }
@@ -133,7 +139,7 @@ function PreviewSimulator({
   bpm: number;
   source: AnimationSource;
 }) {
-  const clipsVersion = useClipsVersion();
+  const { subscribe } = useBrowserClips();
   const { renderer, fps } = source;
   const [frame, setFrame] = useState<Frame>(blankFrame);
 
@@ -153,8 +159,14 @@ function PreviewSimulator({
       }
     };
     request = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(request);
-  }, [animation, preview, bpm, renderer, fps, clipsVersion]);
+    const unsubscribe = subscribe(() => {
+      lastKey = undefined;
+    });
+    return () => {
+      cancelAnimationFrame(request);
+      unsubscribe();
+    };
+  }, [animation, preview, bpm, renderer, fps, subscribe]);
 
   return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
 }

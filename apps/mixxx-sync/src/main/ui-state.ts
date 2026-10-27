@@ -4,12 +4,14 @@ import type { UiState } from "../shared/api.ts";
 
 const WRITE_DELAY = 500;
 
+function isUiState(value: unknown): value is UiState {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 async function readUiState(path: string): Promise<UiState> {
   try {
     const value: unknown = JSON.parse(await readFile(path, "utf8"));
-    return typeof value === "object" && value !== null && !Array.isArray(value)
-      ? (value as UiState)
-      : {};
+    return isUiState(value) ? value : {};
   } catch {
     return {};
   }

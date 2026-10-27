@@ -122,7 +122,7 @@ export function useTrackZoom(
   useLayoutEffect(() => {
     const element = scrollRef.current;
     const view = viewRef.current;
-    if (element && view.isPending) {
+    if (element && view.isPending && view.zoom === zoom) {
       element.scrollLeft = view.start * element.scrollWidth;
       view.isPending = false;
     }
