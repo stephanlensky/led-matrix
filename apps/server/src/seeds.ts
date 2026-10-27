@@ -324,7 +324,7 @@ const rumble: AnimationInput = {
   ],
   sections: [
     ...RUMBLE_WORDS.map((word, index) => getRumbleSection(word, 1, `word${index + 1}`)),
-    getRumbleSection(RUMBLE_TEXT, 8, "rumble", {
+    getRumbleSection(RUMBLE_TEXT, 6, "rumble", {
       scroll: {
         keyframes: [
           { at: 0, value: 0 },
@@ -345,8 +345,6 @@ const loadingParameter = getParameter(
   ),
   "Red",
 );
-
-const textColors = { White: WHITE, Orange: ORANGE, Purple: PURPLE, Green: GREEN };
 
 const squarePairs: Readonly<Record<string, Palette>> = {
   "Pink/cyan": [PINK, CYAN],
@@ -407,11 +405,35 @@ export const replacedSeedIds = [
   "rings-tunnel",
   "rings-squares",
   "rings-diamond",
+  "text-over-plasma",
+  "plasma-kaleidoscope",
+  "sunrise-fade",
 ];
 
 export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("Basics", {
-    plasma: getLoop("Plasma", 16, [{ effect: "plasma", params: { cycles: 1, scale: 1.2 } }]),
+    plasma: getLoop(
+      "Plasma",
+      16,
+      [
+        { effect: "plasma", params: getReferences(["cycles", "scale"]) },
+        {
+          effect: "kaleidoscope",
+          params: { segments: 8, rotations: 1, mix: { param: "kaleidoscopeMix" } },
+        },
+        { effect: "chromatic", params: { offset: { param: "chromaticOffset" }, pulse: 2 } },
+      ],
+      [
+        getParameter(
+          "Style",
+          {
+            Plain: { cycles: 1, scale: 1.2, kaleidoscopeMix: 0, chromaticOffset: 0 },
+            Kaleidoscope: { cycles: 2, scale: 1.5, kaleidoscopeMix: 1, chromaticOffset: 1 },
+          },
+          "Plain",
+        ),
+      ],
+    ),
     strobe: getLoop(
       "Strobe",
       1,
@@ -469,50 +491,6 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       ],
       [getPairParameter("Pink/cyan", squarePairs)],
     ),
-    "text-over-plasma": getLoop(
-      "Text over plasma",
-      16,
-      [
-        { effect: "plasma", params: { cycles: 2, brightness: 0.35 } },
-        {
-          effect: "scrolling-text",
-          params: {
-            text: "TURN IT UP",
-            font: "spleen-8x16",
-            color: { param: "color" },
-            cycles: 2,
-          },
-        },
-      ],
-      [getColorParameter("White", textColors)],
-    ),
-    "plasma-kaleidoscope": getLoop("Plasma kaleidoscope", 16, [
-      { effect: "plasma", params: { cycles: 2, scale: 1.5 } },
-      { effect: "kaleidoscope", params: { segments: 8, rotations: 1 } },
-      { effect: "chromatic", params: { offset: 1, pulse: 2 } },
-    ]),
-    "sunrise-fade": {
-      name: "Sunrise fade",
-      sections: [
-        {
-          mode: { type: "once", ms: 20_000 },
-          layers: [
-            {
-              effect: "solid",
-              params: {
-                color: {
-                  keyframes: [
-                    { at: 0, value: "#000000", easing: "easeInQuad" },
-                    { at: 0.6, value: "#ff4000", easing: "easeInOutSine" },
-                    { at: 1, value: "#ffd080" },
-                  ],
-                },
-              },
-            },
-          ],
-        },
-      ],
-    },
     "color-fade": getLoop(
       "Color fade",
       16,

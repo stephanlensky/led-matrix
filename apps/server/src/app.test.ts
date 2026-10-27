@@ -189,7 +189,7 @@ describe("playback", () => {
     });
     expect(played.json()).toEqual({
       animationId: "plasma",
-      params: {},
+      params: { Style: "Plain" },
       bpm: 120,
       fps: 30,
       beat: expect.any(Number),

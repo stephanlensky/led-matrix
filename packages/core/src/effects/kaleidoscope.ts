@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineEffect } from "../effect.ts";
-import { HEIGHT, WIDTH } from "../frame.ts";
+import { HEIGHT, RGBA_CHANNELS, WIDTH } from "../frame.ts";
 import { createRgba, getReflected, samplingModes, sampleImage, setRgba } from "../sample.ts";
 
 export const kaleidoscope = defineEffect({
@@ -12,6 +12,7 @@ export const kaleidoscope = defineEffect({
     rotations: z.number().int().min(-8).max(8).default(1),
     zoom: z.number().min(0.25).max(4).default(1),
     sampling: z.enum(samplingModes).default("bilinear"),
+    mix: z.number().min(0).max(1).default(1),
   }),
   render(image, { params, progress, source }) {
     const segment = (Math.PI * 2) / params.segments;
@@ -33,6 +34,11 @@ export const kaleidoscope = defineEffect({
           params.sampling,
           color,
         );
+        const offset = (y * WIDTH + x) * RGBA_CHANNELS;
+        for (let channel = 0; channel < RGBA_CHANNELS; channel++) {
+          const original = source[offset + channel] ?? 0;
+          color[channel] = original + ((color[channel] ?? 0) - original) * params.mix;
+        }
         setRgba(image, x, y, color);
       }
     }

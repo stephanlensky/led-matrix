@@ -71,6 +71,7 @@ const migrations: readonly Migration[] = [
   updateAnimationSections,
   removeReplacedSeeds,
   removeReplacedSeeds,
+  removeReplacedSeeds,
 ];
 
 function getVersion(connection: DatabaseSync): number {
