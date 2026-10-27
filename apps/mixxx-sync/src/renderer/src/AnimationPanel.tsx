@@ -2,14 +2,13 @@ import { type StoredAnimation, createFrame } from "@led-matrix/core";
 import { AnimationList } from "@led-matrix/ui/components/animation-list";
 import { ListEmpty } from "@led-matrix/ui/components/list-row";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
-import { createApiClient } from "@led-matrix/ui/lib/api";
-import { useCallback, useMemo, useState } from "react";
+import type { ApiClient } from "@led-matrix/ui/lib/api";
+import { useCallback, useState } from "react";
 import { type LoadState, useLoad } from "./useLibrary.ts";
 
 const blankFrame = createFrame();
 
-export function useAnimations(serverUrl: string): LoadState<StoredAnimation[]> {
-  const api = useMemo(() => createApiClient(serverUrl.replace(/\/+$/, "")), [serverUrl]);
+export function useAnimations(api: ApiClient): LoadState<StoredAnimation[]> {
   const load = useCallback(() => api.getAnimations(), [api]);
   return useLoad(load);
 }

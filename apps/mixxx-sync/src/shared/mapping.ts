@@ -64,6 +64,33 @@ function getSectionIndex(animation: StoredAnimation, section: Cue["section"]): n
   return index === -1 ? undefined : index;
 }
 
+export function getResolvedCues(
+  cues: readonly Cue[],
+  animationsById: ReadonlyMap<string, StoredAnimation>,
+): { cues: ResolvedCue[]; errors: string[] } {
+  const resolved: ResolvedCue[] = [];
+  const errors: string[] = [];
+  let animationId = "";
+  for (const cue of cues) {
+    animationId = cue.animation ?? animationId;
+    const animation = animationsById.get(animationId);
+    if (!animation) {
+      errors.push(`beat ${cue.beat}: animation "${animationId}" not found`);
+      continue;
+    }
+    const section = getSectionIndex(animation, cue.section);
+    if (section === undefined) {
+      errors.push(
+        `beat ${cue.beat}: section ${JSON.stringify(cue.section)} not found in "${animationId}"`,
+      );
+      continue;
+    }
+    const beats = cue.end === undefined ? undefined : cue.end - cue.beat;
+    resolved.push({ beat: cue.beat, animationId, section, beats });
+  }
+  return { cues: resolved, errors };
+}
+
 export function getResolvedMapping(
   file: MappingFile,
   animations: readonly StoredAnimation[],
@@ -72,27 +99,10 @@ export function getResolvedMapping(
   const mapping = new Map<string, ResolvedCue[]>();
   const errors: string[] = [];
   for (const [location, cues] of Object.entries(file.tracks)) {
-    const resolved: ResolvedCue[] = [];
-    let animationId = "";
-    for (const cue of cues) {
-      animationId = cue.animation ?? animationId;
-      const animation = animationsById.get(animationId);
-      if (!animation) {
-        errors.push(`${location} beat ${cue.beat}: animation "${animationId}" not found`);
-        continue;
-      }
-      const section = getSectionIndex(animation, cue.section);
-      if (section === undefined) {
-        errors.push(
-          `${location} beat ${cue.beat}: section ${JSON.stringify(cue.section)} not found in "${animationId}"`,
-        );
-        continue;
-      }
-      const beats = cue.end === undefined ? undefined : cue.end - cue.beat;
-      resolved.push({ beat: cue.beat, animationId, section, beats });
-    }
-    if (resolved.length === cues.length) {
-      mapping.set(location, resolved);
+    const resolved = getResolvedCues(cues, animationsById);
+    errors.push(...resolved.errors.map((error) => `${location} ${error}`));
+    if (resolved.errors.length === 0) {
+      mapping.set(location, resolved.cues);
     }
   }
   return { mapping, errors };

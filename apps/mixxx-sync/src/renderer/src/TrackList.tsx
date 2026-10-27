@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 import type { MixxxCue, Track } from "../../shared/library.ts";
-import type { MappingFile } from "../../shared/mapping.ts";
+import type { Cue, MappingFile } from "../../shared/mapping.ts";
 import {
   getBpmLabel,
   getColorLabel,
@@ -23,6 +23,7 @@ import {
   getFilteredTracks,
   getTrackNumberLabel,
 } from "../../shared/track-list.ts";
+import { type AnimationSource, AnimationLane } from "./AnimationLane.tsx";
 import { type LoadState, type TrackDataCache, useTrackData } from "./useLibrary.ts";
 import { WaveformLane } from "./WaveformLane.tsx";
 
@@ -40,19 +41,13 @@ function Lane({ className, children }: { className: string; children?: ReactNode
   );
 }
 
-function getCueCountLabel(count: number): string {
-  return `${count} ${count === 1 ? "cue" : "cues"}`;
-}
-
-function TrackLanes({
-  track,
-  cache,
-  cueCount,
-}: {
-  track: Track;
+type LaneProps = {
   cache: TrackDataCache;
-  cueCount: number;
-}) {
+  cues: readonly Cue[] | undefined;
+  source: AnimationSource;
+};
+
+function TrackLanes({ track, cache, cues, source }: LaneProps & { track: Track }) {
   const data = useTrackData(cache, track.id);
 
   if (data.status === "error") {
@@ -76,23 +71,21 @@ function TrackLanes({
       ) : (
         <Lane className="h-10" />
       )}
-      <Lane className="h-8">
-        {isLoaded &&
-          (details?.beats ? (cueCount > 0 ? getCueCountLabel(cueCount) : "") : "No beat grid")}
-      </Lane>
+      {isLoaded ? (
+        <AnimationLane
+          duration={track.duration}
+          beats={details?.beats}
+          cues={cues}
+          source={source}
+        />
+      ) : (
+        <Lane className="h-8" />
+      )}
     </>
   );
 }
 
-function TrackRow({
-  track,
-  cache,
-  cueCount,
-}: {
-  track: Track;
-  cache: TrackDataCache;
-  cueCount: number;
-}) {
+function TrackRow({ track, ...props }: LaneProps & { track: Track }) {
   return (
     <div className="flex h-full flex-col gap-1.5 border-b px-3 py-2">
       <div className="flex h-5 items-center gap-3 text-sm">
@@ -120,7 +113,7 @@ function TrackRow({
         </span>
       </div>
       <div className="flex flex-1 flex-col gap-1 pl-11">
-        <TrackLanes track={track} cache={cache} cueCount={cueCount} />
+        <TrackLanes track={track} {...props} />
       </div>
     </div>
   );
@@ -152,10 +145,12 @@ function VirtualTrackList({
   tracks,
   mapping,
   cache,
+  source,
 }: {
   tracks: readonly Track[];
   mapping: MappingFile | undefined;
   cache: TrackDataCache;
+  source: AnimationSource;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { top, height } = useViewport(scrollRef);
@@ -177,7 +172,8 @@ function VirtualTrackList({
             <TrackRow
               track={track}
               cache={cache}
-              cueCount={mapping?.tracks[track.location]?.length ?? 0}
+              cues={mapping?.tracks[track.location]}
+              source={source}
             />
           </div>
         ))}
@@ -192,12 +188,14 @@ export function TrackList({
   mapping,
   mappingError,
   cache,
+  source,
 }: {
   title: string;
   tracks: LoadState<Track[]>;
   mapping: MappingFile | undefined;
   mappingError: string | undefined;
   cache: TrackDataCache;
+  source: AnimationSource;
 }) {
   const id = useId();
   const [search, setSearch] = useState("");
@@ -228,7 +226,15 @@ export function TrackList({
     if (filteredTracks.length === 0) {
       return <ListEmpty>No tracks</ListEmpty>;
     }
-    return <VirtualTrackList key={title} tracks={filteredTracks} mapping={mapping} cache={cache} />;
+    return (
+      <VirtualTrackList
+        key={title}
+        tracks={filteredTracks}
+        mapping={mapping}
+        cache={cache}
+        source={source}
+      />
+    );
   }
 
   return (
