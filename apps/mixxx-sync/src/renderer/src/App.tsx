@@ -3,6 +3,7 @@ import { TooltipProvider } from "@led-matrix/ui/components/tooltip";
 import { PencilRulerIcon, RadioTowerIcon, SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import { Daemon } from "./Daemon.tsx";
+import { Editor } from "./Editor.tsx";
 import { Settings } from "./Settings.tsx";
 
 type View = "daemon" | "editor" | "settings";
@@ -15,6 +16,10 @@ const views: readonly NavigationItem<View>[] = [
 
 export function App() {
   const [view, setView] = useState<View>("daemon");
+  const [hasOpenedEditor, setHasOpenedEditor] = useState(false);
+  if (view === "editor" && !hasOpenedEditor) {
+    setHasOpenedEditor(true);
+  }
 
   return (
     <TooltipProvider>
@@ -24,6 +29,11 @@ export function App() {
           <div className={view === "daemon" ? "contents" : "hidden"}>
             <Daemon />
           </div>
+          {hasOpenedEditor && (
+            <div className={view === "editor" ? "contents" : "hidden"}>
+              <Editor />
+            </div>
+          )}
           <div className={view === "settings" ? "contents" : "hidden"}>
             <Settings />
           </div>
