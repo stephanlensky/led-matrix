@@ -8,6 +8,7 @@ export * from "./color.ts";
 export * from "./device-protocol.ts";
 export * from "./effect.ts";
 export * from "./effects/index.ts";
+export * from "./folders.ts";
 export * from "./fonts/index.ts";
 export * from "./frame.ts";
 export * from "./keyframes.ts";

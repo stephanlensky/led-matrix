@@ -90,6 +90,21 @@ describe("animations", () => {
     expect(created.statusCode).toBe(200);
   });
 
+  it("moves existing seed animations into their folders on restart", async () => {
+    await app.inject({
+      method: "PUT",
+      url: "/api/animations/plasma",
+      body: { ...seedAnimations["plasma"], folder: undefined },
+    });
+    const before = await app.inject({ method: "GET", url: "/api/animations/plasma" });
+    expect(before.json<{ folder?: string }>().folder).toBeUndefined();
+    await app.close();
+    app = createApp({ databasePath, logger: false });
+    await app.ready();
+    const after = await app.inject({ method: "GET", url: "/api/animations/plasma" });
+    expect(after.json<{ folder?: string }>().folder).toBe("Basics");
+  });
+
   it("creates animations with ids derived from their name", async () => {
     const first = await app.inject({ method: "POST", url: "/api/animations", body: animation });
     expect(first.statusCode).toBe(201);

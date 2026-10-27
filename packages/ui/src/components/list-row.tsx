@@ -2,12 +2,19 @@ import type { DragEvent, ReactNode } from "react";
 import { TruncatedText } from "./truncated-text.tsx";
 import { cn } from "../lib/utils.ts";
 
+const INDENT_REM = 1;
+
+export function getIndent(depth: number, offset = 0.75): string {
+  return `${offset + depth * INDENT_REM}rem`;
+}
+
 type ListRowProps = {
   icon: ReactNode;
   title: string;
   subtitle: string;
   detail: string;
   isActive?: boolean;
+  depth?: number;
   onClick?: () => void;
   onDragStart?: (event: DragEvent<HTMLElement>) => void;
 };
@@ -18,6 +25,7 @@ export function ListRow({
   subtitle,
   detail,
   isActive = false,
+  depth = 0,
   onClick,
   onDragStart,
 }: ListRowProps) {
@@ -29,6 +37,7 @@ export function ListRow({
       onClick={onClick}
       draggable={onDragStart !== undefined}
       onDragStart={onDragStart}
+      style={{ paddingLeft: getIndent(depth) }}
       className={cn(
         "flex w-full items-center gap-3 border-l-2 border-transparent px-3 py-2 text-left outline-none hover:bg-muted/60 focus-visible:bg-muted disabled:cursor-default disabled:hover:bg-transparent",
         isActive && "border-foreground bg-muted hover:bg-muted",

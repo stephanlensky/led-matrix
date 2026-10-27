@@ -1,7 +1,14 @@
-import { type StoredAnimation, getEffect } from "@led-matrix/core";
-import { MoveRightIcon, PlayIcon, RepeatIcon } from "lucide-react";
-import type { DragEvent } from "react";
-import { ListEmpty, ListRow } from "./list-row.tsx";
+import {
+  type AnimationFolder,
+  type StoredAnimation,
+  getAnimationCount,
+  getEffect,
+  getFolderAncestors,
+  getFolderTree,
+} from "@led-matrix/core";
+import { ChevronRightIcon, FolderIcon, MoveRightIcon, PlayIcon, RepeatIcon } from "lucide-react";
+import { type DragEvent, type ReactNode, useState } from "react";
+import { ListEmpty, ListRow, getIndent } from "./list-row.tsx";
 import { getLengthLabel, getSectionName } from "../lib/section-labels.ts";
 import { TruncatedText } from "./truncated-text.tsx";
 import { cn } from "../lib/utils.ts";
@@ -13,6 +20,7 @@ type AnimationListProps = {
   onPlay: (id: string) => void;
   onSelectSection: (index: number) => void;
   onDragStart?: AnimationDragHandler;
+  isExpanded?: boolean;
 };
 
 export type AnimationDragHandler = (
@@ -35,21 +43,7 @@ function getEffectsLabel({ sections }: StoredAnimation): string {
   return [...new Set(names)].join(" + ");
 }
 
-type SectionListProps = {
-  animation: StoredAnimation;
-  isExpanded: boolean;
-  activeSection: number | undefined;
-  onSelect: (index: number) => void;
-  onDragStart: AnimationDragHandler | undefined;
-};
-
-function SectionList({
-  animation,
-  isExpanded,
-  activeSection,
-  onSelect,
-  onDragStart,
-}: SectionListProps) {
+function Collapse({ isExpanded, children }: { isExpanded: boolean; children: ReactNode }) {
   return (
     <div
       inert={!isExpanded}
@@ -58,7 +52,31 @@ function SectionList({
         isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
       )}
     >
-      <ol className="overflow-hidden bg-muted/40">
+      <div className="overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+type SectionListProps = {
+  animation: StoredAnimation;
+  depth: number;
+  isExpanded: boolean;
+  activeSection: number | undefined;
+  onSelect: (index: number) => void;
+  onDragStart: AnimationDragHandler | undefined;
+};
+
+function SectionList({
+  animation,
+  depth,
+  isExpanded,
+  activeSection,
+  onSelect,
+  onDragStart,
+}: SectionListProps) {
+  return (
+    <Collapse isExpanded={isExpanded}>
+      <ol className="bg-muted/40">
         {animation.sections.map((section, index) => {
           const isActive = index === activeSection;
           const ModeIcon = section.mode.type === "loop" ? RepeatIcon : MoveRightIcon;
@@ -70,8 +88,9 @@ function SectionList({
                 onClick={() => onSelect(index)}
                 draggable={onDragStart !== undefined}
                 onDragStart={(event) => onDragStart?.(event, animation.id, index)}
+                style={{ paddingLeft: getIndent(depth, 2.25) }}
                 className={cn(
-                  "flex w-full items-center gap-2 border-l-2 border-foreground py-1.5 pr-3 pl-9 text-left text-xs text-muted-foreground outline-none hover:bg-muted focus-visible:bg-muted",
+                  "flex w-full items-center gap-2 border-l-2 border-foreground py-1.5 pr-3 text-left text-xs text-muted-foreground outline-none hover:bg-muted focus-visible:bg-muted",
                   isActive && "text-foreground",
                 )}
               >
@@ -83,29 +102,67 @@ function SectionList({
           );
         })}
       </ol>
-    </div>
+    </Collapse>
   );
 }
 
-export function AnimationList({
-  animations,
-  activeId,
-  activeSection,
-  onPlay,
-  onSelectSection,
-  onDragStart,
-}: AnimationListProps) {
-  if (animations.length === 0) {
-    return <ListEmpty>No animations</ListEmpty>;
-  }
+type FolderContentsProps = Omit<AnimationListProps, "animations" | "isExpanded"> & {
+  folder: AnimationFolder;
+  depth: number;
+  expandedFolders: ReadonlySet<string>;
+  onToggleFolder: (path: string) => void;
+};
+
+function FolderContents(props: FolderContentsProps) {
+  const {
+    folder,
+    depth,
+    expandedFolders,
+    onToggleFolder,
+    activeId,
+    activeSection,
+    onPlay,
+    onSelectSection,
+    onDragStart,
+  } = props;
   return (
     <ul>
-      {animations.map((animation) => {
+      {folder.folders.map((child) => {
+        const isExpanded = expandedFolders.has(child.path);
+        return (
+          <li key={child.path}>
+            <button
+              type="button"
+              aria-expanded={isExpanded}
+              onClick={() => onToggleFolder(child.path)}
+              style={{ paddingLeft: getIndent(depth) }}
+              className="flex w-full items-center gap-2 border-l-2 border-transparent py-1.5 pr-3 text-left text-sm outline-none hover:bg-muted/60 focus-visible:bg-muted"
+            >
+              <ChevronRightIcon
+                className={cn(
+                  "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                  isExpanded && "rotate-90",
+                )}
+              />
+              <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
+              <TruncatedText className="flex-1">{child.name}</TruncatedText>
+              <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                {getAnimationCount(child)}
+              </span>
+            </button>
+            <Collapse isExpanded={isExpanded}>
+              <FolderContents {...props} folder={child} depth={depth + 1} />
+            </Collapse>
+          </li>
+        );
+      })}
+      {folder.animations.map((animation) => {
         const isActive = animation.id === activeId;
         return (
           <li key={animation.id}>
             <ListRow
               isActive={isActive}
+              depth={depth}
               icon={<PlayIcon />}
               title={animation.name}
               subtitle={getEffectsLabel(animation)}
@@ -116,6 +173,7 @@ export function AnimationList({
             {animation.sections.length > 1 && (
               <SectionList
                 animation={animation}
+                depth={depth}
                 isExpanded={isActive}
                 activeSection={isActive ? activeSection : undefined}
                 onSelect={onSelectSection}
@@ -126,5 +184,50 @@ export function AnimationList({
         );
       })}
     </ul>
+  );
+}
+
+function getActiveFolder(
+  animations: readonly StoredAnimation[],
+  activeId: string | null | undefined,
+): string | undefined {
+  return animations.find(({ id }) => id === activeId)?.folder;
+}
+
+function getAllFolders(folder: AnimationFolder): string[] {
+  return folder.folders.flatMap((child) => [child.path, ...getAllFolders(child)]);
+}
+
+export function AnimationList({ animations, isExpanded = false, ...props }: AnimationListProps) {
+  const activeFolder = getActiveFolder(animations, props.activeId);
+  const [expandedFolders, setExpandedFolders] = useState(
+    () => new Set(getFolderAncestors(activeFolder)),
+  );
+  const [revealedFolder, setRevealedFolder] = useState(activeFolder);
+  if (activeFolder !== revealedFolder) {
+    setRevealedFolder(activeFolder);
+    setExpandedFolders(new Set([...expandedFolders, ...getFolderAncestors(activeFolder)]));
+  }
+  if (animations.length === 0) {
+    return <ListEmpty>No animations</ListEmpty>;
+  }
+  const tree = getFolderTree(animations);
+
+  function toggleFolder(path: string) {
+    const next = new Set(expandedFolders);
+    if (!next.delete(path)) {
+      next.add(path);
+    }
+    setExpandedFolders(next);
+  }
+
+  return (
+    <FolderContents
+      {...props}
+      folder={tree}
+      depth={0}
+      expandedFolders={isExpanded ? new Set(getAllFolders(tree)) : expandedFolders}
+      onToggleFolder={toggleFolder}
+    />
   );
 }

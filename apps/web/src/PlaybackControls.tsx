@@ -25,7 +25,9 @@ type PlaybackControlsProps = {
 
 function getMatches(items: readonly StoredAnimation[], query: string): StoredAnimation[] {
   const normalizedQuery = query.trim().toLowerCase();
-  return items.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
+  return items.filter((item) =>
+    [item.name, item.folder ?? ""].some((text) => text.toLowerCase().includes(normalizedQuery)),
+  );
 }
 
 export function PlaybackControls({
@@ -103,6 +105,7 @@ export function PlaybackControls({
         <div className="-mx-(--card-spacing) min-h-24 overflow-y-auto overscroll-contain scrollbar-thin">
           <AnimationList
             animations={getMatches(animations, query)}
+            isExpanded={query.trim() !== ""}
             activeId={state?.animationId}
             activeSection={state?.section?.index}
             onPlay={(id) => run(() => api.play(output, id))}

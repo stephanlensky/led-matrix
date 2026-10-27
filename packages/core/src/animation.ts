@@ -49,8 +49,24 @@ export const sectionSchema = z.object({
   layers: z.array(layerSchema).min(1),
 });
 
+export const FOLDER_SEPARATOR = "/";
+
+export function getFolderPath(folder: string | undefined): string[] {
+  return (folder ?? "")
+    .split(FOLDER_SEPARATOR)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+export const folderSchema = z
+  .string()
+  .max(200)
+  .transform((folder) => getFolderPath(folder).join(FOLDER_SEPARATOR) || undefined)
+  .optional();
+
 export const animationObjectSchema = z.object({
   name: z.string().min(1).max(100),
+  folder: folderSchema,
   sections: z
     .array(sectionSchema)
     .min(1)

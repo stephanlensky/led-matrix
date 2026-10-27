@@ -1,5 +1,6 @@
 import {
   type Animation,
+  type AnimationFolder,
   type AnimationMode,
   type ClipInfo,
   type Layer,
@@ -9,6 +10,8 @@ import {
   animationSchema,
   blendModes,
   getEffect,
+  getFolderTree,
+  getFolders,
   getParamFields,
 } from "@led-matrix/core";
 import { PlayIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
@@ -39,7 +42,9 @@ import { Label } from "@led-matrix/ui/components/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@led-matrix/ui/components/select";
@@ -102,6 +107,25 @@ function getMode(type: ModeType, unit: LengthUnit, value: number): AnimationMode
 
 function getEditorPathname(id: string | undefined): string {
   return id === undefined ? "/editor" : `/editor/${encodeURIComponent(id)}`;
+}
+
+function getFolderGroups(folder: AnimationFolder): AnimationFolder[] {
+  return [folder, ...folder.folders.flatMap(getFolderGroups)].filter(
+    ({ animations }) => animations.length > 0,
+  );
+}
+
+function AnimationSelectItems({ animations }: { animations: readonly StoredAnimation[] }) {
+  return getFolderGroups(getFolderTree(animations)).map(({ path, animations: items }) => (
+    <SelectGroup key={path}>
+      {path && <SelectLabel>{path.replaceAll("/", " / ")}</SelectLabel>}
+      {items.map((animation) => (
+        <SelectItem key={animation.id} value={animation.id}>
+          {animation.name}
+        </SelectItem>
+      ))}
+    </SelectGroup>
+  ));
 }
 
 function getDraft({ id: _id, ...animation }: StoredAnimation): Animation {
@@ -293,7 +317,9 @@ export function Editor({
     if (shouldNavigate) {
       navigate(getEditorPathname(stored.id), { replace: true });
     }
-    setSaved(draft);
+    const next = { ...draft, folder: animation.folder };
+    setDraft(next);
+    setSaved(next);
     onSaved();
     return stored.id;
   }
@@ -334,11 +360,7 @@ export function Editor({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {animations?.map((animation) => (
-                  <SelectItem key={animation.id} value={animation.id}>
-                    {animation.name}
-                  </SelectItem>
-                ))}
+                <AnimationSelectItems animations={animations ?? []} />
               </SelectContent>
             </Select>
             <Button variant="outline" size="sm" onClick={() => requestSelect(undefined)}>
@@ -358,6 +380,27 @@ export function Editor({
               aria-invalid={issues.has("name")}
               onChange={(event) => setDraft({ ...draft, name: event.currentTarget.value })}
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="animation-folder" className="text-xs text-muted-foreground">
+              Folder
+            </Label>
+            <Input
+              id="animation-folder"
+              className="h-7 text-xs"
+              placeholder="None (use / to nest, e.g. Basics/Wipes)"
+              list="animation-folders"
+              value={draft.folder ?? ""}
+              aria-invalid={issues.has("folder")}
+              onChange={(event) =>
+                setDraft({ ...draft, folder: event.currentTarget.value || undefined })
+              }
+            />
+            <datalist id="animation-folders">
+              {getFolders(animations ?? []).map((folder) => (
+                <option key={folder} value={folder} />
+              ))}
+            </datalist>
           </div>
           {draft.sections.length > 1 && (
             <div className="flex flex-col gap-1.5">
