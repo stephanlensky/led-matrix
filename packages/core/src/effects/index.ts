@@ -41,6 +41,8 @@ import { catEyes } from "./cat-eyes.ts";
 import { catBroom, catGhosts } from "./cat-halloween.ts";
 import { catHyperspace } from "./cat-hyperspace.ts";
 import { demonHunters } from "./demon-hunters/index.ts";
+import { hunterDance } from "./hunter-dance.ts";
+import { hunterHyperspace } from "./hunter-hyperspace.ts";
 import { bigText } from "./big-text.ts";
 import { clip } from "./clip.ts";
 import { plasma } from "./plasma.ts";
@@ -98,6 +100,8 @@ export const effects: readonly Effect[] = [
   catGhosts,
   catEyes,
   demonHunters,
+  hunterDance,
+  hunterHyperspace,
   emboss,
   tilt,
   pixelate,

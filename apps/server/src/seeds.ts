@@ -428,10 +428,37 @@ const blackCatParameter = getValueParameter(
 
 const catColorParams = getReferences(["color"]);
 
-const hyperspaceCatLayer: LayerInput = {
+const hyperspaceLayer: LayerInput = {
   effect: "hyperspace",
   params: { ...paletteParams, period: 8, ...getReferences(["perBeat", "life", "trail"]) },
 };
+
+const hyperspaceSpeedParameter = getParameter(
+  "Speed",
+  {
+    Cruise: { perBeat: 6, life: 2, trail: 0.3 },
+    Warp: { perBeat: 10, life: 1, trail: 0.5 },
+    Drift: { perBeat: 3, life: 4, trail: 0.2 },
+  },
+  "Cruise",
+);
+
+const hyperspaceOrbitParameter = getParameter(
+  "Orbit",
+  {
+    Slow: { orbits: 1, turns: 2 },
+    Medium: { orbits: 2, turns: 4 },
+    Fast: { orbits: 4, turns: 8 },
+  },
+  "Medium",
+);
+
+const hunterSyncParameter = getValueParameter(
+  "Sync",
+  "sync",
+  { Together: "together", Alternating: "alternate", Wave: "wave" },
+  "Together",
+);
 
 const sprayReferences = { period: 8, ...getReferences(["perStep", "beatBurst", "power"]) };
 
@@ -864,37 +891,21 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       name: "Cat hyperspace",
       parameters: [
         getLightColorParameter("White"),
-        getParameter(
-          "Speed",
-          {
-            Cruise: { perBeat: 6, life: 2, trail: 0.3 },
-            Warp: { perBeat: 10, life: 1, trail: 0.5 },
-            Drift: { perBeat: 3, life: 4, trail: 0.2 },
-          },
-          "Cruise",
-        ),
-        getParameter(
-          "Orbit",
-          {
-            Slow: { orbits: 1, turns: 2 },
-            Medium: { orbits: 2, turns: 4 },
-            Fast: { orbits: 4, turns: 8 },
-          },
-          "Medium",
-        ),
+        hyperspaceSpeedParameter,
+        hyperspaceOrbitParameter,
         blackCatParameter,
       ],
       sections: [
         {
           name: "Spawn",
           mode: { type: "once", beats: 16 },
-          layers: [hyperspaceCatLayer, { effect: "cat-pair-spawn", params: catColorParams }],
+          layers: [hyperspaceLayer, { effect: "cat-pair-spawn", params: catColorParams }],
         },
         {
           name: "Hyperspace",
           mode: { type: "loop", beats: 16 },
           layers: [
-            hyperspaceCatLayer,
+            hyperspaceLayer,
             {
               effect: "cat-hyperspace",
               params: { ...catColorParams, ...getReferences(["orbits", "turns"]) },
@@ -993,6 +1004,41 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
     },
+    "huntrix-headbang": getLoop(
+      "Huntrix headbang",
+      8,
+      [{ effect: "hunter-dance", params: { move: "headbang", ...getReferences(["sync"]) } }],
+      [hunterSyncParameter],
+    ),
+    "huntrix-dance": getLoop(
+      "Huntrix dance",
+      16,
+      [{ effect: "hunter-dance", params: getReferences(["move", "sync"]) }],
+      [
+        getValueParameter(
+          "Move",
+          "move",
+          {
+            Sway: "sway",
+            Jump: "jump",
+            "Fist pump": "pump",
+            Twist: "twist",
+            Point: "point",
+          },
+          "Sway",
+        ),
+        hunterSyncParameter,
+      ],
+    ),
+    "huntrix-hyperspace": getLoop(
+      "Huntrix hyperspace",
+      16,
+      [
+        hyperspaceLayer,
+        { effect: "hunter-hyperspace", params: getReferences(["orbits", "turns"]) },
+      ],
+      [getLightColorParameter("White"), hyperspaceSpeedParameter, hyperspaceOrbitParameter],
+    ),
   }),
   ...getFolder("Halloween", {
     "vampire-lips": {

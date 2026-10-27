@@ -97,11 +97,11 @@ function createCatGroups(): CatGroup[] {
 
 const catGroups = createCatGroups();
 
-function scale([r, g, b]: Color, amount: number): Color {
+export function scale([r, g, b]: Color, amount: number): Color {
   return [r * amount, g * amount, b * amount];
 }
 
-function mix([ar, ag, ab]: Color, [br, bg, bb]: Color, amount: number): Color {
+export function mix([ar, ag, ab]: Color, [br, bg, bb]: Color, amount: number): Color {
   return [ar + (br - ar) * amount, ag + (bg - ag) * amount, ab + (bb - ab) * amount];
 }
 
@@ -184,7 +184,7 @@ function getJointTransform(pivot: Vector, rotation: Rotation | undefined): Rotat
   };
 }
 
-function getShade(normal: Vector): number {
+export function getShade(normal: Vector): number {
   const [x, y, depth] = normal;
   const diffuse = Math.max(0, x * LIGHT[0] + y * LIGHT[1] + depth * LIGHT[2]);
   const rim = (1 - Math.abs(depth)) ** 3;

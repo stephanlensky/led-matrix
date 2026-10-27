@@ -20,14 +20,14 @@ type DancerFrame = {
 
 type Dancer = { x: number; phase: number; side: number };
 
-const VIEW_PITCH = toRadians(12);
+export const VIEW_PITCH = toRadians(12);
 const BASE_Y = HEIGHT / 2 + 6;
 
-function getCycle(value: number): number {
+export function getCycle(value: number): number {
   return ((value % 1) + 1) % 1;
 }
 
-function getHeadbangAngle(phase: number): number {
+export function getHeadbangAngle(phase: number): number {
   return phase < 0.55
     ? 1 - easings.easeOutQuad(phase / 0.55)
     : easings.easeInCubic((phase - 0.55) / 0.45);
