@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const cueSchema = z
   .object({
-    beat: z.number().min(0),
+    beat: z.number(),
     end: z.number().optional(),
     animation: animationIdSchema.optional(),
     section: z.union([z.string(), z.int().min(0)]).optional(),

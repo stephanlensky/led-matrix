@@ -128,6 +128,17 @@ describe("sync", () => {
     ]);
   });
 
+  it("plays a cue on the beat before the track starts", async () => {
+    const leadIn: Mapping = new Map([
+      [location, [{ beat: -1, animationId: "bad-apple", section: 0, beats: 688 }]],
+    ]);
+    const { fake, update } = createHarness(leadIn);
+    await update([{ beat: -0.75 }]);
+    expect(fake.calls).toEqual([
+      { type: "play", body: { id: "bad-apple", section: 0, beat: 0.25, bpm: 120, beats: 688 } },
+    ]);
+  });
+
   it("does not replay while the cue stays the same", async () => {
     const { clock, fake, update } = createHarness(mapping);
     await update([{ beat: 20 }]);

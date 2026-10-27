@@ -54,7 +54,7 @@ pnpm --filter @led-matrix/mixxx-sync start --server https://led-matrix.cardinal.
 
 Options: `--server` (`LED_MATRIX_URL`, default `http://localhost:3000`), `--output` (`LED_MATRIX_OUTPUT`, default `device`), `--socket` (`MIXXX_SOCKET`, default `$XDG_RUNTIME_DIR/mixxx-deck-state.sock`).
 
-The mapping file (`apps/mixxx-sync/mapping.json` unless a path is given) maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. With `end`, the section is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song. The file is reloaded when it changes.
+The mapping file (`apps/mixxx-sync/mapping.json` unless a path is given) maps track file paths to cues. Each cue shows a section (name or index, default the first) of an animation from a track beat on; `animation` carries over from the previous cue. With `end`, the section is sped up or slowed down to last exactly from `beat` to `end`, for example to fit a video clip to the song. Beats before the first grid beat are negative, so a cue at `-1` starts on the beat just before a track that doesn't begin on a beat. The file is reloaded when it changes.
 
 ```json
 {
