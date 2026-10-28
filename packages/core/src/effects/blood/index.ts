@@ -29,3 +29,4 @@ export { bloodLava } from "./lava.ts";
 export { bloodSlam } from "./slam.ts";
 export { bloodCymatics } from "./cymatics.ts";
 export { bloodChainsaw } from "./chainsaw.ts";
+export { bloodScream } from "./scream.ts";

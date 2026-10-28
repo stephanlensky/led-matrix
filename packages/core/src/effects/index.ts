@@ -50,6 +50,7 @@ import {
   bloodSlam,
   bloodCymatics,
   bloodChainsaw,
+  bloodScream,
 } from "./blood/index.ts";
 import { loading } from "./loading.ts";
 import { cat } from "./cat.ts";
@@ -129,6 +130,7 @@ export const effects: readonly Effect[] = [
   bloodSlam,
   bloodCymatics,
   bloodChainsaw,
+  bloodScream,
   loading,
   cat,
   catSpawn,

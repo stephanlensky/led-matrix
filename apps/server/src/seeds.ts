@@ -545,6 +545,13 @@ const heartbeatColorParameter = getColorParameter("Fresh blood", {
   Green: GREEN,
 });
 
+const screamParameter = getValueParameter(
+  "Scream",
+  "screamEvery",
+  { Beat: 1, "2 beats": 2, Bar: 4 },
+  "Beat",
+);
+
 const bloodAnimations: Record<string, AnimationInput> = {
   "blood-drip": getLoop(
     "Blood drip",
@@ -831,6 +838,26 @@ const bloodAnimations: Record<string, AnimationInput> = {
       },
     ],
   },
+  "screaming-face": getLoop(
+    "Screaming face",
+    8,
+    [{ effect: "blood-scream", params: { period: 8, ...getReferences(["screamEvery"]) } }],
+    [screamParameter],
+  ),
+  "screaming-face-strobe": getLoop(
+    "Screaming face (strobe)",
+    8,
+    [
+      {
+        effect: "blood-scream",
+        params: { period: 8, ...getReferences(["screamEvery", "strobeEvery"]) },
+      },
+    ],
+    [
+      screamParameter,
+      getValueParameter("Strobe", "strobeEvery", { Beat: 1, "1/8": 0.5, "1/16": 0.25 }, "1/8"),
+    ],
+  ),
 };
 
 const bassBloodAnimations: Record<string, AnimationInput> = {
