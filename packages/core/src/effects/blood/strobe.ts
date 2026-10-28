@@ -3,14 +3,18 @@ import { colorSchema, parseColor } from "../../color.ts";
 import { defineEffect } from "../../effect.ts";
 import { HEIGHT, WIDTH, setRgbaPixel } from "../../frame.ts";
 import { createRandom, getRandomBetween, hashSeed } from "../../random.ts";
-import { BLOOD_COLOR, type Point, drawDot, getModulo, getNoise, getScaledColor } from "./shared.ts";
+import {
+  BLOOD_COLOR,
+  type Point,
+  drawDot,
+  getAngleDifference,
+  getModulo,
+  getNoise,
+  getScaledColor,
+} from "./shared.ts";
 
 const SPLAT_SEED = 0xb10d0;
 const TEXTURE_SEED = 0xb10d1;
-
-function getAngleDifference(a: number, b: number): number {
-  return Math.abs(getModulo(a - b + Math.PI, Math.PI * 2) - Math.PI);
-}
 
 export const bloodStrobe = defineEffect({
   id: "blood-strobe",

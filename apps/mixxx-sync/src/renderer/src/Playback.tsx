@@ -116,10 +116,12 @@ function TrackSimulator({
       }
       const { block, position } = lanePosition;
       const frameTime = Math.floor(position.time / frameDuration) * frameDuration;
-      const key = `${block.beat}:${position.index}:${frameTime}`;
+      const key = `${block.beat}:${position.index}:${position.cycle}:${frameTime}`;
       if (key !== lastKey) {
         lastKey = key;
-        setFrame(renderer.render(block.animation, frameTime, block.bpm, position.index));
+        setFrame(
+          renderer.render(block.animation, frameTime, block.bpm, position.index, position.cycle),
+        );
       }
     };
     request = requestAnimationFrame(update);
@@ -159,10 +161,10 @@ function PreviewSimulator({
       request = requestAnimationFrame(update);
       const position = getSectionPosition(animation, { current, next: undefined }, now, bpm, fps);
       const frameTime = Math.floor(position.time / frameDuration) * frameDuration;
-      const key = `${position.index}:${frameTime}`;
+      const key = `${position.index}:${position.cycle}:${frameTime}`;
       if (key !== lastKey) {
         lastKey = key;
-        setFrame(renderer.render(animation, frameTime, bpm, position.index));
+        setFrame(renderer.render(animation, frameTime, bpm, position.index, position.cycle));
       }
     };
     request = requestAnimationFrame(update);

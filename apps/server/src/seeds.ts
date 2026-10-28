@@ -502,6 +502,49 @@ const hunterSyncParameter = getValueParameter(
 
 const sprayReferences = { period: 8, ...getReferences(["perStep", "beatBurst", "power"]) };
 
+const heartbeatTempos = [
+  ["Bar", 4],
+  ["Half bar", 2],
+  ["Beat", 1],
+  ["Eighth", 0.5],
+] as const;
+
+function getHeartbeatSections(extraLayers: (pulse: number) => LayerInput[]): SectionInput[] {
+  return [
+    ...heartbeatTempos.map(([name, interval], index) => ({
+      name,
+      mode: { type: "loop" as const, beats: 4 },
+      layers: [
+        {
+          effect: "blood-heartbeat",
+          params: {
+            interval,
+            previousInterval: heartbeatTempos[Math.max(0, index - 1)]?.[1] ?? interval,
+            color: { param: "color" },
+          },
+        },
+        ...extraLayers(4 / interval / 4),
+      ],
+    })),
+    {
+      name: "Flatline",
+      mode: { type: "once", beats: 16 },
+      layers: [
+        {
+          effect: "blood-heartbeat",
+          params: { interval: 0.5, flatline: true, color: { param: "color" } },
+        },
+        ...extraLayers(0),
+      ],
+    },
+  ];
+}
+
+const heartbeatColorParameter = getColorParameter("Fresh blood", {
+  "Fresh blood": FRESH_BLOOD_COLOR,
+  Green: GREEN,
+});
+
 const bloodAnimations: Record<string, AnimationInput> = {
   "blood-drip": getLoop(
     "Blood drip",
@@ -617,6 +660,177 @@ const bloodAnimations: Record<string, AnimationInput> = {
       },
     ],
   },
+  "blood-moon": {
+    name: "Blood moon rising",
+    sections: [
+      {
+        name: "Rise",
+        mode: { type: "once", beats: 32 },
+        layers: [{ effect: "blood-moon", params: { level: getRamp(0, 1) } }],
+      },
+      {
+        name: "Full",
+        mode: { type: "loop", beats: 16 },
+        layers: [{ effect: "blood-moon" }],
+      },
+    ],
+  },
+  "heartbeat-monitor": {
+    name: "Heartbeat monitor",
+    parameters: [heartbeatColorParameter],
+    sections: getHeartbeatSections(() => []),
+  },
+  "heartbeat-crt": {
+    name: "Heartbeat monitor (CRT)",
+    parameters: [heartbeatColorParameter],
+    sections: getHeartbeatSections((pulse) => [
+      { effect: "chromatic", params: { offset: 1, pulse } },
+      { effect: "trails", params: { decay: 0.8 } },
+    ]),
+  },
+  "seeping-ceiling": {
+    name: "Seeping ceiling",
+    sections: [
+      {
+        name: "Seep",
+        mode: { type: "once", beats: 16 },
+        layers: [
+          { effect: "blood-seep", params: { level: getRamp(0, 1, "easeOutQuad"), drip: 0 } },
+        ],
+      },
+      {
+        name: "Swell",
+        mode: { type: "once", beats: 16 },
+        layers: [{ effect: "blood-seep", params: { drip: getRamp(0, 1) } }],
+      },
+      {
+        name: "Hang",
+        mode: { type: "loop", beats: 8 },
+        layers: [{ effect: "blood-seep", params: { period: 8 } }],
+      },
+    ],
+  },
+  "bloody-handprints": {
+    name: "Bloody handprints",
+    sections: [
+      {
+        name: "Build",
+        mode: { type: "once", beats: 32 },
+        layers: [{ effect: "blood-handprints", params: { buildBeats: 32 } }],
+      },
+      {
+        name: "Covered",
+        mode: { type: "loop", beats: 8 },
+        layers: [{ effect: "blood-handprints", params: { buildBeats: 32, hold: true } }],
+      },
+    ],
+  },
+  "rising-tide": {
+    name: "Rising tide",
+    sections: [
+      {
+        name: "Rise",
+        mode: { type: "once", beats: 32 },
+        layers: [{ effect: "blood-tide", params: { buildBeats: 32 } }],
+      },
+      {
+        name: "Full",
+        mode: { type: "loop", beats: 8 },
+        layers: [{ effect: "blood-tide", params: { period: 8 } }],
+      },
+    ],
+  },
+  "tide-to-fountain": {
+    name: "Rising tide into fountain",
+    sections: [
+      {
+        name: "Rise",
+        mode: { type: "once", beats: 32 },
+        layers: [{ effect: "blood-tide", params: { buildBeats: 32, to: 0.95 } }],
+      },
+      {
+        name: "Drop",
+        mode: { type: "loop", beats: 8 },
+        layers: [
+          {
+            effect: "blood-tide",
+            params: { from: 0.95, to: 0.2, buildBeats: 1, stepBeats: 1, period: 8 },
+          },
+          {
+            effect: "blood-fountain",
+            params: { period: 8, perStep: 24, beatBurst: 40, intro: true },
+          },
+        ],
+      },
+    ],
+  },
+  "knife-slashes": {
+    name: "Knife slashes",
+    parameters: [
+      getValueParameter(
+        "Direction",
+        "direction",
+        { Diagonal: "diagonal", Down: "down", Horizontal: "horizontal", Cross: "cross" },
+        "Diagonal",
+      ),
+      getValueParameter("Frenzy rate", "every", { Beat: 1, "1/8": 0.5, "2 beats": 2 }, "1/8"),
+    ],
+    sections: [
+      {
+        name: "Build",
+        mode: { type: "once", beats: 32 },
+        layers: [
+          { effect: "blood-slash", params: { buildBeats: 32, ...getReferences(["direction"]) } },
+        ],
+      },
+      {
+        name: "Frenzy",
+        mode: { type: "loop", beats: 8 },
+        layers: [
+          {
+            effect: "blood-slash",
+            params: { period: 8, ...getReferences(["direction", "every"]) },
+          },
+        ],
+      },
+    ],
+  },
+  "blood-countdown": {
+    name: "Blood countdown",
+    parameters: [
+      getParameter(
+        "Count",
+        {
+          "8 bars": { from: 8, beatsPerNumber: 4 },
+          "4 x 2 bars": { from: 4, beatsPerNumber: 8 },
+          "16 half bars": { from: 16, beatsPerNumber: 2 },
+        },
+        "8 bars",
+      ),
+    ],
+    sections: [
+      {
+        name: "Count",
+        mode: { type: "once", beats: 32 },
+        layers: [{ effect: "blood-countdown", params: getReferences(["from", "beatsPerNumber"]) }],
+      },
+    ],
+  },
+  "vampire-bite": {
+    name: "Vampire bite",
+    sections: [
+      {
+        name: "Bite",
+        mode: { type: "once", beats: 16 },
+        layers: [{ effect: "blood-bite", params: { level: getRamp(0, 1) } }],
+      },
+      {
+        name: "Pulse",
+        mode: { type: "loop", beats: 4 },
+        layers: [{ effect: "blood-bite" }],
+      },
+    ],
+  },
 };
 
 const bassBloodAnimations: Record<string, AnimationInput> = {
@@ -701,6 +915,90 @@ const bassBloodAnimations: Record<string, AnimationInput> = {
         "1/8",
       ),
     ],
+  ),
+  "blood-splash": getLoop(
+    "Blood rain splash",
+    8,
+    [{ effect: "blood-splash", params: { period: 8, ...getReferences(["every", "offbeats"]) } }],
+    [
+      getParameter(
+        "Rate",
+        {
+          Beat: { every: 1, offbeats: true },
+          "Beat (no offbeats)": { every: 1, offbeats: false },
+          "Half time": { every: 2, offbeats: true },
+        },
+        "Beat",
+      ),
+    ],
+  ),
+  "pumping-heart": getLoop(
+    "Pumping heart",
+    8,
+    [{ effect: "blood-heart", params: { period: 8, ...getReferences(["sprayEvery"]) } }],
+    [getValueParameter("Spray", "sprayEvery", { "2 beats": 2, Beat: 1, Bar: 4 }, "2 beats")],
+  ),
+  "arterial-spray": getLoop(
+    "Arterial spray",
+    8,
+    [
+      {
+        effect: "blood-arterial",
+        params: { period: 8, ...getReferences(["sweepBeats", "pulseEvery"]) },
+      },
+    ],
+    [
+      getValueParameter("Sweep", "sweepBeats", { Bar: 4, "2 bars": 8 }, "Bar"),
+      getValueParameter("Pulse", "pulseEvery", { Beat: 1, "1/8": 0.5 }, "Beat"),
+    ],
+  ),
+  "blood-bubbles": getLoop(
+    "Blood bubbles",
+    8,
+    [{ effect: "blood-bubbles", params: { period: 8, ...getReferences(["every"]) } }],
+    [getValueParameter("Pop every", "every", { Beat: 1, "1/8": 0.5, "2 beats": 2 }, "Beat")],
+  ),
+  "splatter-tunnel": getLoop(
+    "Splatter tunnel",
+    8,
+    [{ effect: "blood-tunnel", params: { period: 8, ...getReferences(["wallEvery"]) } }],
+    [getValueParameter("Walls", "wallEvery", { Bar: 4, "2 bars": 8, Off: 0 }, "Bar")],
+  ),
+  "splatter-tunnel-kaleidoscope": getLoop(
+    "Splatter tunnel (kaleidoscope)",
+    8,
+    [
+      { effect: "blood-tunnel", params: { period: 8, ...getReferences(["wallEvery"]) } },
+      { effect: "kaleidoscope", params: { segments: 6, rotations: 1 } },
+    ],
+    [getValueParameter("Walls", "wallEvery", { Bar: 4, "2 bars": 8, Off: 0 }, "Bar")],
+  ),
+  "blood-lava": getLoop(
+    "Blood lava lamp",
+    16,
+    [{ effect: "blood-lava", params: { period: 16, ...getReferences(["kickEvery"]) } }],
+    [getValueParameter("Kick", "kickEvery", { Beat: 1, "Half time": 2 }, "Half time")],
+  ),
+  "wall-slam": getLoop(
+    "Wall slam",
+    8,
+    [{ effect: "blood-slam", params: { period: 8, ...getReferences(["every", "doubleHit"]) } }],
+    [
+      getValueParameter("Rate", "every", { Beat: 1, "Half time": 2 }, "Beat"),
+      getValueParameter("Double hit", "doubleHit", { On: true, Off: false }, "On"),
+    ],
+  ),
+  "blood-cymatics": getLoop(
+    "Blood cymatics",
+    32,
+    [{ effect: "blood-cymatics", params: { period: 32, ...getReferences(["barBeats"]) } }],
+    [getValueParameter("Change every", "barBeats", { Bar: 4, "2 bars": 8 }, "Bar")],
+  ),
+  chainsaw: getLoop(
+    "Chainsaw",
+    8,
+    [{ effect: "blood-chainsaw", params: { period: 8, ...getReferences(["rate"]) } }],
+    [getValueParameter("Rate", "rate", { "1/8": 2, "1/16": 4 }, "1/8")],
   ),
 };
 

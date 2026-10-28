@@ -138,7 +138,7 @@ export function createPlaybackEngine({
       return createFrame();
     }
     try {
-      const { index, time } = getRenderPosition(
+      const { index, time, cycle } = getRenderPosition(
         active.source,
         active.fit,
         active.sections,
@@ -146,7 +146,7 @@ export function createPlaybackEngine({
         bpm,
         fps,
       );
-      return renderer.render(active.source, time, bpm, index);
+      return renderer.render(active.source, time, bpm, index, cycle);
     } catch (error) {
       if (!active.failed) {
         active.failed = true;

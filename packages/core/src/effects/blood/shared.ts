@@ -147,3 +147,88 @@ export function fillImage(image: RgbaImage, color: Color): void {
 export function getEnvelope(beat: number, decay: number): number {
   return Math.exp(-getCycle(beat) * decay);
 }
+
+export function getBuildTimes(
+  buildBeats: number,
+  intervals: readonly number[] = [4, 2, 1, 0.5],
+): number[] {
+  const times: number[] = [];
+  const quarter = buildBeats / intervals.length;
+  for (const [index, interval] of intervals.entries()) {
+    for (let time = index * quarter; time < (index + 1) * quarter - 1e-6; time += interval) {
+      times.push(time);
+    }
+  }
+  return times;
+}
+
+export function getAngleDifference(a: number, b: number): number {
+  return Math.abs(getModulo(a - b + Math.PI, Math.PI * 2) - Math.PI);
+}
+
+export type SplatShape = (angle: number) => number;
+
+export function getSplatShape(random: () => number, radius: number): SplatShape {
+  const phases = [random(), random(), random()].map((value) => value * Math.PI * 2);
+  const rays = Array.from({ length: Math.round(6 + random() * 6) }, () => ({
+    angle: random() * Math.PI * 2,
+    width: 0.08 + random() * 0.12,
+    length: radius * (0.6 + random() * 1.2),
+  }));
+  return (angle) =>
+    radius *
+      (1 +
+        0.22 * Math.sin(3 * angle + (phases[0] ?? 0)) +
+        0.12 * Math.sin(7 * angle + (phases[1] ?? 0)) +
+        0.06 * Math.sin(11 * angle + (phases[2] ?? 0))) +
+    rays.reduce(
+      (sum, ray) =>
+        sum + ray.length * Math.max(0, 1 - getAngleDifference(angle, ray.angle) / ray.width) ** 2,
+      0,
+    );
+}
+
+export function getSegmentDistance(
+  [x, y]: Point,
+  [startX, startY]: Point,
+  [endX, endY]: Point,
+): { distance: number; along: number } {
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY || 1;
+  const along = Math.max(
+    0,
+    Math.min(1, ((x - startX) * deltaX + (y - startY) * deltaY) / lengthSquared),
+  );
+  return {
+    distance: Math.hypot(x - startX - deltaX * along, y - startY - deltaY * along),
+    along,
+  };
+}
+
+export function addRgbaPixel(image: RgbaImage, x: number, y: number, [r, g, b]: Color): void {
+  const pixelX = Math.round(x);
+  const pixelY = Math.round(y);
+  if (pixelX < 0 || pixelY < 0 || pixelX >= WIDTH || pixelY >= HEIGHT) {
+    return;
+  }
+  const offset = (pixelY * WIDTH + pixelX) * 4;
+  image[offset] = (image[offset] ?? 0) + r;
+  image[offset + 1] = (image[offset + 1] ?? 0) + g;
+  image[offset + 2] = (image[offset + 2] ?? 0) + b;
+  image[offset + 3] = 255;
+}
+
+export function getWrappedNoise2d(seed: number, x: number, y: number, wrap: number): number {
+  const cellX = Math.floor(x);
+  const cellY = Math.floor(y);
+  const fractionX = x - cellX;
+  const fractionY = y - cellY;
+  const smoothX = fractionX * fractionX * (3 - 2 * fractionX);
+  const smoothY = fractionY * fractionY * (3 - 2 * fractionY);
+  const getCorner = (offsetX: number, offsetY: number) =>
+    getNoise(seed, getModulo(cellX + offsetX, wrap), cellY + offsetY);
+  const top = getCorner(0, 0) * (1 - smoothX) + getCorner(1, 0) * smoothX;
+  const bottom = getCorner(0, 1) * (1 - smoothX) + getCorner(1, 1) * smoothX;
+  return top * (1 - smoothY) + bottom * smoothY;
+}

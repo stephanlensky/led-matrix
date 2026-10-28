@@ -227,7 +227,13 @@ function BlockFilmstrip({
       const seconds = (start + progress * (end - start)) * scale.duration;
       const position = getBlockPosition(renderBlock, getBeat(scale.beats, seconds), fps);
       return position
-        ? renderer.render(renderBlock.animation, position.time, renderBlock.bpm, position.index)
+        ? renderer.render(
+            renderBlock.animation,
+            position.time,
+            renderBlock.bpm,
+            position.index,
+            position.cycle,
+          )
         : blankFrame;
     },
     [renderBlock, scale, start, end, renderer, fps],

@@ -12,7 +12,7 @@ export type SectionCursor = { index: number; startedAt: number };
 
 export type SectionPlayback = { current: SectionCursor; next: SectionCursor | undefined };
 
-export type SectionPosition = { index: number; time: number; length: number };
+export type SectionPosition = { index: number; time: number; length: number; cycle: number };
 
 export type AdvanceTiming = "end" | "now";
 
@@ -32,10 +32,15 @@ function getPosition(
     }
     const length = getAnimationLength(section.mode, bpm, fps);
     if (section.mode.type === "loop") {
-      return { index, time: ((elapsed % length) + length) % length, length };
+      return {
+        index,
+        time: ((elapsed % length) + length) % length,
+        length,
+        cycle: Math.max(0, Math.floor(elapsed / length)),
+      };
     }
     if (elapsed < length || index === sections.length - 1) {
-      return { index, time: Math.min(Math.max(elapsed, 0), length), length };
+      return { index, time: Math.min(Math.max(elapsed, 0), length), length, cycle: 0 };
     }
     elapsed -= length;
     index++;
@@ -131,7 +136,7 @@ export function getFittedAnimation(
   return { ...animation, sections };
 }
 
-export type RenderPosition = { index: number; time: number };
+export type RenderPosition = { index: number; time: number; cycle: number };
 
 export function getRenderPosition(
   source: Animation,
@@ -150,5 +155,5 @@ export function getRenderPosition(
   );
   const mode = source.sections[position.index]?.mode;
   const scale = mode ? getAnimationLength(mode, bpm, fps) / position.length : 1;
-  return { index: position.index, time: position.time * scale };
+  return { index: position.index, time: position.time * scale, cycle: position.cycle };
 }

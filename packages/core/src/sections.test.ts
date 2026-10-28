@@ -31,14 +31,34 @@ function getPosition(playback: SectionPlayback, time: number) {
 
 describe("getSectionPosition", () => {
   it("repeats loop sections", () => {
-    expect(getPosition(getPlayback(0), 4500)).toEqual({ index: 0, time: 500, length: 2000 });
+    expect(getPosition(getPlayback(0), 4500)).toEqual({
+      index: 0,
+      time: 500,
+      length: 2000,
+      cycle: 2,
+    });
   });
 
   it("continues from once sections into the following sections", () => {
     expect(getPosition(getPlayback(1), 500).index).toBe(1);
-    expect(getPosition(getPlayback(1), 1200)).toEqual({ index: 2, time: 200, length: 500 });
-    expect(getPosition(getPlayback(1), 1600)).toEqual({ index: 3, time: 100, length: 4000 });
-    expect(getPosition(getPlayback(1), 5600)).toEqual({ index: 3, time: 100, length: 4000 });
+    expect(getPosition(getPlayback(1), 1200)).toEqual({
+      index: 2,
+      time: 200,
+      length: 500,
+      cycle: 0,
+    });
+    expect(getPosition(getPlayback(1), 1600)).toEqual({
+      index: 3,
+      time: 100,
+      length: 4000,
+      cycle: 0,
+    });
+    expect(getPosition(getPlayback(1), 5600)).toEqual({
+      index: 3,
+      time: 100,
+      length: 4000,
+      cycle: 1,
+    });
   });
 
   it("holds the end of a final once section", () => {
@@ -50,13 +70,14 @@ describe("getSectionPosition", () => {
       index: 0,
       time: 1000,
       length: 1000,
+      cycle: 0,
     });
   });
 
   it("switches to the next section when it starts", () => {
     const playback = { current: { index: 0, startedAt: 0 }, next: { index: 1, startedAt: 4000 } };
     expect(getPosition(playback, 3999).index).toBe(0);
-    expect(getPosition(playback, 4000)).toEqual({ index: 1, time: 0, length: 1000 });
+    expect(getPosition(playback, 4000)).toEqual({ index: 1, time: 0, length: 1000, cycle: 0 });
     expect(getCurrentPlayback(playback, 3999)).toBe(playback);
     expect(getCurrentPlayback(playback, 4000)).toEqual(getPlayback(1, 4000));
   });
@@ -103,6 +124,7 @@ describe("getRenderPosition", () => {
     expect(getRenderPosition(animation, null, getPlayback(0), 1500, 120, 30)).toEqual({
       index: 0,
       time: 1500,
+      cycle: 0,
     });
   });
 
@@ -111,10 +133,12 @@ describe("getRenderPosition", () => {
     expect(getRenderPosition(animation, fit, getPlayback(1), 1000, 120, 30)).toEqual({
       index: 1,
       time: 500,
+      cycle: 0,
     });
     expect(getRenderPosition(animation, fit, getPlayback(1), 2500, 120, 30)).toEqual({
       index: 2,
       time: 250,
+      cycle: 0,
     });
   });
 
@@ -123,6 +147,7 @@ describe("getRenderPosition", () => {
     expect(getRenderPosition(animation, fit, getPlayback(1), 3500, 120, 30)).toEqual({
       index: 3,
       time: 500,
+      cycle: 0,
     });
   });
 
@@ -131,10 +156,12 @@ describe("getRenderPosition", () => {
     expect(getRenderPosition(animation, fit, getPlayback(0), 1500, 120, 30)).toEqual({
       index: 0,
       time: 750,
+      cycle: 0,
     });
     expect(getRenderPosition(animation, fit, getPlayback(0), 5000, 120, 30)).toEqual({
       index: 0,
       time: 500,
+      cycle: 1,
     });
   });
 });

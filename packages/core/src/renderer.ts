@@ -22,7 +22,13 @@ export type RendererOptions = {
 };
 
 export type Renderer = {
-  render(animation: Animation, elapsed: number, bpm: number, section?: number): Frame;
+  render(
+    animation: Animation,
+    elapsed: number,
+    bpm: number,
+    section?: number,
+    cycle?: number,
+  ): Frame;
 };
 
 function getSource(frame: Frame): RgbaImage {
@@ -78,7 +84,7 @@ export function createRenderer({
   }
 
   return {
-    render(animation, elapsed, bpm, section = 0) {
+    render(animation, elapsed, bpm, section = 0, cycle = 0) {
       const frame = createFrame();
       const current = animation.sections[section];
       if (!current) {
@@ -92,7 +98,7 @@ export function createRenderer({
           throw new Error(`Unknown effect "${layer.effect}"`);
         }
         const params = effect.params.parse(resolveParams(layer.params, timing.progress));
-        const input = { ...timing, bpm, params, clips };
+        const input = { ...timing, bpm, params, cycle, clips };
 
         let image = createRgbaImage();
         if (effect.kind === "pixel") {

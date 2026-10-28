@@ -169,7 +169,7 @@ describe("stretched loops", () => {
   it("fits each loop between the cue and its end", () => {
     const [block] = getLane([{ beat: 0, end: 24, animation: "plasma", loops: 2 }]).blocks;
     expect(block?.fit).toEqual({ section: 0, beats: 12 });
-    expect(block && getBlockPosition(block, 18, FPS)).toEqual({ index: 0, time: 2000 });
+    expect(block && getBlockPosition(block, 18, FPS)).toEqual({ index: 0, time: 2000, cycle: 1 });
   });
 });
 
@@ -196,19 +196,19 @@ describe("getDropEnd", () => {
 describe("getBlockPosition", () => {
   it("stretches the chain of once sections over the block", () => {
     const [block] = getLane([{ beat: 4, end: 20, animation: "intro" }]).blocks;
-    expect(getBlockPosition(block!, 12, FPS)).toEqual({ index: 0, time: 3000 });
+    expect(getBlockPosition(block!, 12, FPS)).toEqual({ index: 0, time: 3000, cycle: 0 });
     expect(getBlockPosition(block!, 18, FPS)?.index).toBe(1);
   });
 
   it("repeats a loop at its native length", () => {
     const [block] = getLane([{ beat: 0, end: 20, animation: "plasma" }]).blocks;
-    expect(getBlockPosition(block!, 10, FPS)).toEqual({ index: 0, time: 1000 });
+    expect(getBlockPosition(block!, 10, FPS)).toEqual({ index: 0, time: 1000, cycle: 1 });
   });
 
   it("flows into later sections and holds the loop", () => {
     const [block] = getLane([{ beat: 0, animation: "intro" }]).blocks;
-    expect(getBlockPosition(block!, 9, FPS)).toEqual({ index: 1, time: 500 });
-    expect(getBlockPosition(block!, 18, FPS)).toEqual({ index: 2, time: 1000 });
+    expect(getBlockPosition(block!, 9, FPS)).toEqual({ index: 1, time: 500, cycle: 0 });
+    expect(getBlockPosition(block!, 18, FPS)).toEqual({ index: 2, time: 1000, cycle: 1 });
   });
 
   it("is blank before the cue", () => {

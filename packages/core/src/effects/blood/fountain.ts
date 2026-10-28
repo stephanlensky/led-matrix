@@ -36,14 +36,16 @@ export const bloodFountain = defineEffect({
     sourceWidth: z.number().min(0).max(1).default(0.6),
     sway: z.number().min(0).max(1).default(0.25),
     period: z.number().int().min(1).max(256).default(8),
+    intro: z.boolean().default(false),
   }),
-  render(image, { params, beat }) {
+  render(image, { params, beat, cycle }) {
     const color = parseColor(params.color);
     const stepsPerPeriod = Math.max(1, Math.round(params.period / STEP));
     const slotWidth = WIDTH / params.emitters;
     const getSourceX = (emitter: number, offset: number) =>
       (emitter + 0.5 + offset * params.sourceWidth) * slotWidth;
-    const first = Math.floor((beat - LIFE) / STEP) + 1;
+    const earliest = params.intro && cycle === 0 ? 0 : Number.NEGATIVE_INFINITY;
+    const first = Math.max(earliest, Math.floor((beat - LIFE) / STEP) + 1);
     const last = Math.floor(beat / STEP);
     for (let step = first; step <= last; step++) {
       const age = beat - step * STEP;

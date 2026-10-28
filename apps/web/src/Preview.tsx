@@ -80,7 +80,7 @@ export function Preview({
       if (current) {
         const playback = getCurrentPlayback(playbackRef.current, clockRef.current);
         playbackRef.current = playback;
-        const { index, time, length } = getSectionPosition(
+        const { index, time, length, cycle } = getSectionPosition(
           current,
           playback,
           clockRef.current,
@@ -94,7 +94,7 @@ export function Preview({
           lastRendered.frameTime !== frameTime
         ) {
           lastRendered = { animation: current, index, frameTime };
-          setFrame(renderer.render(current, frameTime, bpm, index));
+          setFrame(renderer.render(current, frameTime, bpm, index, cycle));
         }
         const progress = time / length;
         const nextIndex = playback.next?.index;

@@ -11,6 +11,7 @@ export type EffectInput<P> = {
   beat: number;
   bpm: number;
   progress: number;
+  cycle: number;
   clips: ClipLibrary;
 };
 
