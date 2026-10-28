@@ -155,6 +155,19 @@ function getPaletteParameter(
   );
 }
 
+function getStrobeColorParameter(defaultOption: string): Parameter {
+  return getParameter(
+    "Color",
+    Object.fromEntries(
+      Object.entries(STROBE_PALETTES).map(([name, palette]) => [
+        name,
+        { ...getPaletteValues(palette), duty: palette.length === 1 ? 0.2 : 1 },
+      ]),
+    ),
+    defaultOption,
+  );
+}
+
 function getBackgroundColorParameter(defaultOption: string): Parameter {
   return getPaletteParameter(PALETTES, defaultOption, (palette) =>
     palette.length === 1 ? [...palette, BLACK] : palette,
@@ -1713,14 +1726,13 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           effect: "color-flash",
           params: {
             ...paletteParams,
-            flashesPerBeat: { param: "flashesPerBeat" },
-            duty: 0.2,
+            ...getReferences(["flashesPerBeat", "duty"]),
             fade: 0,
           },
         },
       ],
       [
-        getLightColorParameter("White", STROBE_PALETTES),
+        getStrobeColorParameter("White"),
         getValueParameter(
           "Speed",
           "flashesPerBeat",
