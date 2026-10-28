@@ -1644,7 +1644,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         ),
       ],
       sections: [
-        getCatPhoneSection("Typing", { type: "loop", beats: 4 }, "typing"),
+        getCatPhoneSection("Typing", { type: "once", beats: 48 }, "typing"),
         getCatPhoneSection("Send", { type: "once", beats: 8 }, "send"),
         getCatPhoneSection("Buzz", { type: "once", beats: 8 }, "buzz"),
         getCatPhoneSection("Joy", { type: "loop", beats: 8 }, "joy"),
