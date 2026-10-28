@@ -47,6 +47,17 @@ export function getStartRange(cues: readonly Cue[], index: number, track: BeatRa
   return { min: getStartMin(cues, index, track), max: end - MIN_CUE_BEATS };
 }
 
+export function getTrimStartRange(
+  cues: readonly Cue[],
+  index: number,
+  track: BeatRange,
+): BeatRange {
+  const cue = cues[index];
+  const range = getStartRange(cues, index, track);
+  const min = cue ? cue.beat - (cue.offset ?? 0) : range.min;
+  return { min: Math.max(range.min, Math.min(min, cue?.beat ?? min)), max: range.max };
+}
+
 export function getEndRange(cues: readonly Cue[], index: number, track: BeatRange): BeatRange {
   return {
     min: (cues[index]?.beat ?? track.min) + MIN_CUE_BEATS,

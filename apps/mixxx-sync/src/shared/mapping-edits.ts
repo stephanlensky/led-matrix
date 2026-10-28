@@ -123,6 +123,31 @@ export function setCueLoops(
   return setTrackCues(file, location, cues);
 }
 
+export function setCueTrim(
+  file: MappingFile,
+  location: string,
+  index: number,
+  isTrimmed: boolean,
+): MappingFile {
+  const cues = getTrackCues(file, location);
+  const { trim: _trim, offset: _offset, ...cue } = getCueAt(cues, index);
+  cues[index] = isTrimmed ? { ...cue, trim: true } : cue;
+  return setTrackCues(file, location, cues);
+}
+
+export function trimCueStart(
+  file: MappingFile,
+  location: string,
+  index: number,
+  beat: number,
+): MappingFile {
+  const cues = getTrackCues(file, location);
+  const { offset: current, ...cue } = getCueAt(cues, index);
+  const offset = (current ?? 0) + beat - cue.beat;
+  cues[index] = offset > 0 ? { ...cue, beat, offset } : { ...cue, beat };
+  return setTrackCues(file, location, cues);
+}
+
 export function moveCue(
   file: MappingFile,
   location: string,

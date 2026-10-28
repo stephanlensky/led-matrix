@@ -113,10 +113,17 @@ describe("getResolvedMapping", () => {
     const { mapping, errors } = getResolvedMapping(file, animations);
     expect(errors).toEqual([]);
     expect(mapping.get("/music/a.flac")).toEqual([
-      { beat: 0, animationId: "cat", section: 0, params: undefined, beats: undefined },
-      { beat: 64, animationId: "cat", section: 1, params: undefined, beats: undefined },
-      { beat: 128, animationId: "plasma", section: 0, params: undefined, beats: undefined },
-      { beat: 192, animationId: "cat", section: 2, params: undefined, beats: undefined },
+      { beat: 0, animationId: "cat", section: 0, params: undefined, beats: undefined, offset: 0 },
+      { beat: 64, animationId: "cat", section: 1, params: undefined, beats: undefined, offset: 0 },
+      {
+        beat: 128,
+        animationId: "plasma",
+        section: 0,
+        params: undefined,
+        beats: undefined,
+        offset: 0,
+      },
+      { beat: 192, animationId: "cat", section: 2, params: undefined, beats: undefined, offset: 0 },
     ]);
   });
 
@@ -146,9 +153,35 @@ describe("cue end", () => {
       },
     });
     expect(getResolvedMapping(file, animations).mapping.get("a")).toEqual([
-      { beat: 8, animationId: "cat", section: 1, params: undefined, beats: 16 },
-      { beat: 24, animationId: "cat", section: 2, params: undefined, beats: undefined },
+      { beat: 8, animationId: "cat", section: 1, params: undefined, beats: 16, offset: 0 },
+      { beat: 24, animationId: "cat", section: 2, params: undefined, beats: undefined, offset: 0 },
     ]);
+  });
+
+  it("plays trimmed once sections unfitted from their offset", () => {
+    const file = mappingSchema.parse({
+      tracks: {
+        a: [{ beat: 8, end: 16, animation: "cat", section: "Spawn", trim: true, offset: 4 }],
+      },
+    });
+    expect(getResolvedMapping(file, animations).mapping.get("a")?.[0]).toEqual({
+      beat: 8,
+      animationId: "cat",
+      section: 1,
+      params: undefined,
+      beats: undefined,
+      offset: 4,
+    });
+  });
+
+  it("ignores trim on loop sections", () => {
+    const file = mappingSchema.parse({
+      tracks: { a: [{ beat: 8, end: 696, animation: "plasma", trim: true, offset: 4 }] },
+    });
+    expect(getResolvedMapping(file, animations).mapping.get("a")?.[0]).toMatchObject({
+      beats: undefined,
+      offset: 0,
+    });
   });
 
   it("fits each loop of a stretched loop section between the cue and its end beat", () => {
@@ -160,6 +193,7 @@ describe("cue end", () => {
       animationId: "plasma",
       section: 0,
       beats: 8,
+      offset: 0,
     });
   });
 
@@ -172,6 +206,7 @@ describe("cue end", () => {
       animationId: "plasma",
       section: 0,
       beats: undefined,
+      offset: 0,
     });
   });
 
@@ -185,9 +220,16 @@ describe("cue end", () => {
       },
     });
     expect(getResolvedMapping(file, animations).mapping.get("a")).toEqual([
-      { beat: 0, animationId: "cat", section: 1, params: undefined, beats: 16 },
+      { beat: 0, animationId: "cat", section: 1, params: undefined, beats: 16, offset: 0 },
       { beat: 16, animationId: null },
-      { beat: 32, animationId: "plasma", section: 0, params: undefined, beats: undefined },
+      {
+        beat: 32,
+        animationId: "plasma",
+        section: 0,
+        params: undefined,
+        beats: undefined,
+        offset: 0,
+      },
       { beat: 64, animationId: null },
     ]);
   });
@@ -200,8 +242,8 @@ describe("cue end", () => {
 
 describe("getCue", () => {
   const cues = [
-    { beat: 8, animationId: "cat", section: 0, params: undefined, beats: undefined },
-    { beat: 32, animationId: "cat", section: 1, params: undefined, beats: undefined },
+    { beat: 8, animationId: "cat", section: 0, params: undefined, beats: undefined, offset: 0 },
+    { beat: 32, animationId: "cat", section: 1, params: undefined, beats: undefined, offset: 0 },
   ];
 
   it("returns the last cue at or before the beat", () => {

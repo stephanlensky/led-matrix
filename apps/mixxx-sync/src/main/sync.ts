@@ -51,6 +51,7 @@ function getCueKey(location: string | undefined, cue: ResolvedCue): string {
         cue.section,
         JSON.stringify(cue.params),
         cue.beats,
+        cue.offset,
       ].join("\n");
 }
 
@@ -128,7 +129,7 @@ export function createSync({
   }
 
   async function play(target: Target, cue: SectionCue, key: string): Promise<void> {
-    const beat = Math.max(target.getBeat(getTime()) - cue.beat, 0);
+    const beat = Math.max(target.getBeat(getTime()) - cue.beat, 0) + cue.offset;
     const { animationId: id, section, params, beats } = cue;
     setModel(await server.play({ id, section, params, beat, bpm: target.bpm, beats }));
     playedKey = key;
@@ -186,7 +187,7 @@ export function createSync({
     if (serverBeat === undefined || current.state.paused || time - lastNudgeAt < nudgeInterval) {
       return;
     }
-    const offset = target.getBeat(time) - (cue?.beat ?? 0) - serverBeat;
+    const offset = target.getBeat(time) - (cue ? cue.beat - cue.offset : 0) - serverBeat;
     const drift = cue ? offset : getPhaseDrift(offset);
     if (Math.abs(drift) <= driftThreshold) {
       return;

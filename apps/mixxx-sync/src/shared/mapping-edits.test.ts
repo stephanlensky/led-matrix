@@ -11,6 +11,8 @@ import {
   resizeCue,
   setCueLoops,
   setCueParam,
+  setCueTrim,
+  trimCueStart,
 } from "./mapping-edits.ts";
 
 const location = "/music/a.flac";
@@ -229,6 +231,41 @@ describe("setCueLoops", () => {
       beat: 0,
       animation: "cat",
     });
+  });
+});
+
+describe("setCueTrim", () => {
+  it("sets trim and removes it with the offset", () => {
+    const trimmed = setCueTrim(file, location, 1, true);
+    expect(trimmed.tracks[location]?.[1]).toEqual({
+      beat: 32,
+      end: 48,
+      animation: "cat",
+      section: "Spawn",
+      trim: true,
+    });
+    const offset = trimCueStart(trimmed, location, 1, 36);
+    expect(setCueTrim(offset, location, 1, false).tracks[location]?.[1]).toEqual({
+      beat: 36,
+      end: 48,
+      animation: "cat",
+      section: "Spawn",
+    });
+  });
+});
+
+describe("trimCueStart", () => {
+  it("moves the start, keeps the end and accumulates the offset", () => {
+    const once = trimCueStart(setCueTrim(file, location, 1, true), location, 1, 36);
+    expect(once.tracks[location]?.[1]).toMatchObject({ beat: 36, end: 48, offset: 4 });
+    expect(trimCueStart(once, location, 1, 38).tracks[location]?.[1]).toMatchObject({
+      offset: 6,
+    });
+  });
+
+  it("removes the offset at the animation start", () => {
+    const once = trimCueStart(setCueTrim(file, location, 1, true), location, 1, 36);
+    expect(trimCueStart(once, location, 1, 32).tracks[location]?.[1]).not.toHaveProperty("offset");
   });
 });
 

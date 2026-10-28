@@ -15,6 +15,7 @@ import {
   getSnapTargets,
   getStartRange,
   getTrackRange,
+  getTrimStartRange,
 } from "./lane-edit.ts";
 import type { Cue } from "./mapping.ts";
 
@@ -46,6 +47,12 @@ describe("ranges", () => {
     expect(getStartRange(cues, 2, track)).toEqual({ min: 48, max: 198 });
     expect(getEndRange(cues, 1, track)).toEqual({ min: 33, max: 64 });
     expect(getEndRange(cues, 2, track)).toEqual({ min: 65, max: 199 });
+  });
+
+  it("keeps a trimmed start after the animation start", () => {
+    const trimmed: Cue[] = [cues[0]!, { ...cues[1]!, trim: true, offset: 4 }, cues[2]!];
+    expect(getTrimStartRange(trimmed, 1, track)).toEqual({ min: 28, max: 47 });
+    expect(getTrimStartRange(trimmed, 0, track)).toEqual({ min: 0, max: 31 });
   });
 });
 

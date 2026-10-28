@@ -29,7 +29,10 @@ export type AnimationBlock = {
   stop: number;
   hasEnd: boolean;
   isLoop: boolean;
+  isTrimmed: boolean;
   loops: number | undefined;
+  offset: number;
+  startSection: number;
   fit: SectionFit | null;
   boundaries: SectionBoundary[];
 };
@@ -49,7 +52,7 @@ function getBoundaries(
   bpm: number,
   fps: number,
 ): SectionBoundary[] {
-  const boundaries: SectionBoundary[] = [];
+  const boundaries: SectionBoundary[] = [{ beat, section }];
   let start = beat;
   for (let index = section; index < animation.sections.length - 1; index++) {
     if (animation.sections[index]?.mode.type === "loop") {
@@ -118,6 +121,17 @@ export function getAnimationLane(
     const end = hasEnd ? cueEnd : stop;
     const bpm = getBpm(beats, cue.beat);
     const fit = cue.beats === undefined ? null : { section: cue.section, beats: cue.beats };
+    const boundaries = getBoundaries(
+      getFittedAnimation(animation, fit, bpm, fps),
+      cue.section,
+      cue.beat - cue.offset,
+      end,
+      bpm,
+      fps,
+    );
+    const isLoop = animation.sections[cue.section]?.mode.type === "loop";
+    const startSection =
+      boundaries.findLast(({ beat }) => beat <= cue.beat)?.section ?? cue.section;
     return [
       {
         index,
@@ -130,17 +144,13 @@ export function getAnimationLane(
         end,
         stop,
         hasEnd,
-        isLoop: animation.sections[cue.section]?.mode.type === "loop",
+        isLoop,
+        isTrimmed: !isLoop && cues[index]?.trim === true,
         loops,
+        offset: cue.offset,
+        startSection,
         fit,
-        boundaries: getBoundaries(
-          getFittedAnimation(animation, fit, bpm, fps),
-          cue.section,
-          cue.beat,
-          end,
-          bpm,
-          fps,
-        ),
+        boundaries: boundaries.filter(({ beat }) => beat > cue.beat),
       },
     ];
   });
@@ -155,6 +165,7 @@ export function isSameRender(a: AnimationBlock, b: AnimationBlock): boolean {
     a.bpm === b.bpm &&
     a.beat === b.beat &&
     a.end === b.end &&
+    a.offset === b.offset &&
     a.fit?.section === b.fit?.section &&
     a.fit?.beats === b.fit?.beats
   );
@@ -186,7 +197,7 @@ export function getBlockPosition(
   if (beat < block.beat || beat >= block.end) {
     return undefined;
   }
-  const time = ((beat - block.beat) * 60_000) / block.bpm;
+  const time = ((beat - block.beat + block.offset) * 60_000) / block.bpm;
   const playback = { current: { index: block.section, startedAt: 0 }, next: undefined };
   return getRenderPosition(block.animation, block.fit, playback, time, block.bpm, fps);
 }

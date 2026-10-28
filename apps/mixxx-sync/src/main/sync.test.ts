@@ -138,8 +138,8 @@ const mapping: Mapping = new Map([
   [
     location,
     [
-      { beat: 16, animationId: "cat", section: 0, params: undefined, beats: undefined },
-      { beat: 64, animationId: "cat", section: 1, params: undefined, beats: 32 },
+      { beat: 16, animationId: "cat", section: 0, params: undefined, beats: undefined, offset: 0 },
+      { beat: 64, animationId: "cat", section: 1, params: undefined, beats: 32, offset: 0 },
     ],
   ],
 ]);
@@ -188,7 +188,16 @@ describe("sync", () => {
     const leadIn: Mapping = new Map([
       [
         location,
-        [{ beat: -1, animationId: "bad-apple", section: 0, params: undefined, beats: 688 }],
+        [
+          {
+            beat: -1,
+            animationId: "bad-apple",
+            section: 0,
+            params: undefined,
+            beats: 688,
+            offset: 0,
+          },
+        ],
       ],
     ]);
     const { fake, update } = createHarness(leadIn);
@@ -209,6 +218,7 @@ describe("sync", () => {
             section: 0,
             params: { Color: "Orange" },
             beats: undefined,
+            offset: 0,
           },
         ],
       ],
@@ -276,9 +286,23 @@ describe("sync", () => {
       [
         location,
         [
-          { beat: 16, animationId: "cat", section: 0, params: undefined, beats: undefined },
+          {
+            beat: 16,
+            animationId: "cat",
+            section: 0,
+            params: undefined,
+            beats: undefined,
+            offset: 0,
+          },
           { beat: 32, animationId: null },
-          { beat: 64, animationId: "plasma", section: 0, params: undefined, beats: undefined },
+          {
+            beat: 64,
+            animationId: "plasma",
+            section: 0,
+            params: undefined,
+            beats: undefined,
+            offset: 0,
+          },
         ],
       ],
     ]);

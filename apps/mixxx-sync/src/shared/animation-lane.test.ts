@@ -116,6 +116,21 @@ describe("getAnimationLane", () => {
   });
 });
 
+describe("trimmed blocks", () => {
+  it("does not fit and starts at the offset", () => {
+    const { blocks } = getLane([
+      { beat: 0, end: 4, animation: "intro", trim: true, offset: 10 },
+      { beat: 20, animation: "plasma" },
+    ]);
+    const block = blocks[0]!;
+    expect(block.fit).toBeNull();
+    expect(block.isTrimmed).toBe(true);
+    expect(block.startSection).toBe(1);
+    expect(block.boundaries).toEqual([{ beat: 2, section: 2 }]);
+    expect(getBlockPosition(block, 1, FPS)).toMatchObject({ index: 1, time: 1500 });
+  });
+});
+
 describe("isSameRender", () => {
   it("ignores the blank gap after an end", () => {
     const touching = getLane([

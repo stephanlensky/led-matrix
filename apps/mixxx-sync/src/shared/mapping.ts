@@ -16,6 +16,8 @@ export const cueSchema = z
     section: z.union([z.string(), z.int().min(0)]).optional(),
     params: parameterSelectionSchema.optional(),
     loops: z.int().positive().optional(),
+    trim: z.literal(true).optional(),
+    offset: z.number().positive().optional(),
   })
   .refine(({ beat, end }) => end === undefined || end > beat, {
     path: ["end"],
@@ -59,6 +61,7 @@ export type SectionCue = {
   section: number;
   params: ParameterSelection | undefined;
   beats: number | undefined;
+  offset: number;
 };
 
 export type BlankCue = { beat: number; animationId: null };
@@ -92,7 +95,7 @@ export function getExplicitCues(cues: readonly Cue[]): ExplicitCue[] {
 }
 
 function getFitBeats(cue: Cue, type: ModeType | undefined): number | undefined {
-  if (cue.end === undefined) {
+  if (cue.end === undefined || (type === "once" && cue.trim)) {
     return undefined;
   }
   if (type === "once") {
@@ -126,8 +129,10 @@ export function getResolvedCues(
       errors.push(`beat ${cue.beat}: ${paramsError} in "${animationId}"`);
       continue;
     }
-    const beats = getFitBeats(cue, animation.sections[section]?.mode.type);
-    resolved.push({ beat: cue.beat, animationId, section, params, beats });
+    const type = animation.sections[section]?.mode.type;
+    const beats = getFitBeats(cue, type);
+    const offset = type === "once" && cue.trim ? (cue.offset ?? 0) : 0;
+    resolved.push({ beat: cue.beat, animationId, section, params, beats, offset });
     const next = cues[index + 1];
     if (cue.end !== undefined && (next === undefined || cue.end < next.beat)) {
       resolved.push({ beat: cue.end, animationId: null });

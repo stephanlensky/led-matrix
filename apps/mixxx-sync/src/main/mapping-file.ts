@@ -17,6 +17,8 @@ const cueKeys = [
   "beat",
   "end",
   "loops",
+  "trim",
+  "offset",
   "animation",
   "section",
   "params",

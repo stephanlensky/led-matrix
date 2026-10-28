@@ -53,6 +53,7 @@ import {
   getSnapTargets,
   getStartRange,
   getTrackRange,
+  getTrimStartRange,
 } from "../../shared/lane-edit.ts";
 import type { MixxxCue } from "../../shared/library.ts";
 import type { CueStatus } from "../../shared/api.ts";
@@ -68,6 +69,8 @@ import {
   resizeCue,
   setCueLoops,
   setCueParam,
+  setCueTrim,
+  trimCueStart,
 } from "../../shared/mapping-edits.ts";
 import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
 import {
@@ -104,6 +107,7 @@ type DragKind = "move" | "start" | "end";
 
 type Drag = {
   kind: DragKind;
+  isTrimmed: boolean;
   isCopy: boolean;
   cue: AnimationCue | undefined;
   target: string | undefined;
@@ -165,11 +169,20 @@ function getPointerBeat(laneScale: LaneScale, left: number, clientX: number): nu
   return getBeat(beats, width > 0 ? ((clientX - left) / width) * duration : 0);
 }
 
-function getRange(kind: DragKind, cues: readonly Cue[], index: number, track: BeatRange) {
+function getRange(
+  kind: DragKind,
+  cues: readonly Cue[],
+  index: number,
+  track: BeatRange,
+  isTrimmed: boolean,
+) {
   if (kind === "move") {
     return getMoveRange(cues, index, track);
   }
-  return kind === "start" ? getStartRange(cues, index, track) : getEndRange(cues, index, track);
+  if (kind === "end") {
+    return getEndRange(cues, index, track);
+  }
+  return isTrimmed ? getTrimStartRange(cues, index, track) : getStartRange(cues, index, track);
 }
 
 function getDragSnap(drag: Drag, beat: number, isFree: boolean): Snap {
@@ -260,8 +273,16 @@ type BlockHandlers = {
   onClearEnd: (block: AnimationBlock) => void;
   onContextMenu: (block: AnimationBlock) => void;
   onSetStretch: (block: AnimationBlock, isStretched: boolean) => void;
+  onSetTrim: (block: AnimationBlock, isTrimmed: boolean) => void;
   onSetParam: (block: AnimationBlock, name: string, option: string) => void;
 };
+
+function getHandleTitle(side: "start" | "end", isTrimmed: boolean): string {
+  if (side === "start") {
+    return isTrimmed ? "Trim the start" : "Move the start";
+  }
+  return isTrimmed ? "Trim the end (double-click to clear)" : "Set the end (double-click to clear)";
+}
 
 function Handle({
   side,
@@ -278,7 +299,7 @@ function Handle({
   return (
     <div
       className={`group/handle absolute inset-y-0 z-10 flex w-2 cursor-ew-resize items-center justify-center hover:bg-white/40 ${side === "start" ? "left-0" : "right-0"} ${isSelected ? "bg-white/25" : ""}`}
-      title={side === "start" ? "Move the start" : "Set the end (double-click to clear)"}
+      title={getHandleTitle(side, block.isTrimmed)}
       onPointerDown={(event) => handlers.onPointerDown(event, side, block)}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={side === "end" ? () => handlers.onClearEnd(block) : undefined}
@@ -352,7 +373,7 @@ function Block({
   const hasSections = block.animation.sections.length > 1;
   const parameters = getMenuParameters(block);
   const optionLabel = parameters.map(({ name }) => block.params[name]).join(" · ");
-  const hasMenu = handlers !== undefined && (block.isLoop || parameters.length > 0);
+  const hasMenu = handlers !== undefined;
 
   return (
     <>
@@ -392,7 +413,7 @@ function Block({
             <span className="truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 font-medium text-white">
               {block.animation.name}
             </span>
-            {hasSections && <SectionLabel block={block} section={block.section} />}
+            {hasSections && <SectionLabel block={block} section={block.startSection} />}
             {optionLabel && (
               <span className="truncate rounded-sm bg-black/70 px-1 text-[10px] leading-3.5 text-white/80">
                 {optionLabel}
@@ -430,15 +451,22 @@ function BlockMenu({ block, handlers }: { block: AnimationBlock; handlers: Block
   const parameters = getMenuParameters(block);
   return (
     <ContextMenuContent>
-      {block.isLoop && (
+      {block.isLoop ? (
         <ContextMenuCheckboxItem
           checked={block.loops !== undefined}
           onCheckedChange={(checked) => handlers.onSetStretch(block, checked)}
         >
           Stretch loop to fit
         </ContextMenuCheckboxItem>
+      ) : (
+        <ContextMenuCheckboxItem
+          checked={block.isTrimmed}
+          onCheckedChange={(checked) => handlers.onSetTrim(block, checked)}
+        >
+          Trim instead of stretch
+        </ContextMenuCheckboxItem>
       )}
-      {block.isLoop && parameters.length > 0 && <ContextMenuSeparator />}
+      {parameters.length > 0 && <ContextMenuSeparator />}
       {parameters.map((parameter) => (
         <ContextMenuSub key={parameter.name}>
           <ContextMenuSubTrigger>
@@ -544,9 +572,12 @@ export function AnimationLane({
       if (drag.kind === "move") {
         return moveCue(file, location, drag.index, value);
       }
-      return drag.kind === "start"
-        ? resizeCue(file, location, drag.index, { beat: value, end: cue?.end })
-        : resizeCue(file, location, drag.index, { beat: cue?.beat ?? value, end: value });
+      if (drag.kind === "end") {
+        return resizeCue(file, location, drag.index, { beat: cue?.beat ?? value, end: value });
+      }
+      return drag.isTrimmed
+        ? trimCueStart(file, location, drag.index, value)
+        : resizeCue(file, location, drag.index, { beat: value, end: cue?.end });
     };
   }
 
@@ -565,6 +596,7 @@ export function AnimationLane({
       const length = kind === "move" && cue.end !== undefined ? cue.end - cue.beat : undefined;
       dragRef.current = {
         kind,
+        isTrimmed: block.isTrimmed,
         isCopy,
         cue: isCopy ? getExplicitCues(savedCues)[block.index] : undefined,
         target: undefined,
@@ -574,7 +606,7 @@ export function AnimationLane({
         startBeat: getPointerBeat(measured.laneScale, measured.left, event.clientX),
         value,
         length,
-        range: getRange(kind, savedCues, block.index, track),
+        range: getRange(kind, savedCues, block.index, track, block.isTrimmed),
         gaps: isCopy ? getGapRanges(savedCues, length, track) : [],
         targets: getSnapTargets(savedCues, isCopy ? undefined : block.index, mixxxCues, beats),
         ...measured,
@@ -603,6 +635,9 @@ export function AnimationLane({
     onSetStretch(block, isStretched) {
       const loops = isStretched ? { end: block.end, count: getLoopCount(block, fps) } : undefined;
       editor?.update((file) => setCueLoops(file, location, block.index, loops));
+    },
+    onSetTrim(block, isTrimmed) {
+      editor?.update((file) => setCueTrim(file, location, block.index, isTrimmed));
     },
     onSetParam(block, name, option) {
       editor?.update((file) => setCueParam(file, location, block.index, name, option));
