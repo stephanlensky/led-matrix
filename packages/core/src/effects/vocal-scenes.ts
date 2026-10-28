@@ -632,9 +632,13 @@ export const vocalScene = defineEffect({
     ...furParams,
     scene: z.enum(vocalScenes).default("planet"),
     cancelAt: z.number().min(0).max(16).default(2),
+    hideAt: z.number().min(0).max(64).optional(),
     heartColor: colorSchema.default("#ff2a6d"),
   }),
   render(image, { params, beat }) {
+    if (params.hideAt !== undefined && beat >= params.hideAt) {
+      return;
+    }
     const [tabbyCoat, blackCoat] = getCoats(params);
     fillRgbaImage(image, BLACK);
     sceneDrawings[params.scene](image, {

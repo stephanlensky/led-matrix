@@ -626,14 +626,18 @@ const vocalPlanetDying: AnimationInput = {
     getVocalSection("The aliens aren't contacting us", 4, "aliens", { cancelAt: 2.5 }),
     getVocalSection("We might be alone", 4, "alone"),
     getVocalSection("It just might be you and me", 4, "together"),
-    getVocalSection("But it's okay", 3, "okay"),
     {
-      name: "Do you really need anyone else?",
-      mode: { type: "once", beats: 5 },
+      name: "But it's okay",
+      mode: { type: "once", beats: 10 },
       layers: [
         {
           effect: "cat-heart-hands",
-          params: { every: 1, heartColor: HEART_PINK },
+          params: { every: 1, heartColor: HEART_PINK, beatOffset: -10 },
+        },
+        { effect: "vocal-scene", params: { ...vocalLayers, scene: "okay", hideAt: 9 } },
+        {
+          effect: "heart-wipe",
+          params: { color: HEART_PINK, coverAt: 7.2, revealAt: 9, endAt: 10 },
         },
       ],
     },

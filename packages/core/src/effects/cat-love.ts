@@ -85,10 +85,10 @@ export const catHeartHands = defineEffect({
   id: "cat-heart-hands",
   name: "Cat heart hands",
   kind: "pixel",
-  params: z.object(loveParams),
+  params: z.object({ ...loveParams, beatOffset: z.number().min(-64).max(64).default(0) }),
   render(image, { params, beat }) {
     const heart = parseColor(params.heartColor);
-    const { pulse, kick } = getBeatKick(beat, params.every);
+    const { pulse, kick } = getBeatKick(beat + params.beatOffset, params.every);
     const phase = getCycle(pulse);
     const isPop = ((Math.floor(pulse) % 4) + 4) % 4 === 3;
     const pop = isPop ? kick : 0;

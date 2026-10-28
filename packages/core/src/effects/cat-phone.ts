@@ -616,6 +616,32 @@ function drawJoy(
   drawEyes(image, points, isBig ? "hearts" : "happy", eyeColor, heart, 1);
 }
 
+export const heartWipe = defineEffect({
+  id: "heart-wipe",
+  name: "Heart wipe",
+  kind: "pixel",
+  params: z.object({
+    color: colorSchema.default("#ff3c78"),
+    coverAt: z.number().min(0).max(64).default(0),
+    revealAt: z.number().min(0).max(64).default(1.8),
+    endAt: z.number().min(0).max(64).default(3),
+  }),
+  render(image, { params, beat }) {
+    const color = parseColor(params.color);
+    if (beat < params.revealAt) {
+      const sweep = easings.easeInQuad(getSpan(beat, params.coverAt, params.revealAt));
+      if (sweep > 0) {
+        drawSwoosh(image, -30 + 130 * sweep, -200, color);
+      }
+      return;
+    }
+    const reveal = easings.easeOutQuad(getSpan(beat, params.revealAt, params.endAt));
+    if (reveal < 1) {
+      drawSwoosh(image, 400, -25 + 125 * reveal, color);
+    }
+  },
+});
+
 export const catPhone = defineEffect({
   id: "cat-phone",
   name: "Cat phone",

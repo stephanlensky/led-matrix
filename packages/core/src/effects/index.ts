@@ -68,7 +68,7 @@ import { catWands } from "./cat-wands.ts";
 import { catSpace } from "./cat-space.ts";
 import { catLaptop } from "./cat-laptop.ts";
 import { catCyberspace, catLaptopPortal } from "./cat-cyberspace.ts";
-import { catPhone } from "./cat-phone.ts";
+import { catPhone, heartWipe } from "./cat-phone.ts";
 import { heartFloat, heartPulse } from "./heart-pulse.ts";
 import { heartEqualizer } from "./heart-equalizer.ts";
 import { equalizer } from "./equalizer.ts";
@@ -162,6 +162,7 @@ export const effects: readonly Effect[] = [
   catLaptopPortal,
   catCyberspace,
   catPhone,
+  heartWipe,
   heartPulse,
   catHeartHands,
   catKiss,
