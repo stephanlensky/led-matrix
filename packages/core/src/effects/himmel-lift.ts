@@ -131,6 +131,7 @@ export const himmelSquat = defineEffect({
   params: getLiftParams(30, 12),
   render(image, { params, beat }) {
     const rep = getRep(beat, params.every);
+    const depth = 1 - rep.depth;
     const raster = createRaster();
     const placement = {
       x: WIDTH / 2,
@@ -138,9 +139,9 @@ export const himmelSquat = defineEffect({
       size: params.size * (1 + params.punch * rep.punch),
       rotate: getRotation(toRadians(params.pitch), toRadians(params.yaw), 0),
     };
-    const drop = 0.3 * rep.depth;
-    const back = 0.16 * rep.depth;
-    const lean = toRadians(38 * rep.depth);
+    const drop = 0.3 * depth;
+    const back = 0.16 * depth;
+    const lean = toRadians(38 * depth);
     drawHero(raster, "himmel", {
       ...placement,
       offset: [0, -drop, -back],
