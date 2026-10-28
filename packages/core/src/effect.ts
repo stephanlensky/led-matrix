@@ -10,6 +10,7 @@ export type EffectInput<P> = {
   time: number;
   beat: number;
   bpm: number;
+  fps: number;
   progress: number;
   cycle: number;
   clips: ClipLibrary;

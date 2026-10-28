@@ -3,6 +3,7 @@ import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { fillRgbaImage } from "../frame.ts";
 import { easingNames, easings } from "../keyframes.ts";
+import { getVisibleFlash } from "./flash.ts";
 import { getPalette, getPaletteColor, mixColors, paletteParams } from "./palette.ts";
 
 export const colorFlash = defineEffect({
@@ -16,17 +17,16 @@ export const colorFlash = defineEffect({
     fade: z.number().min(0).max(1).default(0),
     background: colorSchema.default("#000000"),
   }),
-  render(image, { params, beat }) {
-    const position = beat * params.flashesPerBeat;
-    const flash = Math.floor(position);
-    const phase = position - flash;
+  render(image, { params, beat, bpm, fps }) {
+    const flash = getVisibleFlash(beat, params.flashesPerBeat, params.duty, bpm, fps);
     const background = parseColor(params.background);
-    if (phase >= params.duty) {
+    if (!flash) {
       fillRgbaImage(image, background);
       return;
     }
-    const color = getPaletteColor(getPalette(params), flash);
-    const intensity = 1 - params.fade * (phase / Math.max(params.duty, 0.001));
+    const { index, progress } = flash;
+    const color = getPaletteColor(getPalette(params), index);
+    const intensity = 1 - params.fade * progress;
     fillRgbaImage(image, mixColors(background, color, intensity));
   },
 });

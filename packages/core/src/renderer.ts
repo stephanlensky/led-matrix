@@ -98,7 +98,7 @@ export function createRenderer({
           throw new Error(`Unknown effect "${layer.effect}"`);
         }
         const params = effect.params.parse(resolveParams(layer.params, timing.progress));
-        const input = { ...timing, bpm, params, cycle, clips };
+        const input = { ...timing, bpm, fps, params, cycle, clips };
 
         let image = createRgbaImage();
         if (effect.kind === "pixel") {

@@ -68,6 +68,7 @@ function renderEffect(id: string, progress: number): RgbaImage {
       time: 0,
       beat: 0,
       bpm: 120,
+      fps: 30,
       cycle: 0,
       clips: emptyClipLibrary,
     });
