@@ -759,6 +759,43 @@ const tamagotchiAnimations: Record<string, AnimationInput> = {
   "tamagotchi-song": tamagotchiSong,
 };
 
+const explosionEveryParameter = getValueParameter(
+  "Every",
+  "every",
+  { Beat: 1, "2 beats": 2, "4 beats": 4 },
+  "2 beats",
+);
+
+const explosionAnimations: Record<string, AnimationInput> = {
+  "explosion-fireball": getLoop(
+    "Fireball",
+    4,
+    [{ effect: "explosion", params: getReferences(["every"]) }],
+    [explosionEveryParameter],
+  ),
+  "explosion-ground": getLoop(
+    "Ground blast",
+    4,
+    [{ effect: "explosion", params: { ...getReferences(["every"]), grounded: true, size: 26 } }],
+    [explosionEveryParameter],
+  ),
+  "explosion-chain": getLoop("Chain reaction", 4, [
+    {
+      effect: "explosion",
+      params: { every: 4, count: 4, scatter: 1, size: 17, length: 1.1, embers: 18 },
+    },
+  ]),
+  "explosion-barrage": getLoop("Barrage", 4, [
+    {
+      effect: "explosion",
+      params: { every: 4, count: 8, scatter: 1, size: 13, length: 1, embers: 12 },
+    },
+  ]),
+  "mushroom-cloud": getLoop("Mushroom cloud", 4, [
+    { effect: "mushroom-cloud", params: { every: 4 } },
+  ]),
+};
+
 const vocalPlanetDying: AnimationInput = {
   name: "The planet is dying",
   sections: [
@@ -2463,5 +2500,6 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("Halloween/Blood", bloodAnimations),
   ...getFolder("Halloween/Blood/Bass", bassBloodAnimations),
   ...getFolder("Tamagotchi", tamagotchiAnimations),
+  ...getFolder("Explosions", explosionAnimations),
   ...getFolder("One-offs", { rumble, "vocal-planet-dying": vocalPlanetDying }),
 };
