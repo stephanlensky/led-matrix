@@ -23,5 +23,6 @@ export * from "./sample.ts";
 export * from "./sections.ts";
 export * from "./sprite.ts";
 export * from "./svg-path.ts";
+export * from "./timeline.ts";
 export * from "./playback.ts";
 export * from "./parameters.ts";

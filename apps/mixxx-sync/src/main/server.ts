@@ -3,6 +3,7 @@ import {
   type PlaybackState,
   type ParameterSelection,
   type StoredAnimation,
+  type TimelineCue,
   playbackStateSchema,
   storedAnimationSchema,
 } from "@led-matrix/core";
@@ -40,15 +41,26 @@ export type PlayRequest = {
   beats?: number;
 };
 
+export type ClockRequest = {
+  beat: number;
+  bpm: number;
+  paused: boolean;
+};
+
+export type TimelineRequest = ClockRequest & {
+  id: string;
+  cues: readonly TimelineCue[];
+  keepCurrent: boolean;
+};
+
 export type ServerClient = {
   getState(): Promise<PlaybackState>;
   getAnimations(): Promise<StoredAnimation[]>;
   play(request: PlayRequest): Promise<PlaybackState>;
   stop(): Promise<PlaybackState>;
   pause(): Promise<PlaybackState>;
-  resume(): Promise<PlaybackState>;
-  setBeat(beat: number): Promise<PlaybackState>;
-  setBpm(bpm: number): Promise<PlaybackState>;
+  setTimeline(request: TimelineRequest): Promise<PlaybackState>;
+  setClock(request: ClockRequest): Promise<PlaybackState>;
 };
 
 export function createServerClient(baseUrl: string, output: Output): ServerClient {
@@ -81,8 +93,7 @@ export function createServerClient(baseUrl: string, output: Output): ServerClien
     play: (body) => request(playbackStateSchema, `${outputPath}/play`, body),
     stop: () => request(playbackStateSchema, `${outputPath}/stop`, {}),
     pause: () => request(playbackStateSchema, `${outputPath}/pause`, {}),
-    resume: () => request(playbackStateSchema, `${outputPath}/resume`, {}),
-    setBeat: (beat) => request(playbackStateSchema, `${outputPath}/beat`, { beat }),
-    setBpm: (bpm) => request(playbackStateSchema, `${outputPath}/bpm`, { bpm }),
+    setTimeline: (body) => request(playbackStateSchema, `${outputPath}/timeline`, body),
+    setClock: (body) => request(playbackStateSchema, `${outputPath}/clock`, body),
   };
 }

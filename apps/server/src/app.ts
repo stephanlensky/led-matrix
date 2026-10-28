@@ -6,6 +6,7 @@ import websocket from "@fastify/websocket";
 import {
   HEIGHT,
   WIDTH,
+  type Animation,
   type DeviceState,
   type Frame,
   type Output,
@@ -24,6 +25,8 @@ import {
   effects,
   getSectionedAnimation,
   outputSchema,
+  timelineCueSchema,
+  timelineIdSchema,
 } from "@led-matrix/core";
 import { nodeCanvas } from "@led-matrix/core/node-canvas";
 import Fastify from "fastify";
@@ -68,6 +71,16 @@ const seekSchema = z.object({ section: sectionIndexSchema, progress: z.number().
 const advanceSchema = z.object({ at: z.enum(["end", "now"]).optional() }).default({});
 const setBpmSchema = z.object({ bpm: bpmSchema });
 const setBeatSchema = z.object({ beat: beatSchema });
+const clockSchema = z.object({
+  beat: z.number(),
+  bpm: bpmSchema.optional(),
+  paused: z.boolean().optional(),
+});
+const timelineSchema = clockSchema.extend({
+  id: timelineIdSchema,
+  cues: z.array(timelineCueSchema).max(10_000),
+  keepCurrent: z.boolean().optional(),
+});
 const setParamsSchema = z.object({ params: parameterSelectionSchema });
 const setBrightnessSchema = z.object({ brightness: z.int().min(0).max(255) });
 const createAnimationSchema = z.preprocess(
@@ -214,9 +227,7 @@ export function createApp({
       return reply.code(404).send({ error: "Animation not found" });
     }
     for (const engine of Object.values(engines)) {
-      if (engine.getState().animationId === id) {
-        engine.stop();
-      }
+      engine.removeAnimation(id);
     }
     return reply.code(204).send();
   });
@@ -338,6 +349,9 @@ export function createApp({
     if (!engine) {
       return reply.code(404).send({ error: "Output not found" });
     }
+    if (engine.hasTimeline()) {
+      return reply.code(409).send({ error: "A timeline is playing" });
+    }
     const result = setParamsSchema.safeParse(request.body);
     if (!result.success) {
       return reply.code(400).send(getValidationError("Invalid params", result.error));
@@ -360,6 +374,9 @@ export function createApp({
     if (!engine) {
       return reply.code(404).send({ error: "Output not found" });
     }
+    if (engine.hasTimeline()) {
+      return reply.code(409).send({ error: "A timeline is playing" });
+    }
     const result = seekSchema.safeParse(request.body);
     if (!result.success) {
       return reply.code(400).send(getValidationError("Invalid seek", result.error));
@@ -381,7 +398,7 @@ export function createApp({
       if (!engine) {
         return reply.code(404).send({ error: "Output not found" });
       }
-      if (engine.getState().animationId === null) {
+      if (!engine.isLoaded()) {
         return reply.code(409).send({ error: "Nothing is playing" });
       }
       engine[action]();
@@ -393,6 +410,9 @@ export function createApp({
     const engine = getEngine(request.params);
     if (!engine) {
       return reply.code(404).send({ error: "Output not found" });
+    }
+    if (engine.hasTimeline()) {
+      return reply.code(409).send({ error: "A timeline is playing" });
     }
     const result = advanceSchema.safeParse(request.body ?? {});
     if (!result.success) {
@@ -413,10 +433,60 @@ export function createApp({
     if (!result.success) {
       return reply.code(400).send(getValidationError("Invalid beat", result.error));
     }
-    if (engine.getState().animationId === null) {
+    if (!engine.isLoaded()) {
       return reply.code(409).send({ error: "Nothing is playing" });
     }
     engine.setBeat(result.data.beat);
+    return engine.getState();
+  });
+
+  app.post("/api/outputs/:output/timeline", async (request, reply) => {
+    const engine = getEngine(request.params);
+    if (!engine) {
+      return reply.code(404).send({ error: "Output not found" });
+    }
+    const result = timelineSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send(getValidationError("Invalid timeline", result.error));
+    }
+    const documents = new Map<string, Animation>();
+    for (const cue of result.data.cues) {
+      if (cue.animationId === null) {
+        continue;
+      }
+      const animation = store.get(cue.animationId);
+      if (!animation) {
+        return reply.code(404).send({ error: `Animation "${cue.animationId}" not found` });
+      }
+      if (cue.section >= animation.sections.length) {
+        return reply
+          .code(400)
+          .send({ error: `Section ${cue.section} not found in "${cue.animationId}"` });
+      }
+      const paramsError = cue.params && getParameterSelectionError(animation, cue.params);
+      if (paramsError) {
+        return reply.code(400).send({ error: `${paramsError} in "${cue.animationId}"` });
+      }
+      const { id, ...document } = animation;
+      documents.set(id, document);
+    }
+    engine.loadTimeline(result.data, documents);
+    return engine.getState();
+  });
+
+  app.post("/api/outputs/:output/clock", async (request, reply) => {
+    const engine = getEngine(request.params);
+    if (!engine) {
+      return reply.code(404).send({ error: "Output not found" });
+    }
+    const result = clockSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.code(400).send(getValidationError("Invalid clock", result.error));
+    }
+    if (!engine.isLoaded()) {
+      return reply.code(409).send({ error: "Nothing is playing" });
+    }
+    engine.setClock(result.data);
     return engine.getState();
   });
 

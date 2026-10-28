@@ -163,6 +163,7 @@ describe("playback engine", () => {
       section: { index: 0, time: 0, next: null },
       fit: null,
       paused: false,
+      timeline: null,
     });
     expect(setFrame).toHaveBeenCalledOnce();
   });
@@ -269,5 +270,90 @@ describe("playback engine", () => {
     expect(engine.renderFrame().every((value) => value === 0)).toBe(true);
     engine.renderFrame();
     expect(onError).toHaveBeenCalledOnce();
+  });
+});
+
+describe("timeline playback", () => {
+  const white = animationSchema.parse({
+    name: "White",
+    mode: { type: "loop", beats: 4 },
+    layers: [{ effect: "solid", params: { color: "#ffffff" } }],
+  });
+  const red = animationSchema.parse({
+    name: "Red",
+    mode: { type: "loop", beats: 4 },
+    layers: [{ effect: "solid", params: { color: "#ff0000" } }],
+  });
+  const documents = new Map([
+    ["white", white],
+    ["red", red],
+  ]);
+  const cues = [
+    { beat: 4, animationId: "white", section: 0, offset: 0 },
+    { beat: 8, animationId: null },
+    { beat: 12, animationId: "red", section: 0, offset: 0 },
+  ];
+
+  it("switches cues ahead of time by the latency", () => {
+    const { clock, engine } = createEngine(undefined, 100);
+    engine.loadTimeline({ id: "track", cues, beat: 0, bpm: 120 }, documents);
+    clock.time = 1850;
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
+    clock.time = 1950;
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 255, 255]);
+    expect(engine.getState()).toMatchObject({ animationId: null, timeline: { cue: null } });
+    clock.time = 3950;
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
+    clock.time = 5950;
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 0, 0]);
+    clock.time = 6000;
+    expect(engine.getState()).toMatchObject({
+      animationId: "red",
+      beat: 12,
+      timeline: { id: "track", cue: 2 },
+    });
+  });
+
+  it("follows the clock", () => {
+    const { clock, engine } = createEngine();
+    engine.loadTimeline({ id: "track", cues, beat: 0, bpm: 120, paused: true }, documents);
+    clock.time = 5000;
+    expect(engine.getState()).toMatchObject({ beat: 0, paused: true });
+    engine.setClock({ beat: 12, paused: true });
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 0, 0]);
+    engine.setClock({ beat: 4, bpm: 60, paused: false });
+    clock.time = 6000;
+    expect(engine.getState()).toMatchObject({ animationId: "white", beat: 5, paused: false });
+  });
+
+  it("keeps the current animation until the first cue, in phase with the new clock", () => {
+    const { clock, engine } = createEngine();
+    engine.play("strobe", strobe);
+    clock.time = 100;
+    engine.loadTimeline({ id: "track", cues, beat: 1, keepCurrent: true }, documents);
+    expect(engine.getState()).toMatchObject({ animationId: "strobe", beat: 1 });
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([255, 255, 255]);
+    clock.time = 1600;
+    expect(engine.getState()).toMatchObject({ animationId: "white", timeline: { cue: 0 } });
+  });
+
+  it("keeps the current timeline cue when the next timeline has not started yet", () => {
+    const { clock, engine } = createEngine();
+    engine.loadTimeline({ id: "a", cues, beat: 13 }, documents);
+    clock.time = 100;
+    engine.loadTimeline({ id: "b", cues, beat: 0, keepCurrent: true }, documents);
+    expect(engine.getState()).toMatchObject({ animationId: "red", timeline: { id: "b" } });
+    engine.loadTimeline({ id: "c", cues, beat: 0 }, documents);
+    expect(engine.getState()).toMatchObject({ animationId: null, timeline: { id: "c" } });
+  });
+
+  it("is replaced by play and cleared by stop", () => {
+    const { engine } = createEngine();
+    engine.loadTimeline({ id: "track", cues, beat: 5 }, documents);
+    engine.play("strobe", strobe);
+    expect(engine.getState()).toMatchObject({ animationId: "strobe", timeline: null });
+    engine.loadTimeline({ id: "track", cues, beat: 5 }, documents);
+    engine.stop();
+    expect(engine.isLoaded()).toBe(false);
   });
 });

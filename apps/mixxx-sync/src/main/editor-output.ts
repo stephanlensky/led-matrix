@@ -76,6 +76,7 @@ export function createEditorOutput(log: (message: string) => void) {
       sync ??= createSync({
         server: current,
         getMapping: () => mapping,
+        keepCurrent: false,
         nudgeInterval: NUDGE_INTERVAL,
         log: logOutput,
       });

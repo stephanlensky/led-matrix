@@ -196,6 +196,7 @@ describe("playback", () => {
       section: { index: 0, time: expect.any(Number), next: null },
       fit: null,
       paused: false,
+      timeline: null,
     });
     const paused = await app.inject({ method: "POST", url: "/api/outputs/simulator/pause" });
     expect(paused.json()).toMatchObject({ paused: true });
@@ -211,6 +212,7 @@ describe("playback", () => {
       section: null,
       fit: null,
       paused: false,
+      timeline: null,
     });
   });
 
@@ -372,6 +374,7 @@ describe("playback", () => {
       section: null,
       fit: null,
       paused: false,
+      timeline: null,
     });
   });
 
@@ -389,6 +392,61 @@ describe("playback", () => {
     expect(
       responses.map((response) => response.json<{ animationId: unknown }>().animationId),
     ).toEqual([null, null]);
+  });
+
+  it("plays a timeline and follows its clock", async () => {
+    const url = "/api/outputs/device";
+    const timeline = await app.inject({
+      method: "POST",
+      url: `${url}/timeline`,
+      body: {
+        id: "track",
+        beat: 2,
+        bpm: 128,
+        paused: true,
+        cues: [
+          { beat: 0, animationId: "plasma", section: 0, offset: 0 },
+          { beat: 8, animationId: null },
+        ],
+      },
+    });
+    expect(timeline.json()).toMatchObject({
+      animationId: "plasma",
+      bpm: 128,
+      beat: 2,
+      paused: true,
+      timeline: { id: "track", cue: 0 },
+    });
+    expect((await app.inject({ method: "POST", url: `${url}/advance`, body: {} })).statusCode).toBe(
+      409,
+    );
+    const clock = await app.inject({
+      method: "POST",
+      url: `${url}/clock`,
+      body: { beat: 9, paused: true },
+    });
+    expect(clock.json()).toMatchObject({
+      animationId: null,
+      beat: 9,
+      timeline: { id: "track", cue: 1 },
+    });
+  });
+
+  it("rejects timelines with unknown animations, sections or params", async () => {
+    const url = "/api/outputs/device/timeline";
+    const post = (cue: Record<string, unknown>) =>
+      app.inject({
+        method: "POST",
+        url,
+        body: { id: "track", beat: 0, cues: [{ beat: 0, section: 0, offset: 0, ...cue }] },
+      });
+    expect((await post({ animationId: "missing" })).statusCode).toBe(404);
+    expect((await post({ animationId: "plasma", section: 99 })).statusCode).toBe(400);
+    expect((await post({ animationId: "plasma", params: { Nope: "x" } })).statusCode).toBe(400);
+    expect(
+      (await app.inject({ method: "POST", url: "/api/outputs/device/clock", body: { beat: 0 } }))
+        .statusCode,
+    ).toBe(409);
   });
 
   it("streams state messages and binary frames over websocket", async () => {
@@ -423,6 +481,7 @@ describe("playback", () => {
           section: null,
           fit: null,
           paused: false,
+          timeline: null,
         },
       },
       {
@@ -436,6 +495,7 @@ describe("playback", () => {
           section: { index: 0, time: expect.any(Number), next: null },
           fit: null,
           paused: false,
+          timeline: null,
         },
       },
     ]);
@@ -467,6 +527,7 @@ describe("playback", () => {
           section: null,
           fit: null,
           paused: false,
+          timeline: null,
         },
       },
       {

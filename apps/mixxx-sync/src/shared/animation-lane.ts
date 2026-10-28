@@ -9,7 +9,7 @@ import {
   type ParameterSelection,
   getParameterAnimation,
   getParameterSelection,
-  getRenderPosition,
+  getCuePosition,
 } from "@led-matrix/core";
 import { type Beats, getBeat, getBpm } from "./beats.ts";
 import type { CueStatus } from "./api.ts";
@@ -197,9 +197,9 @@ export function getBlockPosition(
   if (beat < block.beat || beat >= block.end) {
     return undefined;
   }
-  const time = ((beat - block.beat + block.offset) * 60_000) / block.bpm;
-  const playback = { current: { index: block.section, startedAt: 0 }, next: undefined };
-  return getRenderPosition(block.animation, block.fit, playback, time, block.bpm, fps);
+  const { section, fit, offset } = block;
+  const cue = fit ? { section, beats: fit.beats, offset } : { section, offset };
+  return getCuePosition(block.animation, cue, beat - block.beat, block.bpm, fps);
 }
 
 export type LanePosition = { block: AnimationBlock; position: RenderPosition };

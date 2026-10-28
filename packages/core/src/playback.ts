@@ -2,6 +2,7 @@ import { z } from "zod";
 import { deviceStatusSchema } from "./device-protocol.ts";
 import { parameterSelectionSchema } from "./parameters.ts";
 import { sectionFitSchema } from "./sections.ts";
+import { timelineIdSchema } from "./timeline.ts";
 
 export const outputSchema = z.enum(["simulator", "device"]);
 
@@ -9,6 +10,11 @@ export const sectionStateSchema = z.object({
   index: z.int(),
   time: z.number(),
   next: z.object({ index: z.int(), delay: z.number() }).nullable(),
+});
+
+export const timelineStateSchema = z.object({
+  id: timelineIdSchema,
+  cue: z.int().nullable(),
 });
 
 export const playbackStateSchema = z.object({
@@ -20,6 +26,7 @@ export const playbackStateSchema = z.object({
   section: sectionStateSchema.nullable(),
   fit: sectionFitSchema.nullable(),
   paused: z.boolean(),
+  timeline: timelineStateSchema.nullable().default(null),
 });
 
 export const deviceStateSchema = z.object({
@@ -37,6 +44,8 @@ export const streamMessageSchema = z.discriminatedUnion("type", [
 ]);
 
 export type Output = z.infer<typeof outputSchema>;
+
+export type TimelineState = z.infer<typeof timelineStateSchema>;
 
 export type SectionState = z.infer<typeof sectionStateSchema>;
 
