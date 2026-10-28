@@ -354,7 +354,8 @@ function VirtualTrackList({
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
       <div className="relative w-full" style={{ height: tracks.length * ROW_HEIGHT }}>
         {tracks.slice(start, end).map((track, offset) => {
-          const isLive = track.location === live?.location;
+          const isLiveTrack = track.location === live?.location;
+          const isLive = isLiveTrack && live.isPlaying;
           return (
             <div
               key={track.id}
@@ -372,7 +373,7 @@ function VirtualTrackList({
                 player={player}
                 editor={editor}
                 isLive={isLive}
-                isLivePositionShown={isLive && isLiveView}
+                isLivePositionShown={isLiveTrack && isLiveView}
                 views={views}
                 onSeek={onSeek}
                 liveCue={isLive ? live?.cue : undefined}
