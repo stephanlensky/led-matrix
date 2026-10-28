@@ -1987,6 +1987,8 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         getCatPhoneSection("Send", { type: "once", beats: 8 }, "send"),
         getCatPhoneSection("Buzz", { type: "once", beats: 8 }, "buzz"),
         getCatPhoneSection("Joy", { type: "loop", beats: 8 }, "joy"),
+        getCatPhoneSection("Arrive", { type: "once", beats: 8 }, "arrive"),
+        getCatPhoneSection("Duet", { type: "loop", beats: 8 }, "duet"),
       ],
     },
     "cat-mimic": getLoop(

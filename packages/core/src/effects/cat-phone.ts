@@ -52,7 +52,7 @@ import {
 import { getOvershoot } from "./cat-wands.ts";
 import { type CatFace, type EyeStyle, drawEyes, getCatFace, getEyelessCoat } from "./cat-face.ts";
 import { blendPixel, drawHeart, getHeartCoverage } from "./heart.ts";
-import { HEART_SEED, drawFloatingHearts, drawSparkles } from "./heart-particles.ts";
+import { HEART_SEED, drawFloatingHearts, drawSparkle, drawSparkles } from "./heart-particles.ts";
 
 type PhonePart = "case" | "screen";
 
@@ -380,7 +380,7 @@ function drawExclamation(image: RgbaImage, [x, y]: Vector, pop: number, amount: 
   }
 }
 
-const sceneNames = ["typing", "send", "buzz", "joy"] as const;
+const sceneNames = ["typing", "send", "buzz", "joy", "arrive", "duet"] as const;
 
 const phoneParams = {
   ...furParams,
@@ -578,22 +578,63 @@ function drawReceiver(
   }
 }
 
-function drawJoy(
-  image: RgbaImage,
-  params: PhoneParams,
-  { coat, eyeColor }: PhoneCoat,
-  beat: number,
-): void {
-  const heart = parseColor(params.heartColor);
-  const glow = parseColor(params.screenColor);
-  const { pulse, phase, since, kick } = getPulse(beat, params.every);
-  const index = Math.floor(pulse);
-  const isBig = ((index % 4) + 4) % 4 === 3;
+type Dance = Pulse & { index: number; isBig: boolean };
+
+function getDance(beat: number, every: number): Dance {
+  const pulse = getPulse(beat, every);
+  const index = Math.floor(pulse.pulse);
+  return { ...pulse, index, isBig: ((index % 4) + 4) % 4 === 3 };
+}
+
+type Dancer = {
+  coat: Coat;
+  side: number;
+  x: number;
+  size: number;
+  turn: number;
+  spin: number;
+  lean: number;
+  phone: Color;
+  screen: PhoneScreen;
+};
+
+function getDancingCat(
+  { pulse, phase, since, kick, index, isBig }: Dance,
+  { coat, side, x, size, turn, spin, lean, phone, screen }: Dancer,
+): PhoneCat {
   const height = isBig ? 13 : 7;
   const hop = height * 4 * phase * (1 - phase);
-  const squash = 0.16 * Math.exp(-since * 9) * Math.cos(since * 25);
-  const wave = Math.sin(pulse * TAU);
+  const reach = lean * Math.sin(Math.PI * phase);
+  const wave = Math.sin(pulse * TAU) * (1 - reach);
   const flip = index % 2 === 0 ? 1 : -1;
+  return {
+    coat,
+    side,
+    x: x + side * 4 * reach,
+    y: 46 - hop,
+    size,
+    turn: turn + side * TAU * spin * easings.easeInOutCubic(phase),
+    squash: 0.16 * Math.exp(-since * 9) * Math.cos(since * 25),
+    head: {
+      pitch: -12 - 8 * kick + 10 * reach,
+      yaw: 0,
+      roll: 12 * flip * Math.sin(phase * Math.PI) * (1 - reach),
+    },
+    hold: { pitch: -150 + 12 * wave + 50 * reach, roll: -25 },
+    free: { pitch: -140 - 12 * wave, roll: 30 },
+    tail: wave,
+    phone: {
+      offset: [0.05, -0.4],
+      rotate: { pitch: 0, yaw: -10, roll: 10 * wave },
+      color: phone,
+      screen,
+    },
+    eyes: "happy",
+  };
+}
+
+function drawDanceFloor(image: RgbaImage, params: PhoneParams, pulse: number, kick: number): void {
+  const heart = parseColor(params.heartColor);
   fillRgbaImage(image, scale(parseColor(params.replyBackgroundColor), 1 + 0.6 * kick));
   drawHeart(image, {
     x: WIDTH / 2,
@@ -602,36 +643,206 @@ function drawJoy(
     color: scale(heart, 0.28 + 0.2 * kick),
   });
   drawSparkles(image, pulse, [mix(heart, WHITE, 0.4)], 0.8);
+}
+
+function getHeartColors(heart: Color): Color[] {
+  return [heart, mix(heart, WHITE, 0.5), [255, 90, 60]];
+}
+
+function drawJoy(
+  image: RgbaImage,
+  params: PhoneParams,
+  { coat, eyeColor }: PhoneCoat,
+  beat: number,
+): void {
+  const heart = parseColor(params.heartColor);
+  const glow = parseColor(params.screenColor);
+  const dance = getDance(beat, params.every);
+  drawDanceFloor(image, params, dance.pulse, dance.kick);
   const raster = createRaster();
-  const points = drawPhoneCat(raster, {
-    coat,
-    side: -1,
-    x: WIDTH / 2,
-    y: 46 - hop,
-    size: 17,
-    turn: toRadians(15) - (isBig ? TAU * easings.easeInOutCubic(phase) : 0),
-    squash,
-    head: { pitch: -12 - 8 * kick, yaw: 0, roll: 12 * flip * Math.sin(phase * Math.PI) },
-    hold: { pitch: -150 + 12 * wave, roll: -25 },
-    free: { pitch: -140 - 12 * wave, roll: 30 },
-    tail: wave,
-    phone: {
-      offset: [0.05, -0.4],
-      rotate: { pitch: 0, yaw: -10, roll: 10 * wave },
-      color: LIGHT_PHONE,
-      screen: getHeartScreen(glow, heart, pulse, 1),
-    },
-    eyes: "happy",
-  });
-  drawFloatingHearts(
-    image,
-    pulse,
-    [WIDTH / 2, 44],
-    [heart, mix(heart, WHITE, 0.5), [255, 90, 60]],
-    24,
+  const points = drawPhoneCat(
+    raster,
+    getDancingCat(dance, {
+      coat,
+      side: -1,
+      x: WIDTH / 2,
+      size: 17,
+      turn: toRadians(15),
+      spin: dance.isBig ? 1 : 0,
+      lean: 0,
+      phone: LIGHT_PHONE,
+      screen: getHeartScreen(glow, heart, dance.pulse, 1),
+    }),
   );
+  drawFloatingHearts(image, dance.pulse, [WIDTH / 2, 44], getHeartColors(heart), 24);
   compositeRaster(raster, image);
-  drawEyes(image, points, isBig ? "hearts" : "happy", eyeColor, heart, 1);
+  drawEyes(image, points, dance.isBig ? "hearts" : "happy", eyeColor, heart, 1);
+}
+
+const DUET_BEATS = 8;
+const DUET_SIZE = 14;
+const DUET_X = 15;
+const DUET_TURN = toRadians(5);
+
+function isTouching(dance: Dance, beat: number): boolean {
+  return dance.isBig && getCycle(beat / DUET_BEATS) >= 0.5;
+}
+
+function drawBurst(image: RgbaImage, beat: number, every: number, y: number, heart: Color): void {
+  const age = getCycle((beat - DUET_BEATS + every / 2) / DUET_BEATS) * DUET_BEATS;
+  if (age >= 2) {
+    return;
+  }
+  const fade = clamp((2 - age) * 1.5);
+  drawHeart(image, {
+    x: WIDTH / 2,
+    y: y - 4 * age,
+    size: 11 * getOvershoot(clamp(age * 3)),
+    color: mix(heart, WHITE, 0.3),
+    outline: WHITE,
+    amount: fade,
+  });
+  for (let ray = 0; ray < 8; ray++) {
+    const angle = (ray / 8) * TAU;
+    const distance = 9 + 14 * easings.easeOutCubic(clamp(age / 1.2));
+    drawSparkle(
+      image,
+      [
+        Math.round(WIDTH / 2 + Math.cos(angle) * distance),
+        Math.round(y + Math.sin(angle) * distance * 0.8),
+      ],
+      ray % 2 === 0 ? YELLOW : heart,
+      fade,
+      1,
+    );
+  }
+}
+
+function getDanceEyes(dance: Dance): EyeStyle {
+  return dance.isBig ? "hearts" : "happy";
+}
+
+type DuetPlacement = {
+  senderX: number;
+  receiverX: number;
+  receiverSize: number;
+  turn: number;
+  hasBurst: boolean;
+};
+
+function drawDuetCats(
+  image: RgbaImage,
+  params: PhoneParams,
+  senderCoat: PhoneCoat,
+  receiverCoat: PhoneCoat,
+  beat: number,
+  placement: DuetPlacement,
+  senderDance = getDance(beat, params.every),
+): void {
+  const heart = parseColor(params.heartColor);
+  const glow = parseColor(params.screenColor);
+  const dance = getDance(beat, params.every);
+  const touch = isTouching(dance, beat);
+  const getMove = (move: Dance) => ({
+    spin: move.isBig && !isTouching(move, beat) ? 1 : 0,
+    lean: isTouching(move, beat) ? 1 : 0,
+  });
+  drawDanceFloor(image, params, dance.pulse, dance.kick);
+  const raster = createRaster();
+  const sender = drawPhoneCat(
+    raster,
+    getDancingCat(senderDance, {
+      coat: senderCoat.coat,
+      side: 1,
+      x: placement.senderX,
+      size: DUET_SIZE,
+      turn: -placement.turn,
+      ...getMove(senderDance),
+      phone: DARK_PHONE,
+      screen: getHeartScreen(glow, heart, dance.pulse, 1),
+    }),
+  );
+  const receiver = drawPhoneCat(
+    raster,
+    getDancingCat(dance, {
+      coat: receiverCoat.coat,
+      side: -1,
+      x: placement.receiverX,
+      size: placement.receiverSize,
+      turn: placement.turn,
+      ...getMove(dance),
+      phone: LIGHT_PHONE,
+      screen: getHeartScreen(glow, heart, dance.pulse, 1),
+    }),
+  );
+  const colors = getHeartColors(heart);
+  drawFloatingHearts(image, dance.pulse, [placement.senderX, 44], colors, 10);
+  drawFloatingHearts(image, dance.pulse + 0.5, [placement.receiverX, 44], colors, 10, {
+    seed: hashSeed(HEART_SEED, 2),
+  });
+  compositeRaster(raster, image);
+  drawEyes(
+    image,
+    sender,
+    getDanceEyes(senderDance),
+    senderCoat.eyeColor,
+    heart,
+    1 + 0.2 * Number(touch),
+  );
+  drawEyes(
+    image,
+    receiver,
+    getDanceEyes(dance),
+    receiverCoat.eyeColor,
+    heart,
+    1 + 0.2 * Number(touch),
+  );
+  if (placement.hasBurst) {
+    drawBurst(image, beat, params.every, (sender.phone[1] + receiver.phone[1]) / 2 - 12, heart);
+  }
+}
+
+function drawArrive(
+  image: RgbaImage,
+  params: PhoneParams,
+  senderCoat: PhoneCoat,
+  receiverCoat: PhoneCoat,
+  beat: number,
+): void {
+  const slide = easings.easeInOutCubic(getSpan(beat, 0.5, 3));
+  const enter = easings.easeOutCubic(getSpan(beat, 0, 4));
+  const senderDance = beat < 4 ? { ...getDance(beat * 2, params.every), isBig: false } : undefined;
+  drawDuetCats(
+    image,
+    params,
+    senderCoat,
+    receiverCoat,
+    beat,
+    {
+      senderX: -16 + (WIDTH / 2 - DUET_X + 16) * enter,
+      receiverX: WIDTH / 2 + DUET_X * slide,
+      receiverSize: 17 - (17 - DUET_SIZE) * slide,
+      turn: toRadians(15) - (toRadians(15) - DUET_TURN) * slide,
+      hasBurst: beat >= 4,
+    },
+    senderDance,
+  );
+}
+
+function drawDuet(
+  image: RgbaImage,
+  params: PhoneParams,
+  senderCoat: PhoneCoat,
+  receiverCoat: PhoneCoat,
+  beat: number,
+): void {
+  drawDuetCats(image, params, senderCoat, receiverCoat, beat, {
+    senderX: WIDTH / 2 - DUET_X,
+    receiverX: WIDTH / 2 + DUET_X,
+    receiverSize: DUET_SIZE,
+    turn: DUET_TURN,
+    hasBurst: true,
+  });
 }
 
 function getLockScreen(glow: Color, light: number): PhoneScreen {
@@ -772,8 +983,12 @@ export const catPhone = defineEffect({
       drawSend(image, params, senderCoat, beat, progress * SEND_BEATS);
     } else if (params.scene === "buzz") {
       drawReceiver(image, params, receiverCoat, beat, progress * BUZZ_BEATS);
-    } else {
+    } else if (params.scene === "joy") {
       drawJoy(image, params, receiverCoat, beat);
+    } else if (params.scene === "arrive") {
+      drawArrive(image, params, getPhoneCoat(params, params.sender), receiverCoat, beat);
+    } else {
+      drawDuet(image, params, getPhoneCoat(params, params.sender), receiverCoat, beat);
     }
   },
 });
