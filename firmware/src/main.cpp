@@ -116,6 +116,7 @@ void showNetwork() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);
   settings::begin();
   brightness = settings::getBrightness();
   if (!display::begin(brightness)) {
