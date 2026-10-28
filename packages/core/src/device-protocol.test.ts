@@ -66,7 +66,7 @@ describe("device protocol", () => {
   it("splits frames into packets that fit in a single datagram", () => {
     const packets = encodeFrame(createFrame(), 1);
     expect(packets).toHaveLength(10);
-    expect(Math.max(...packets.map((packet) => packet.length))).toBeLessThanOrEqual(1472);
+    expect(Math.max(...packets.map((packet) => packet.length))).toBeLessThanOrEqual(1356);
     expect(packets.reduce((total, packet) => total + packet.length - 12, 0)).toBe(64 * 64 * 3);
   });
 
@@ -110,12 +110,12 @@ describe("compressed frames", () => {
   it.each([
     ["black", createFrame(), 1],
     ["sprite", createSprite(), 1],
-    ["gradient", createGradient(), 9],
-    ["noise", createNoise(), 9],
+    ["gradient", createGradient(), 10],
+    ["noise", createNoise(), 10],
   ])("round trips a %s frame in %i packets", (_name, frame, packetCount) => {
     const packets = encodeCompressedFrame(frame, 7);
     expect(packets).toHaveLength(packetCount);
-    expect(Math.max(...packets.map((packet) => packet.length))).toBeLessThanOrEqual(1472);
+    expect(Math.max(...packets.map((packet) => packet.length))).toBeLessThanOrEqual(1356);
     const chunks = getChunks(frame, 7, encodeCompressedFrame);
     expect(addAll(createFrameAssembler(), chunks.toReversed())).toEqual(frame);
   });

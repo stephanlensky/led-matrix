@@ -13,7 +13,7 @@ The device uses one socket bound to 7700 for everything and sends its status fro
 
 The device sends status to the configured server address if it has one, otherwise to the subnet broadcast address. This covers both the device joining a laptop hotspot and the laptop joining an access point run by the device.
 
-Every packet fits in one datagram (at most 1472 bytes) so nothing relies on IP fragmentation.
+Every packet fits in one datagram of at most 1356 bytes, so nothing relies on IP fragmentation, even on networks with a smaller MTU (the Kubernetes pod network uses 1420). The device drops IP fragments.
 
 ## Packet header
 
