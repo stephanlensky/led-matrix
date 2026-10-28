@@ -131,6 +131,19 @@ describe("pasteCues group", () => {
   });
 });
 
+describe("pasteCues pattern", () => {
+  it("merges a copy that lands on an identical cue", () => {
+    const cues = [
+      { beat: 0, end: 4, animation: "cat" },
+      { beat: 8, end: 12, animation: "cat" },
+    ];
+    expect(pasteCues({ tracks: { a: cues } }, "a", cues, 8).tracks["a"]).toEqual([
+      ...cues,
+      { beat: 16, end: 20, animation: "cat" },
+    ]);
+  });
+});
+
 describe("pasteCue", () => {
   it("adds the cue to another track and ends it at the next cue", () => {
     const cue = { beat: 32, end: 48, animation: "cat", section: "Spawn", loops: 2 };

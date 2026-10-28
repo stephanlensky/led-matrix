@@ -1,6 +1,6 @@
 import { type Beats, getBeat, getPosition } from "./beats.ts";
 import type { MixxxCue } from "./library.ts";
-import type { Cue } from "./mapping.ts";
+import { type Cue, getExplicitCues } from "./mapping.ts";
 import { BEATS_PER_BAR } from "./track-scale.ts";
 
 export const MIN_CUE_BEATS = 1;
@@ -238,14 +238,25 @@ export function getCueLength({ beat, end }: Cue): number | undefined {
   return end === undefined ? undefined : end - beat;
 }
 
+function getCueContent({ beat, end, params, ...rest }: Cue): string {
+  const entries = Object.entries({ ...rest, length: end === undefined ? undefined : end - beat });
+  const paramEntries = Object.entries(params ?? {}).toSorted(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify([entries.toSorted(([a], [b]) => a.localeCompare(b)), paramEntries]);
+}
+
 export function isCopyValid(
   cues: readonly Cue[],
   copies: readonly Cue[],
   delta: number,
   track: BeatRange,
 ): boolean {
+  const explicitCues = getExplicitCues(cues);
   return copies.every((copy) => {
     const beat = copy.beat + delta;
+    const existing = explicitCues.find((cue) => cue.beat === beat);
+    if (existing && getCueContent(existing) === getCueContent(copy)) {
+      return true;
+    }
     const gap = getGapRange(cues, beat, getCueLength(copy), track);
     return gap !== undefined && beat >= gap.min && beat <= gap.max;
   });

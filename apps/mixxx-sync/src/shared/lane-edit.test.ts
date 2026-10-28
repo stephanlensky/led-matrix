@@ -89,6 +89,19 @@ describe("isCopyValid", () => {
   });
 });
 
+describe("isCopyValid pattern", () => {
+  it("lets a copy land exactly on an identical cue", () => {
+    const pattern: Cue[] = [
+      { beat: 0, end: 4, animation: "cat", params: { Color: "Red" } },
+      { beat: 8, end: 12, animation: "cat", params: { Color: "Red" } },
+    ];
+    expect(isCopyValid(pattern, pattern, 8, track)).toBe(true);
+    expect(isCopyValid(pattern, pattern, 7, track)).toBe(false);
+    const different: Cue[] = [pattern[0]!, { ...pattern[1]!, params: { Color: "Blue" } }];
+    expect(isCopyValid(different, different, 8, track)).toBe(false);
+  });
+});
+
 describe("getGroupCopySnap", () => {
   it("snaps the anchor and checks the whole group", () => {
     const copies = [cues[1]!, { beat: 50, end: 52, animation: "cat" }];
