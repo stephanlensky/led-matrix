@@ -71,6 +71,17 @@ import { catCyberspace, catLaptopPortal } from "./cat-cyberspace.ts";
 import { catPhone, heartWipe } from "./cat-phone.ts";
 import { heartFloat, heartPulse } from "./heart-pulse.ts";
 import { heartEqualizer } from "./heart-equalizer.ts";
+import {
+  bloodDrips,
+  heartArrow,
+  heartBleed,
+  heartBreak,
+  heartBurst,
+  heartCorrupt,
+  heartFlatline,
+  heartMelt,
+  heartRain,
+} from "./heart-blood.ts";
 import { equalizer } from "./equalizer.ts";
 import { catHeartHands, catKiss } from "./cat-love.ts";
 import { heartEcg, heartGrid, heartTunnel, heartZoom } from "./heart-patterns.ts";
@@ -172,6 +183,15 @@ export const effects: readonly Effect[] = [
   heartEcg,
   heartTunnel,
   heartEqualizer,
+  heartBleed,
+  heartBreak,
+  heartMelt,
+  heartFlatline,
+  heartArrow,
+  heartRain,
+  heartBurst,
+  heartCorrupt,
+  bloodDrips,
   equalizer,
   catBench,
   catSquat,

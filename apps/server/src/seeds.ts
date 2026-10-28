@@ -563,6 +563,100 @@ const loveColorParameter = getParameter(
   "Pink",
 );
 
+const bleedingColorParameter = getParameter(
+  "Hearts",
+  {
+    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
+    "Hot pink": { heartColor: PINK, bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#120002" },
+    "Light pink": { heartColor: LIGHT_PINK, bloodColor: "#a00010", backgroundColor: "#0e0204" },
+    Blood: { heartColor: FRESH_BLOOD_COLOR, bloodColor: BLOOD_COLOR, backgroundColor: BLACK },
+  },
+  "Pink",
+);
+
+const bleedingKeys = ["heartColor", "bloodColor", "backgroundColor"] as const;
+
+function getBleedingLoop(
+  name: string,
+  beats: number,
+  effect: string,
+  params: Record<string, unknown> = {},
+  parameters: Parameter[] = [lovePulseParameter],
+): AnimationInput {
+  return getLoop(
+    name,
+    beats,
+    [
+      {
+        effect,
+        params: {
+          ...getReferences(bleedingKeys.slice(1)),
+          color: { param: "heartColor" },
+          ...params,
+        },
+      },
+    ],
+    [...parameters, bleedingColorParameter],
+  );
+}
+
+const bloodHeartColorParameter = getParameter(
+  "Hearts",
+  {
+    "Fresh blood": {
+      heartColor: FRESH_BLOOD_COLOR,
+      bloodColor: BLOOD_COLOR,
+      backgroundColor: "#120002",
+    },
+    Blood: { heartColor: "#a00008", bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#0a0000" },
+    "Dried blood": { heartColor: "#6a0a06", bloodColor: "#a00010", backgroundColor: BLACK },
+    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
+  },
+  "Fresh blood",
+);
+
+const dripsParameter = getParameter(
+  "Drips",
+  {
+    Off: { dripCount: 0, dripLength: 9, dripPool: 0 },
+    Light: { dripCount: 10, dripLength: 9, dripPool: 0 },
+    Heavy: { dripCount: 22, dripLength: 16, dripPool: 3 },
+  },
+  "Light",
+);
+
+const bloodDripsLayer: LayerInput = {
+  effect: "blood-drips",
+  params: {
+    color: { param: "bloodColor" },
+    count: { param: "dripCount" },
+    length: { param: "dripLength" },
+    pool: { param: "dripPool" },
+  },
+};
+
+function getBloodyLoop(
+  name: string,
+  love: AnimationInput,
+  overrides: Record<string, unknown> = {},
+): AnimationInput {
+  return {
+    name,
+    parameters: [
+      ...(love.parameters ?? []).filter((parameter) => parameter.name !== "Hearts"),
+      bloodHeartColorParameter,
+      dripsParameter,
+    ],
+    sections: love.sections.map((section) => ({
+      ...section,
+      layers: [
+        ...section.layers.map((layer) => ({ ...layer, params: { ...layer.params, ...overrides } })),
+        bloodDripsLayer,
+      ],
+    })),
+  };
+}
+
 const heartZoomSpeedParameter = getValueParameter(
   "Speed",
   "speed",
@@ -1173,6 +1267,251 @@ const bassBloodAnimations: Record<string, AnimationInput> = {
   ),
 };
 
+const loveAnimations: Readonly<Record<string, AnimationInput>> = {
+  "love-hearts": getLoop(
+    "Heart pulse",
+    8,
+    [
+      {
+        effect: "heart-pulse",
+        params: {
+          ...getReferences(["every"]),
+          color: { param: "heartColor" },
+          backgroundColor: "#000000",
+          rings: 0,
+        },
+      },
+      {
+        effect: "heart-float",
+        params: { ...getReferences(["every"]), color: { param: "heartColor" } },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "love-heart-zoom": getLoop(
+    "Heart zoom",
+    8,
+    [
+      {
+        effect: "heart-zoom",
+        params: {
+          ...getReferences(["every", "speed", "backgroundColor"]),
+          color: { param: "heartColor" },
+        },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+  ),
+  "love-heart-zoom-outline": getLoop(
+    "Heart zoom outlined",
+    8,
+    [
+      {
+        effect: "heart-zoom",
+        params: {
+          ...getReferences(["every", "speed", "backgroundColor"]),
+          color: { param: "heartColor" },
+          outline: 1.5,
+        },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+  ),
+  "love-heart-zoom-steady": getLoop(
+    "Heart zoom (steady)",
+    8,
+    [
+      {
+        effect: "heart-zoom",
+        params: {
+          ...getReferences(["every", "speed", "backgroundColor"]),
+          color: { param: "heartColor" },
+          motion: "steady",
+          flash: 0.35,
+          ripple: 1,
+        },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+  ),
+  "love-heart-zoom-outline-steady": getLoop(
+    "Heart zoom outlined (steady)",
+    8,
+    [
+      {
+        effect: "heart-zoom",
+        params: {
+          ...getReferences(["every", "speed", "backgroundColor"]),
+          color: { param: "heartColor" },
+          outline: 1.5,
+          motion: "steady",
+          swell: 1.5,
+        },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+  ),
+  "love-heart-grid": getLoop(
+    "Heart grid",
+    8,
+    [
+      {
+        effect: "heart-grid",
+        params: {
+          ...getReferences(["every", "wave", "scroll", "backgroundColor"]),
+          color: { param: "heartColor" },
+        },
+      },
+    ],
+    [
+      getValueParameter(
+        "Wave",
+        "wave",
+        { Ripple: "ripple", Diagonal: "diagonal", Checker: "checker" },
+        "Ripple",
+      ),
+      getValueParameter("Scroll", "scroll", { Still: 0, Drift: 2 }, "Drift"),
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+  "love-heartbeat": getLoop(
+    "Heartbeat monitor",
+    8,
+    [
+      {
+        effect: "heart-ecg",
+        params: {
+          ...getReferences(["every", "backgroundColor"]),
+          color: { param: "heartColor" },
+        },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "love-heart-tunnel": getLoop(
+    "Heart tunnel",
+    8,
+    [
+      {
+        effect: "heart-tunnel",
+        params: {
+          ...getReferences(["every", "backgroundColor"]),
+          color: { param: "heartColor" },
+        },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "love-heart-tunnel-steady": getLoop(
+    "Heart tunnel (steady)",
+    8,
+    [
+      {
+        effect: "heart-tunnel",
+        params: {
+          ...getReferences(["every", "backgroundColor"]),
+          color: { param: "heartColor" },
+          motion: "steady",
+          spin: 0.35,
+          pop: 0.4,
+        },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "love-equalizer": getLoop(
+    "Heart equalizer",
+    16,
+    [
+      {
+        effect: "heart-equalizer",
+        params: {
+          ...getReferences(["every"]),
+          color: { param: "heartColor" },
+        },
+      },
+    ],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "love-cat-dance": getLoop(
+    "Lovestruck cat dance",
+    16,
+    [
+      loveFloatLayer,
+      {
+        effect: "cat-dance",
+        params: {
+          ...getReferences(["move", "offbeat", "eyes", "heartColor"]),
+          size: 12,
+          spacing: 30,
+        },
+      },
+    ],
+    [
+      getValueParameter(
+        "Move",
+        "move",
+        {
+          Sway: "sway",
+          Hop: "hop",
+          "Paws up": "paws-up",
+          Wiggle: "wiggle",
+          Headbang: "headbang",
+        },
+        "Sway",
+      ),
+      getValueParameter(
+        "Eyes",
+        "eyes",
+        { Hearts: "hearts", Happy: "happy", Open: "open" },
+        "Hearts",
+      ),
+      getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+  "cat-heart-hands": getLoop(
+    "Cat heart hands",
+    8,
+    [
+      {
+        effect: "cat-heart-hands",
+        params: getReferences(["every", "heartColor"]),
+      },
+    ],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "cat-kiss": getLoop(
+    "Cat smooch",
+    16,
+    [
+      {
+        effect: "cat-kiss",
+        params: getReferences(["every", "heartColor"]),
+      },
+    ],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "hero-love": getLoop(
+    "Frieren and Himmel love",
+    16,
+    [loveFloatLayer, { effect: "hero-dance", params: getReferences(["move", "sync"]) }],
+    [
+      getValueParameter(
+        "Move",
+        "move",
+        { Sway: "sway", Twist: "twist", Headbang: "headbang" },
+        "Sway",
+      ),
+      heroSyncParameter,
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+};
+
 export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("Basics", {
     plasma: getLoop(
@@ -1701,249 +2040,62 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     ]),
     "cat-eyes": getLoop("Eyes in the dark", 32, [{ effect: "cat-eyes" }]),
   }),
-  ...getFolder("Love", {
-    "love-hearts": getLoop(
-      "Heart pulse",
+  ...getFolder("Love", loveAnimations),
+  ...getFolder("Love/Bleeding", {
+    ...Object.fromEntries(
+      Object.entries({
+        "love-heart-zoom": "Bloody heart zoom",
+        "love-heart-zoom-outline": "Bloody heart zoom outlined",
+        "love-heart-zoom-steady": "Bloody heart zoom (steady)",
+        "love-heart-grid": "Bloody heart grid",
+        "love-heartbeat": "Bloody heartbeat monitor",
+        "love-heart-tunnel": "Bloody heart tunnel",
+        "love-heart-tunnel-steady": "Bloody heart tunnel (steady)",
+        "love-equalizer": "Bloody heart equalizer",
+      }).flatMap(([id, name]) => {
+        const love = loveAnimations[id];
+        const overrides = id === "love-heartbeat" ? { traceColor: "#ff4050" } : {};
+        const bloody = love ? getBloodyLoop(name, love, overrides) : undefined;
+        return bloody ? [[`bloody-${id.replace(/^love-/, "")}`, bloody]] : [];
+      }),
+    ),
+    "rotten-heart": getLoop(
+      "Rotten heart pulse",
       8,
-      [
-        {
-          effect: "heart-pulse",
-          params: {
-            ...getReferences(["every"]),
-            color: { param: "heartColor" },
-            backgroundColor: "#000000",
-            rings: 0,
-          },
-        },
-        {
-          effect: "heart-float",
-          params: { ...getReferences(["every"]), color: { param: "heartColor" } },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter],
+      [{ effect: "heart-corrupt", params: { ...getReferences(["every"]), style: "rotten" } }],
+      [lovePulseParameter],
     ),
-    "love-heart-zoom": getLoop(
-      "Heart zoom",
+    "glitch-heart": getLoop(
+      "Glitched heart pulse",
       8,
-      [
-        {
-          effect: "heart-zoom",
-          params: {
-            ...getReferences(["every", "speed", "backgroundColor"]),
-            color: { param: "heartColor" },
-          },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+      [{ effect: "heart-corrupt", params: { ...getReferences(["every"]), style: "glitch" } }],
+      [lovePulseParameter],
     ),
-    "love-heart-zoom-outline": getLoop(
-      "Heart zoom outlined",
+    "raw-heart": getLoop(
+      "Raw heart pulse",
       8,
-      [
-        {
-          effect: "heart-zoom",
-          params: {
-            ...getReferences(["every", "speed", "backgroundColor"]),
-            color: { param: "heartColor" },
-            outline: 1.5,
-          },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+      [{ effect: "heart-corrupt", params: { ...getReferences(["every"]), style: "raw" } }],
+      [lovePulseParameter],
     ),
-    "love-heart-zoom-steady": getLoop(
-      "Heart zoom (steady)",
+    "void-heart": getLoop(
+      "Void heart pulse",
       8,
-      [
-        {
-          effect: "heart-zoom",
-          params: {
-            ...getReferences(["every", "speed", "backgroundColor"]),
-            color: { param: "heartColor" },
-            motion: "steady",
-            flash: 0.35,
-            ripple: 1,
-          },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+      [{ effect: "heart-corrupt", params: { ...getReferences(["every"]), style: "void" } }],
+      [lovePulseParameter],
     ),
-    "love-heart-zoom-outline-steady": getLoop(
-      "Heart zoom outlined (steady)",
+    "bleeding-heart": getBleedingLoop("Bleeding heart", 8, "heart-bleed", getReferences(["every"])),
+    heartbreak: getBleedingLoop("Heartbreak", 8, "heart-break", {}, []),
+    "melting-heart": getBleedingLoop(
+      "Melting heart",
       8,
-      [
-        {
-          effect: "heart-zoom",
-          params: {
-            ...getReferences(["every", "speed", "backgroundColor"]),
-            color: { param: "heartColor" },
-            outline: 1.5,
-            motion: "steady",
-            swell: 1.5,
-          },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+      "heart-melt",
+      getReferences(["every", "speed"]),
+      [lovePulseParameter, heartZoomSpeedParameter],
     ),
-    "love-heart-grid": getLoop(
-      "Heart grid",
-      8,
-      [
-        {
-          effect: "heart-grid",
-          params: {
-            ...getReferences(["every", "wave", "scroll", "backgroundColor"]),
-            color: { param: "heartColor" },
-          },
-        },
-      ],
-      [
-        getValueParameter(
-          "Wave",
-          "wave",
-          { Ripple: "ripple", Diagonal: "diagonal", Checker: "checker" },
-          "Ripple",
-        ),
-        getValueParameter("Scroll", "scroll", { Still: 0, Drift: 2 }, "Drift"),
-        lovePulseParameter,
-        loveColorParameter,
-      ],
-    ),
-    "love-heartbeat": getLoop(
-      "Heartbeat monitor",
-      8,
-      [
-        {
-          effect: "heart-ecg",
-          params: {
-            ...getReferences(["every", "backgroundColor"]),
-            color: { param: "heartColor" },
-          },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter],
-    ),
-    "love-heart-tunnel": getLoop(
-      "Heart tunnel",
-      8,
-      [
-        {
-          effect: "heart-tunnel",
-          params: {
-            ...getReferences(["every", "backgroundColor"]),
-            color: { param: "heartColor" },
-          },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter],
-    ),
-    "love-heart-tunnel-steady": getLoop(
-      "Heart tunnel (steady)",
-      8,
-      [
-        {
-          effect: "heart-tunnel",
-          params: {
-            ...getReferences(["every", "backgroundColor"]),
-            color: { param: "heartColor" },
-            motion: "steady",
-            spin: 0.35,
-            pop: 0.4,
-          },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter],
-    ),
-    "love-equalizer": getLoop(
-      "Heart equalizer",
-      16,
-      [
-        {
-          effect: "heart-equalizer",
-          params: {
-            ...getReferences(["every"]),
-            color: { param: "heartColor" },
-          },
-        },
-      ],
-      [lovePulseParameter, loveColorParameter],
-    ),
-    "love-cat-dance": getLoop(
-      "Lovestruck cat dance",
-      16,
-      [
-        loveFloatLayer,
-        {
-          effect: "cat-dance",
-          params: {
-            ...getReferences(["move", "offbeat", "eyes", "heartColor"]),
-            size: 12,
-            spacing: 30,
-          },
-        },
-      ],
-      [
-        getValueParameter(
-          "Move",
-          "move",
-          {
-            Sway: "sway",
-            Hop: "hop",
-            "Paws up": "paws-up",
-            Wiggle: "wiggle",
-            Headbang: "headbang",
-          },
-          "Sway",
-        ),
-        getValueParameter(
-          "Eyes",
-          "eyes",
-          { Hearts: "hearts", Happy: "happy", Open: "open" },
-          "Hearts",
-        ),
-        getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
-        lovePulseParameter,
-        loveColorParameter,
-      ],
-    ),
-    "cat-heart-hands": getLoop(
-      "Cat heart hands",
-      8,
-      [
-        {
-          effect: "cat-heart-hands",
-          params: getReferences(["every", "heartColor"]),
-        },
-      ],
-      [lovePulseParameter, loveColorParameter],
-    ),
-    "cat-kiss": getLoop(
-      "Cat smooch",
-      16,
-      [
-        {
-          effect: "cat-kiss",
-          params: getReferences(["every", "heartColor"]),
-        },
-      ],
-      [lovePulseParameter, loveColorParameter],
-    ),
-    "hero-love": getLoop(
-      "Frieren and Himmel love",
-      16,
-      [loveFloatLayer, { effect: "hero-dance", params: getReferences(["move", "sync"]) }],
-      [
-        getValueParameter(
-          "Move",
-          "move",
-          { Sway: "sway", Twist: "twist", Headbang: "headbang" },
-          "Sway",
-        ),
-        heroSyncParameter,
-        lovePulseParameter,
-        loveColorParameter,
-      ],
-    ),
+    flatline: getBleedingLoop("Flatline", 16, "heart-flatline", {}, []),
+    "cupids-arrow": getBleedingLoop("Cupid's arrow", 4, "heart-arrow", getReferences(["every"])),
+    "heart-rain": getBleedingLoop("Heart rain", 8, "heart-rain", getReferences(["every"])),
+    "heart-burst": getBleedingLoop("Heart grid burst", 16, "heart-burst", getReferences(["every"])),
   }),
   ...getFolder("KPop Demon Hunters", {
     "demon-hunters": {

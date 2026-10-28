@@ -147,13 +147,13 @@ export const heartGrid = defineEffect({
   },
 });
 
-function getLubDub(cycle: number): number {
+export function getLubDub(cycle: number): number {
   const lub = Math.exp(-cycle * 9);
   const dub = cycle >= 0.22 ? Math.exp(-(cycle - 0.22) * 11) * 0.65 : 0;
   return Math.max(lub, dub);
 }
 
-function getTrace(time: number): number {
+export function getTrace(time: number): number {
   const cycle = getCycle(time);
   const spike = (center: number, width: number, height: number): number =>
     height * Math.exp(-(((cycle - center) / width) ** 2));
