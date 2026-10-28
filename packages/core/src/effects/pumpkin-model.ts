@@ -33,9 +33,9 @@ export type PumpkinPlacement = ModelPlacement & {
 
 type PumpkinGroup = { joint: PumpkinJoint; mesh: Mesh<PumpkinPart> };
 
-const MODEL_CENTER: Vector = [0, 0.55, 0];
-const HEAD_CENTER: Vector = [0, 1.12, 0];
-const HEAD_RADIUS: Vector = [0.66, 0.5, 0.58];
+const MODEL_CENTER: Vector = [0, 0.62, 0];
+const HEAD_CENTER: Vector = [0, 0.86, 0];
+const HEAD_RADIUS: Vector = [0.8, 0.54, 0.68];
 const RIBS = 8;
 
 const JOINT_PARENTS: readonly (readonly [joint: PumpkinJoint, parent?: PumpkinJoint])[] = [
@@ -48,12 +48,12 @@ const JOINT_PARENTS: readonly (readonly [joint: PumpkinJoint, parent?: PumpkinJo
 ];
 
 const PIVOTS: Record<PumpkinJoint, Vector> = {
-  torso: [0, 0.1, 0],
-  head: [0, 0.6, 0],
-  leftArm: [-0.2, 0.5, 0],
-  rightArm: [0.2, 0.5, 0],
-  leftLeg: [-0.11, 0.08, 0],
-  rightLeg: [0.11, 0.08, 0],
+  torso: [0, 0.02, 0],
+  head: [0, 0.4, 0],
+  leftArm: [-0.27, 0.3, 0],
+  rightArm: [0.27, 0.3, 0],
+  leftLeg: [-0.15, 0.02, 0],
+  rightLeg: [0.15, 0.02, 0],
 };
 
 const SIDES = [
@@ -82,26 +82,26 @@ function createPumpkinGroups(): PumpkinGroup[] {
   }
   addCone(
     head,
-    [0.02, centerY + radiusY * 0.85, -0.02],
-    [0.12, centerY + radiusY + 0.28, 0],
-    [0.08, 0.08],
+    [0.04, centerY + radiusY * 0.85, -0.02],
+    [0.24, centerY + radiusY + 0.24, 0.02],
+    [0.1, 0.07],
     "stem",
     6,
   );
   const torso = createMesh<PumpkinPart>();
-  addEllipsoid(torso, [0, 0.33, 0], [0.21, 0.27, 0.17], "body");
+  addEllipsoid(torso, [0, 0.2, 0], [0.32, 0.26, 0.26], "body");
   const groups: PumpkinGroup[] = [
     { joint: "torso", mesh: torso },
     { joint: "head", mesh: head },
   ];
   for (const [side, armJoint, legJoint] of SIDES) {
     const arm = createMesh<PumpkinPart>();
-    addEllipsoid(arm, [side * 0.33, 0.36, 0], [0.07, 0.19, 0.07], "body", 6, 8);
-    addEllipsoid(arm, [side * 0.38, 0.15, 0], [0.09, 0.09, 0.09], "hand", 5, 8);
+    addEllipsoid(arm, [side * 0.38, 0.22, 0], [0.1, 0.13, 0.1], "body", 6, 8);
+    addEllipsoid(arm, [side * 0.42, 0.08, 0], [0.12, 0.12, 0.12], "hand", 5, 8);
     groups.push({ joint: armJoint, mesh: arm });
     const leg = createMesh<PumpkinPart>();
-    addEllipsoid(leg, [side * 0.11, -0.16, 0], [0.08, 0.24, 0.08], "body", 6, 8);
-    addEllipsoid(leg, [side * 0.12, -0.42, 0.06], [0.11, 0.07, 0.15], "shoe", 5, 8);
+    addEllipsoid(leg, [side * 0.16, -0.06, 0], [0.12, 0.12, 0.12], "body", 6, 8);
+    addEllipsoid(leg, [side * 0.18, -0.18, 0.08], [0.16, 0.09, 0.2], "shoe", 5, 8);
     groups.push({ joint: legJoint, mesh: leg });
   }
   return groups;
@@ -109,33 +109,39 @@ function createPumpkinGroups(): PumpkinGroup[] {
 
 const pumpkinGroups = createPumpkinGroups();
 
-function getEyeCarve(u: number, v: number): boolean {
-  const height = (0.5 - v) / 0.4;
-  return height >= 0 && height <= 1 && Math.abs(Math.abs(u) - 0.36) < 0.24 * height;
-}
+const EYES = [
+  { u: -0.36, v: 0.3, radius: 0.27, pupilU: 0.1, pupilV: -0.06 },
+  { u: 0.35, v: 0.2, radius: 0.19, pupilU: -0.08, pupilV: 0.02 },
+] as const;
 
-function getNoseCarve(u: number, v: number): boolean {
-  const height = (0.04 - v) / 0.16;
-  return height >= 0 && height <= 1 && Math.abs(u) < 0.1 * height;
+const PUPIL_RADIUS = 0.09;
+
+function getEyeCarve(u: number, v: number): boolean {
+  return EYES.some((eye) => {
+    const isEye = Math.hypot(u - eye.u, v - eye.v) < eye.radius;
+    const isPupil = Math.hypot(u - eye.u - eye.pupilU, v - eye.v - eye.pupilV) < PUPIL_RADIUS;
+    return isEye && !isPupil;
+  });
 }
 
 function getMouthCarve(u: number, v: number): boolean {
-  if (Math.abs(u) > 0.75) {
+  const x = (u - 0.05) / 0.55;
+  if (Math.abs(x) > 1) {
     return false;
   }
-  const curve = 1 - (u / 0.75) ** 2;
-  const top = -0.12 - 0.2 * curve;
-  const bottom = -0.24 - 0.42 * curve;
+  const curve = 1 - x ** 2;
+  const tilt = 0.08 * x;
+  const top = -0.18 + tilt - 0.08 * curve;
+  const bottom = -0.24 + tilt - 0.36 * curve;
   if (v > top || v < bottom) {
     return false;
   }
-  const isUpperTooth = Math.abs(Math.abs(u) - 0.24) < 0.08 && v > top - 0.12;
-  const isLowerTooth = Math.abs(u) < 0.09 && v < bottom + 0.12;
-  return !isUpperTooth && !isLowerTooth;
+  const isBuckTooth = Math.abs(u + 0.06) < 0.09 && v > top - 0.16;
+  return !isBuckTooth;
 }
 
 function getCarve(u: number, v: number): boolean {
-  return getEyeCarve(u, v) || getNoseCarve(u, v) || getMouthCarve(u, v);
+  return getEyeCarve(u, v) || getMouthCarve(u, v);
 }
 
 const RIM_OFFSETS = [
