@@ -1,6 +1,6 @@
-import type { Output } from "@led-matrix/core";
+import type { Output, ParameterSelection } from "@led-matrix/core";
 import type { Playlist, Track, TrackDetails, Waveform, WaveformType } from "./library.ts";
-import type { MappingFile, MappingState } from "./mapping.ts";
+import type { MappingFile, MappingState, ResolvedCue } from "./mapping.ts";
 
 export type Settings = {
   serverUrl: string;
@@ -45,6 +45,22 @@ export type LivePosition = {
   time: number;
 };
 
+export type TrackOutput = {
+  type: "track";
+  position: LivePosition;
+  cues: ResolvedCue[];
+};
+
+export type PreviewOutput = {
+  type: "preview";
+  animationId: string;
+  section: number;
+  params: ParameterSelection | undefined;
+  bpm: number;
+};
+
+export type EditorOutput = TrackOutput | PreviewOutput;
+
 export const LOG_LIMIT = 500;
 
 export type LogEntry = {
@@ -67,6 +83,8 @@ export type Api = {
   getWaveform(trackId: number, type: WaveformType): Promise<Waveform | undefined>;
   getMapping(): Promise<MappingState>;
   setMapping(mapping: MappingFile): Promise<MappingFile>;
+  setEditorOutput(output: EditorOutput): void;
+  stopEditorOutput(): void;
   getUiState(key: string): unknown;
   setUiState(key: string, value: unknown): void;
   onSettings(listener: (settings: Settings) => void): () => void;
@@ -95,6 +113,8 @@ export const channels = {
   getMapping: "mapping:get",
   setMapping: "mapping:set",
   mapping: "mapping:changed",
+  setEditorOutput: "editor-output:set",
+  stopEditorOutput: "editor-output:stop",
   getUiState: "ui-state:get",
   setUiState: "ui-state:set",
 } as const;

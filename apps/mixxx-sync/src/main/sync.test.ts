@@ -131,7 +131,7 @@ function createHarness(mapping: Mapping) {
     await sync.update(state);
   }
 
-  return { clock, fake, update, log, statuses, positions };
+  return { clock, fake, sync, update, log, statuses, positions };
 }
 
 const mapping: Mapping = new Map([
@@ -385,5 +385,45 @@ describe("sync", () => {
       { location, beat: 20, bpm: 120, isPlaying: true, time: 100 },
       { location, beat: 21, bpm: 120, isPlaying: false, time: 100 },
     ]);
+  });
+});
+
+function getFollowedPosition(beat: number, isPlaying = true): LivePosition {
+  return { location, beat, bpm: 120, isPlaying, time: 0 };
+}
+
+describe("sync follow", () => {
+  it("plays the cue at the followed position", async () => {
+    const { fake, sync } = createHarness(mapping);
+    await sync.follow(getFollowedPosition(20.5));
+    expect(fake.calls).toEqual([
+      { type: "play", body: { id: "cat", section: 0, beat: 4.5, bpm: 120 } },
+    ]);
+  });
+
+  it("stops before the first cue and on unmapped tracks", async () => {
+    const { fake, sync } = createHarness(mapping);
+    fake.play("plasma");
+    fake.calls.length = 0;
+    await sync.follow(getFollowedPosition(8));
+    await sync.follow({ ...getFollowedPosition(8), location: "/music/unmapped.flac" });
+    expect(fake.calls.map(({ type }) => type)).toEqual(["stop", "stop"]);
+  });
+
+  it("shows a new cue paused when seeking while paused", async () => {
+    const { fake, sync } = createHarness(mapping);
+    await sync.follow(getFollowedPosition(20));
+    await sync.follow(getFollowedPosition(21, false));
+    await sync.follow(getFollowedPosition(70, false));
+    await sync.follow(getFollowedPosition(70, false));
+    await sync.follow(getFollowedPosition(70));
+    expect(fake.calls.map(({ type }) => type)).toEqual([
+      "play",
+      "pause",
+      "play",
+      "pause",
+      "resume",
+    ]);
+    await expect(fake.server.getState()).resolves.toMatchObject({ paused: false, beat: 6 });
   });
 });

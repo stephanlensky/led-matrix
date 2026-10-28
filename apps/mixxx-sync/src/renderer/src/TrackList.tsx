@@ -420,6 +420,8 @@ export function TrackList({
   live,
   isLiveView,
   onLiveViewChange,
+  isDeviceOutput,
+  onDeviceOutputChange,
   searchRef,
 }: {
   title: string;
@@ -433,6 +435,8 @@ export function TrackList({
   live: LiveTrack | undefined;
   isLiveView: boolean;
   onLiveViewChange: (isLiveView: boolean) => void;
+  isDeviceOutput: boolean;
+  onDeviceOutputChange: (isDeviceOutput: boolean) => void;
   searchRef: RefObject<HTMLInputElement | null>;
 }) {
   const id = useId();
@@ -520,6 +524,14 @@ export function TrackList({
           <div className="flex items-center gap-2">
             <Switch id={`${id}-mapped`} checked={isMappedOnly} onCheckedChange={setIsMappedOnly} />
             <Label htmlFor={`${id}-mapped`}>Mapped only</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id={`${id}-device`}
+              checked={isDeviceOutput}
+              onCheckedChange={onDeviceOutputChange}
+            />
+            <Label htmlFor={`${id}-device`}>Play on device</Label>
           </div>
           <Button
             variant={isLiveView ? "default" : "outline"}

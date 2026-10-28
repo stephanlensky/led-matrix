@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { BrowserWindow, app, dialog, ipcMain, protocol } from "electron";
 import { z } from "zod";
 import {
+  type EditorOutput,
   type FileSetting,
   LOG_LIMIT,
   type LogEntry,
@@ -12,6 +13,7 @@ import {
 import { TRACK_AUDIO_SCHEME, type WaveformType } from "../shared/library.ts";
 import type { MappingFile } from "../shared/mapping.ts";
 import { createDaemon } from "./daemon.ts";
+import { createEditorOutput } from "./editor-output.ts";
 import { createMappingFile } from "./mapping-file.ts";
 import { createMixxxLibrary } from "./mixxx-library.ts";
 import { getDefaultSettings, getStoredSettings, setStoredSettings } from "./settings.ts";
@@ -57,6 +59,7 @@ const daemon = createDaemon({
   onStatus: (status) => send(channels.status, status),
   onPosition: (position) => send(channels.position, position),
 });
+const editorOutput = createEditorOutput(log);
 
 ipcMain.handle(channels.getSettings, () => settings);
 const fileFilters: Record<FileSetting, Electron.FileFilter[]> = {
@@ -100,6 +103,10 @@ ipcMain.handle(channels.getTrackDetails, (_event, trackId: number) =>
 ipcMain.handle(channels.getWaveform, (_event, trackId: number, type: WaveformType) =>
   library.getTrackWaveform(trackId, type),
 );
+ipcMain.on(channels.setEditorOutput, (_event, output: EditorOutput) =>
+  editorOutput.set(settings, output),
+);
+ipcMain.on(channels.stopEditorOutput, () => void editorOutput.stop());
 ipcMain.on(channels.getUiState, (event) => {
   event.returnValue = uiState.getState();
 });

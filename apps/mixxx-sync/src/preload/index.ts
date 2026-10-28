@@ -43,6 +43,8 @@ const api: Api = {
   getWaveform: (trackId, type) => ipcRenderer.invoke(channels.getWaveform, trackId, type),
   getMapping: () => ipcRenderer.invoke(channels.getMapping),
   setMapping: (mapping) => ipcRenderer.invoke(channels.setMapping, mapping),
+  setEditorOutput: (output) => ipcRenderer.send(channels.setEditorOutput, output),
+  stopEditorOutput: () => ipcRenderer.send(channels.stopEditorOutput),
   getUiState: (key) => uiState[key],
   setUiState(key, value) {
     uiState = { ...uiState, [key]: value };

@@ -19,18 +19,30 @@ import type { Track } from "../../shared/library.ts";
 import type { Cue, MappingFile } from "../../shared/mapping.ts";
 import { getFraction } from "../../shared/track-scale.ts";
 import type { AnimationSource } from "./AnimationLane.tsx";
-import { type Player, usePlayerState } from "./player.ts";
+import { type Player, type PlayerState, usePlayerState } from "./player.ts";
 import { type TrackDataCache, useLoad } from "./useLibrary.ts";
 
 const blankFrame = createFrame();
 const FRAME_CLASS = "h-full min-h-0";
-const DEFAULT_BPM = 120;
+export const DEFAULT_BPM = 120;
 
 export type AnimationPreview = {
   animationId: string;
   section: number | undefined;
   params: ParameterSelection | undefined;
 };
+
+export function getTrackCues(
+  { track }: PlayerState,
+  mapping: MappingFile | undefined,
+): Cue[] | undefined {
+  return track && mapping?.tracks[track.location];
+}
+
+export function isTrackActive(state: PlayerState, mapping: MappingFile | undefined): boolean {
+  const cues = getTrackCues(state, mapping);
+  return state.isPlaying && cues !== undefined && cues.length > 0;
+}
 
 export function PlayButton({ player, track }: { player: Player; track: Track }) {
   const { track: current, isPlaying, error } = usePlayerState(player);
@@ -256,9 +268,10 @@ export function PlaybackSimulator({
   onPreviewChange: (preview: AnimationPreview | undefined) => void;
   onLiveViewEnd: () => void;
 }) {
-  const { track, isPlaying } = usePlayerState(player);
-  const cues = track && mapping?.tracks[track.location];
-  const isTrackActive = isPlaying && cues !== undefined && cues.length > 0;
+  const state = usePlayerState(player);
+  const { track, isPlaying } = state;
+  const cues = getTrackCues(state, mapping);
+  const isActive = isTrackActive(state, mapping);
   const previewSource = preview && source.animationsById?.get(preview.animationId);
   const previewParams = preview?.params;
   const previewAnimation = useMemo(
@@ -267,10 +280,10 @@ export function PlaybackSimulator({
   );
 
   useEffect(() => {
-    if (isTrackActive) {
+    if (isActive) {
       onPreviewChange(undefined);
     }
-  }, [isTrackActive, onPreviewChange]);
+  }, [isActive, onPreviewChange]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -281,7 +294,7 @@ export function PlaybackSimulator({
   if (liveStreamUrl !== undefined) {
     return <LiveSimulator streamUrl={liveStreamUrl} />;
   }
-  if (preview && previewAnimation && !isTrackActive) {
+  if (preview && previewAnimation && !isActive) {
     return (
       <PreviewSimulator
         animation={previewAnimation}

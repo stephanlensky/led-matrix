@@ -1,11 +1,18 @@
 import type { PlaybackState } from "@led-matrix/core";
 import type { LivePosition } from "../shared/api.ts";
 import { getAudibleBeat, getBeatDelta, getLiveDeck } from "./decks.ts";
-import { type Mapping, type ResolvedCue, type SectionCue, getCue } from "../shared/mapping.ts";
+import {
+  type BlankCue,
+  type Mapping,
+  type ResolvedCue,
+  type SectionCue,
+  getCue,
+} from "../shared/mapping.ts";
 import type { MixxxState } from "./mixxx.ts";
 import type { ServerClient } from "./server.ts";
 
 const BPM_TOLERANCE = 0.01;
+const unmappedCue: BlankCue = { beat: -Infinity, animationId: null };
 
 export type SyncOptions = {
   server: ServerClient;
@@ -220,6 +227,23 @@ export function createSync({
     onStatus?.(status);
   }
 
+  async function run(action: () => Promise<void>): Promise<void> {
+    busy = true;
+    try {
+      await action();
+      lastError = undefined;
+    } catch (error) {
+      model = undefined;
+      const message = error instanceof Error ? error.message : String(error);
+      if (message !== lastError) {
+        log(`Server request failed: ${message}`);
+        lastError = message;
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
   return {
     async update(state: MixxxState): Promise<void> {
       if (busy) {
@@ -251,20 +275,30 @@ export function createSync({
       if (!target || (!isLive && !isPauseNeeded)) {
         return;
       }
-      busy = true;
-      try {
-        await (isLive ? apply(target) : pause());
-        lastError = undefined;
-      } catch (error) {
-        model = undefined;
-        const message = error instanceof Error ? error.message : String(error);
-        if (message !== lastError) {
-          log(`Server request failed: ${message}`);
-          lastError = message;
-        }
-      } finally {
-        busy = false;
+      await run(() => (isLive ? apply(target) : pause()));
+    },
+    async follow({ location, beat, bpm, isPlaying, time }: LivePosition): Promise<void> {
+      if (busy) {
+        return;
       }
+      const cues = getMapping().get(location);
+      const cue = (cues && getCue(cues, beat)) ?? unmappedCue;
+      const target: Target = {
+        location,
+        cue,
+        bpm,
+        isPlaying,
+        getBeat: (at) => beat + (isPlaying ? getBeatDelta(at - time, bpm) : 0),
+      };
+      const isCueChanged = getCueKey(location, cue) !== playedKey;
+      await run(async () => {
+        if (isPlaying || isCueChanged) {
+          await apply(target);
+        }
+        if (!isPlaying) {
+          await pause();
+        }
+      });
     },
   };
 }

@@ -16,6 +16,7 @@ import { BEATS_PER_BAR } from "../../shared/track-scale.ts";
 import { type Player, createPlayer } from "./player.ts";
 import { type LiveTrack, TrackList } from "./TrackList.tsx";
 import { useDaemonStatus } from "./useDaemon.ts";
+import { useEditorOutput } from "./useEditorOutput.ts";
 import {
   type LibrarySelection,
   createTrackDataCache,
@@ -259,6 +260,21 @@ function EditorContent({ settings }: { settings: Settings }) {
   );
   const cueParams = getCueParams(editor, mapping.mapping, source.animationsById);
   const live = useLiveTrack();
+  const [isDeviceOutput, setIsDeviceOutput] = useState(false);
+  const setDeviceOutput = useCallback((isEnabled: boolean) => {
+    setIsDeviceOutput(isEnabled);
+    if (!isEnabled) {
+      window.api.stopEditorOutput();
+    }
+  }, []);
+  useEditorOutput(isDeviceOutput, {
+    player,
+    mapping: mapping.mapping,
+    cache,
+    animationsById: source.animationsById,
+    preview,
+    isLive: isLiveView || (live?.isPlaying ?? false),
+  });
   useLivePlaybackStart(useCallback(() => setLiveView(true), [setLiveView]));
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -331,6 +347,8 @@ function EditorContent({ settings }: { settings: Settings }) {
           live={live}
           isLiveView={isLiveView}
           onLiveViewChange={setLiveView}
+          isDeviceOutput={isDeviceOutput}
+          onDeviceOutputChange={setDeviceOutput}
           searchRef={searchRef}
         />
         <AnimationPanel
