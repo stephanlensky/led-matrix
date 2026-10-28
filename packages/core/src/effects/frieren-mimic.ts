@@ -15,9 +15,9 @@ import {
 } from "./frieren-props.ts";
 
 const SHAKE_SEED = 0xf41e0;
-const GROUND_Y = -0.75;
-const CHEST_CENTER: Vector = [-0.4, GROUND_Y + CHEST_HALF[1], 0];
-const HINGE: Vector = [CHEST_CENTER[0] - CHEST_HALF[0], CHEST_CENTER[1] + CHEST_HALF[1], 0];
+export const GROUND_Y = -0.75;
+export const CHEST_CENTER: Vector = [-0.4, GROUND_Y + CHEST_HALF[1], 0];
+export const HINGE: Vector = [CHEST_CENTER[0] - CHEST_HALF[0], CHEST_CENTER[1] + CHEST_HALF[1], 0];
 const LID_OPEN = toRadians(62);
 const LID_RAISED = toRadians(88);
 const LID_CLOSED = toRadians(24);
@@ -27,7 +27,7 @@ const VIEW_YAW = toRadians(-28);
 const chestMesh = createChestMesh();
 const lidMesh = createLidMesh();
 
-type Impact = {
+export type Impact = {
   lid: number;
   zoom: number;
   squash: number;
@@ -37,7 +37,7 @@ type Impact = {
   since: number;
 };
 
-function getImpact(beat: number, every: number, zoom: number, shake: number): Impact {
+export function getImpact(beat: number, every: number, zoom: number, shake: number): Impact {
   const index = Math.floor(beat / every);
   const phase = getCycle(beat / every);
   const since = phase * every;

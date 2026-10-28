@@ -142,6 +142,10 @@ export const coatParams = {
 
 export type FurParams = { [K in keyof typeof furParams]: string };
 
+export const catIds = ["tabby", "black"] as const;
+
+export type CatId = (typeof catIds)[number];
+
 export function getCoats(params: FurParams): [tabby: Coat, black: Coat] {
   return [
     getTabbyCoat(
@@ -152,6 +156,11 @@ export function getCoats(params: FurParams): [tabby: Coat, black: Coat] {
     ),
     getSolidCoat(parseColor(params.color), parseColor(params.eyeColor)),
   ];
+}
+
+export function getCoat(params: FurParams & { cat: CatId }): Coat {
+  const [tabby, black] = getCoats(params);
+  return params.cat === "tabby" ? tabby : black;
 }
 
 function drawCats(

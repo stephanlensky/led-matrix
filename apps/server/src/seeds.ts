@@ -25,6 +25,9 @@ const RED = "#ff0000";
 const PUMPKIN = "#ff6a00";
 const PINK = "#ff0080";
 const CYAN = "#00c8ff";
+const HEART_PINK = "#ff2a6d";
+const LIGHT_PINK = "#ffb6d5";
+const PASTEL_PINK = "#ff9ec8";
 
 type Palette = readonly [string, ...string[]];
 
@@ -35,6 +38,10 @@ const SINGLE_PALETTES: Readonly<Record<string, Palette>> = {
   Purple: [PURPLE],
   Green: [GREEN],
   White: [WHITE],
+  "Hot pink": [PINK],
+  Pink: [HEART_PINK],
+  "Light pink": [LIGHT_PINK],
+  "Pastel pink": [PASTEL_PINK],
   Blood: [BLOOD_COLOR],
   "Dried blood": [DRIED_BLOOD_COLOR],
   "Fresh blood": [FRESH_BLOOD_COLOR],
@@ -44,8 +51,11 @@ const MULTI_PALETTES: Readonly<Record<string, Palette>> = {
   "Orange/purple": [ORANGE, PURPLE],
   "Green/purple": [GREEN, PURPLE],
   "White/orange": [WHITE, ORANGE],
+  "Pink/purple": [PINK, PURPLE],
+  "Pink/cyan": [PINK, CYAN],
   Ice: [WHITE, ICE],
-  Pastel: ["#ff9ec8", "#8fd8ff", "#c39bff", "#9cffb0"],
+  Pastel: [PASTEL_PINK, "#8fd8ff", "#c39bff", "#9cffb0"],
+  Pinks: [PINK, HEART_PINK, LIGHT_PINK],
   Halloween: [ORANGE, PURPLE, GREEN],
   Bloodbath: BLOOD_PALETTE,
 };
@@ -207,6 +217,13 @@ function getLightLoop(
   );
 }
 
+const equalizerStyleParameter = getValueParameter(
+  "Style",
+  "style",
+  { Bottom: "bottom", Center: "center" },
+  "Bottom",
+);
+
 const transitionSpeedParameter = getValueParameter(
   "Speed",
   "beatsPerColor",
@@ -343,6 +360,7 @@ const rumble: AnimationInput = {
         "Green strobe": getRumbleStrobeValues(RUMBLE_GREEN),
         "Orange strobe": getRumbleStrobeValues(ORANGE),
         "Purple strobe": getRumbleStrobeValues(PURPLE),
+        "Pink strobe": getRumbleStrobeValues(PINK),
         "Blood strobe": getRumbleStrobeValues(BLOOD_COLOR),
       },
       "Solid",
@@ -374,6 +392,8 @@ const loadingParameter = getParameter(
 
 const squarePairs: Readonly<Record<string, Palette>> = {
   "Pink/cyan": [PINK, CYAN],
+  "Pink/purple": [PINK, PURPLE],
+  Pinks: [PINK, LIGHT_PINK],
   "Orange/purple": [ORANGE, PURPLE],
   "Green/purple": [GREEN, PURPLE],
   "White/orange": [WHITE, ORANGE],
@@ -453,20 +473,25 @@ function getRamp(from: number, to: number, easing?: string): { keyframes: unknow
   };
 }
 
-const blackCatParameter = getValueParameter(
-  "Black cat",
-  "color",
-  {
-    Purple: "#4b1d7a",
-    Midnight: "#24243a",
-    Ginger: "#c0601c",
-    Ghost: "#b0c8d8",
-    "Dried blood": DRIED_BLOOD_COLOR,
-  },
-  "Purple",
+const catChoiceParameter = getValueParameter(
+  "Cat",
+  "cat",
+  { Black: "black", Tabby: "tabby" },
+  "Black",
 );
 
-const catColorParams = getReferences(["color"]);
+function getCatPhoneSection(name: string, mode: SectionInput["mode"], scene: string): SectionInput {
+  return {
+    name,
+    mode,
+    layers: [
+      {
+        effect: "cat-phone",
+        params: { ...getReferences(["every", "message", "sender"]), scene },
+      },
+    ],
+  };
+}
 
 const hyperspaceLayer: LayerInput = {
   effect: "hyperspace",
@@ -513,6 +538,107 @@ const liftTempoParameter = getValueParameter(
   { Beat: 1, "2 beats": 2, Bar: 4 },
   "2 beats",
 );
+
+const loveFloatLayer: LayerInput = {
+  effect: "heart-float",
+  params: { ...getReferences(["every"]), color: { param: "heartColor" }, y: 48, rise: 46 },
+};
+
+const lovePulseParameter = getValueParameter(
+  "Pulse",
+  "every",
+  { "Half beat": 0.5, Beat: 1, "2 beats": 2 },
+  "Beat",
+);
+
+const loveColorParameter = getParameter(
+  "Hearts",
+  {
+    Pink: { heartColor: HEART_PINK, backgroundColor: "#2a0418" },
+    "Hot pink": { heartColor: PINK, backgroundColor: "#2a0014" },
+    "Light pink": { heartColor: LIGHT_PINK, backgroundColor: "#2a0a18" },
+    Red: { heartColor: "#ff1030", backgroundColor: "#240006" },
+    Purple: { heartColor: "#d040ff", backgroundColor: "#16052a" },
+  },
+  "Pink",
+);
+
+const heartZoomSpeedParameter = getValueParameter(
+  "Speed",
+  "speed",
+  { Slow: 0.25, Medium: 0.5, Fast: 1 },
+  "Medium",
+);
+
+const vocalLayers = { heartColor: HEART_PINK };
+
+function getVocalSection(
+  name: string,
+  beats: number,
+  scene: string,
+  params: Record<string, unknown> = {},
+): SectionInput {
+  return {
+    name,
+    mode: { type: "once", beats },
+    layers: [{ effect: "vocal-scene", params: { ...vocalLayers, scene, ...params } }],
+  };
+}
+
+const vocalPlanetDying: AnimationInput = {
+  name: "The planet is dying",
+  sections: [
+    {
+      name: "It's gonna take effort",
+      mode: { type: "once", beats: 3 },
+      layers: [
+        {
+          effect: "cat-bench",
+          params: { cat: "black", every: 1.5, punch: 0.12 },
+        },
+      ],
+    },
+    getVocalSection("It's gonna take patience", 3, "patience"),
+    getVocalSection("A lot a lot a lot a lot of work", 8, "stack"),
+    getVocalSection("But if we don't try", 3, "shrug"),
+    {
+      name: "What the fuck is stopping us",
+      mode: { type: "once", beats: 3 },
+      layers: [
+        {
+          effect: "big-text",
+          params: {
+            text: "WTF",
+            color: WHITE,
+            outlineColor: "#d00018",
+            outlineWidth: 2,
+            pulse: 0.4,
+            size: 34,
+          },
+        },
+      ],
+    },
+    getVocalSection("Throwing ourselves off a bridge", 4, "bridge"),
+    getVocalSection("And giving up, and saying yeah", 4, "flag"),
+    getVocalSection("The planet is dying", 4, "planet", { cancelAt: 2 }),
+    getVocalSection("The government hates us", 4, "house", { cancelAt: 2 }),
+    getVocalSection("The animals are leaving", 4, "animals", { cancelAt: 2 }),
+    getVocalSection("The aliens aren't contacting us", 4, "aliens", { cancelAt: 2.5 }),
+    getVocalSection("We might be alone", 4, "alone"),
+    getVocalSection("It just might be you and me", 4, "together"),
+    getVocalSection("But it's okay", 3, "okay"),
+    {
+      name: "Do you really need anyone else?",
+      mode: { type: "once", beats: 5 },
+      layers: [
+        {
+          effect: "cat-heart-hands",
+          params: { every: 1, heartColor: HEART_PINK },
+        },
+      ],
+    },
+  ],
+};
 
 const sprayReferences = { period: 8, ...getReferences(["perStep", "beatBurst", "power"]) };
 
@@ -917,7 +1043,7 @@ const bassBloodAnimations: Record<string, AnimationInput> = {
     "Blood equalizer",
     16,
     [{ effect: "blood-equalizer", params: getReferences(["style"]) }],
-    [getValueParameter("Style", "style", { Bottom: "bottom", Center: "center" }, "Bottom")],
+    [equalizerStyleParameter],
   ),
   "blood-storm": getLoop(
     "Blood storm",
@@ -1141,6 +1267,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       [{ effect: "color-fade", params: { ...paletteParams, beatsPerColor: 8 } }],
       [getLightColorParameter("Orange/purple", MULTI_PALETTES)],
     ),
+    equalizer: getLoop(
+      "Equalizer",
+      16,
+      [{ effect: "equalizer", params: { ...paletteParams, ...getReferences(["style"]) } }],
+      [getLightColorParameter("Pastel"), equalizerStyleParameter],
+    ),
     loading: getLoop(
       "Loading",
       4,
@@ -1293,13 +1425,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         getLightColorParameter("White"),
         hyperspaceSpeedParameter,
         hyperspaceOrbitParameter,
-        blackCatParameter,
       ],
       sections: [
         {
           name: "Spawn",
           mode: { type: "once", beats: 16 },
-          layers: [hyperspaceLayer, { effect: "cat-pair-spawn", params: catColorParams }],
+          layers: [hyperspaceLayer, { effect: "cat-pair-spawn" }],
         },
         {
           name: "Hyperspace",
@@ -1308,7 +1439,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
             hyperspaceLayer,
             {
               effect: "cat-hyperspace",
-              params: { ...catColorParams, ...getReferences(["orbits", "turns"]) },
+              params: getReferences(["orbits", "turns"]),
             },
           ],
         },
@@ -1326,19 +1457,18 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           },
           "Pulse",
         ),
-        blackCatParameter,
       ],
       sections: [
         {
           name: "Spawn",
           mode: { type: "once", beats: 16 },
-          layers: [{ effect: "cat-pair-spawn", params: catColorParams }],
+          layers: [{ effect: "cat-pair-spawn" }],
         },
         {
           name: "Explode",
           mode: { type: "once", beats: 8 },
           layers: [
-            { effect: "cat-explode", params: catColorParams },
+            { effect: "cat-explode" },
             {
               effect: "cat-blood-spray",
               params: {
@@ -1376,7 +1506,14 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         getValueParameter(
           "Move",
           "move",
-          { Sway: "sway", Hop: "hop", "Paws up": "paws-up", Twist: "twist", Conga: "conga" },
+          {
+            Sway: "sway",
+            Hop: "hop",
+            "Paws up": "paws-up",
+            Twist: "twist",
+            Conga: "conga",
+            Twerk: "twerk",
+          },
           "Sway",
         ),
         getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
@@ -1388,19 +1525,153 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       [{ effect: "cat-dance", params: { move: "wiggle", ...getReferences(["offbeat"]) } }],
       [getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Alternating")],
     ),
+    "cat-twerk": getLoop(
+      "Cat twerk",
+      8,
+      [{ effect: "cat-dance", params: { move: "twerk", ...getReferences(["offbeat"]) } }],
+      [getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together")],
+    ),
     "cat-hype": getLoop(
       "Cat hype",
       8,
       [
         {
           effect: "cat-hype",
-          params: { ...catColorParams, ...getReferences(["slamsPerBeat"]) },
+          params: getReferences(["slamsPerBeat"]),
+        },
+      ],
+      [getValueParameter("Speed", "slamsPerBeat", { Hype: 1, Hyper: 2, Frenzy: 4 }, "Hyper")],
+    ),
+    "cat-racecar": getLoop(
+      "Cat racecar",
+      8,
+      [{ effect: "cat-racecar", params: getReferences(["every"]) }],
+      [getValueParameter("Bounce", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat")],
+    ),
+    "cat-wands": getLoop(
+      "Cat wand duel",
+      16,
+      [
+        {
+          effect: "cat-wands",
+          params: {
+            ...getReferences(["every", "tabbyMagicColor", "magicColor"]),
+          },
         },
       ],
       [
-        getValueParameter("Speed", "slamsPerBeat", { Hype: 1, Hyper: 2, Frenzy: 4 }, "Hyper"),
-        blackCatParameter,
+        getValueParameter("Clash", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat"),
+        getParameter(
+          "Magic",
+          {
+            "Fire vs poison": { tabbyMagicColor: "#ff5a1e", magicColor: "#3cff50" },
+            "Ice vs pink": { tabbyMagicColor: CYAN, magicColor: PINK },
+            "Gold vs purple": { tabbyMagicColor: "#ffd030", magicColor: PURPLE },
+            "Pink vs purple": { tabbyMagicColor: PINK, magicColor: PURPLE },
+          },
+          "Fire vs poison",
+        ),
       ],
+    ),
+    "cat-space": getLoop(
+      "Cat astronauts",
+      32,
+      [{ effect: "cat-space", params: getReferences(["every"]) }],
+      [getValueParameter("Twinkle", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat")],
+    ),
+    "cat-laptop": getLoop(
+      "Cat laptop jam",
+      8,
+      [{ effect: "cat-laptop", params: getReferences(["every", "cat"]) }],
+      [
+        getValueParameter("Bounce", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat"),
+        catChoiceParameter,
+      ],
+    ),
+    "cat-cyberspace": {
+      name: "Cat cyberspace",
+      parameters: [
+        getValueParameter("Pulse", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat"),
+        catChoiceParameter,
+      ],
+      sections: [
+        {
+          name: "Sucked in",
+          mode: { type: "once", beats: 16 },
+          layers: [
+            {
+              effect: "cat-laptop-portal",
+              params: getReferences(["every", "cat"]),
+            },
+          ],
+        },
+        {
+          name: "Cyberspace",
+          mode: { type: "loop", beats: 8 },
+          layers: [
+            {
+              effect: "cat-cyberspace",
+              params: getReferences(["every", "cat"]),
+            },
+          ],
+        },
+      ],
+    },
+    "cat-call-me": {
+      name: "Cat call me maybe",
+      parameters: [
+        getValueParameter(
+          "Message",
+          "message",
+          {
+            "Call me?": "CALL ME?",
+            "Hey you": "HEY YOU",
+            "Hi cutie": "HI CUTIE",
+            "Maybe?": "MAYBE?",
+          },
+          "Call me?",
+        ),
+        getValueParameter("Pulse", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat"),
+        getValueParameter(
+          "Cats",
+          "sender",
+          { "Tabby → Black": "tabby", "Black → Tabby": "black" },
+          "Tabby → Black",
+        ),
+      ],
+      sections: [
+        getCatPhoneSection("Typing", { type: "loop", beats: 4 }, "typing"),
+        getCatPhoneSection("Send", { type: "once", beats: 8 }, "send"),
+        getCatPhoneSection("Buzz", { type: "once", beats: 8 }, "buzz"),
+        getCatPhoneSection("Joy", { type: "loop", beats: 8 }, "joy"),
+      ],
+    },
+    "cat-mimic": getLoop(
+      "Cat in a mimic",
+      8,
+      [{ effect: "cat-mimic", params: getReferences(["every", "cat"]) }],
+      [
+        getValueParameter("Chomp", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat"),
+        catChoiceParameter,
+      ],
+    ),
+    "cat-bench": getLoop(
+      "Cat bench press",
+      8,
+      [{ effect: "cat-bench", params: getReferences(["every", "cat"]) }],
+      [liftTempoParameter, catChoiceParameter],
+    ),
+    "cat-squat": getLoop(
+      "Cat squat",
+      8,
+      [{ effect: "cat-squat", params: getReferences(["every", "cat"]) }],
+      [liftTempoParameter, catChoiceParameter],
+    ),
+    "cat-jam": getLoop(
+      "Cat jam",
+      8,
+      [{ effect: "cat-jam", params: getReferences(["every"]) }],
+      [getValueParameter("Bob", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat")],
     ),
     "chrome-cat-roll": getLoop(
       "Chrome cat roll",
@@ -1425,6 +1696,250 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       { effect: "cat-ghosts" },
     ]),
     "cat-eyes": getLoop("Eyes in the dark", 32, [{ effect: "cat-eyes" }]),
+  }),
+  ...getFolder("Love", {
+    "love-hearts": getLoop(
+      "Heart pulse",
+      8,
+      [
+        {
+          effect: "heart-pulse",
+          params: {
+            ...getReferences(["every"]),
+            color: { param: "heartColor" },
+            backgroundColor: "#000000",
+            rings: 0,
+          },
+        },
+        {
+          effect: "heart-float",
+          params: { ...getReferences(["every"]), color: { param: "heartColor" } },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter],
+    ),
+    "love-heart-zoom": getLoop(
+      "Heart zoom",
+      8,
+      [
+        {
+          effect: "heart-zoom",
+          params: {
+            ...getReferences(["every", "speed", "backgroundColor"]),
+            color: { param: "heartColor" },
+          },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+    ),
+    "love-heart-zoom-outline": getLoop(
+      "Heart zoom outlined",
+      8,
+      [
+        {
+          effect: "heart-zoom",
+          params: {
+            ...getReferences(["every", "speed", "backgroundColor"]),
+            color: { param: "heartColor" },
+            outline: 1.5,
+          },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+    ),
+    "love-heart-zoom-steady": getLoop(
+      "Heart zoom (steady)",
+      8,
+      [
+        {
+          effect: "heart-zoom",
+          params: {
+            ...getReferences(["every", "speed", "backgroundColor"]),
+            color: { param: "heartColor" },
+            motion: "steady",
+            flash: 0.35,
+            ripple: 1,
+          },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+    ),
+    "love-heart-zoom-outline-steady": getLoop(
+      "Heart zoom outlined (steady)",
+      8,
+      [
+        {
+          effect: "heart-zoom",
+          params: {
+            ...getReferences(["every", "speed", "backgroundColor"]),
+            color: { param: "heartColor" },
+            outline: 1.5,
+            motion: "steady",
+            swell: 1.5,
+          },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+    ),
+    "love-heart-grid": getLoop(
+      "Heart grid",
+      8,
+      [
+        {
+          effect: "heart-grid",
+          params: {
+            ...getReferences(["every", "wave", "scroll", "backgroundColor"]),
+            color: { param: "heartColor" },
+          },
+        },
+      ],
+      [
+        getValueParameter(
+          "Wave",
+          "wave",
+          { Ripple: "ripple", Diagonal: "diagonal", Checker: "checker" },
+          "Ripple",
+        ),
+        getValueParameter("Scroll", "scroll", { Still: 0, Drift: 2 }, "Drift"),
+        lovePulseParameter,
+        loveColorParameter,
+      ],
+    ),
+    "love-heartbeat": getLoop(
+      "Heartbeat monitor",
+      8,
+      [
+        {
+          effect: "heart-ecg",
+          params: {
+            ...getReferences(["every", "backgroundColor"]),
+            color: { param: "heartColor" },
+          },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter],
+    ),
+    "love-heart-tunnel": getLoop(
+      "Heart tunnel",
+      8,
+      [
+        {
+          effect: "heart-tunnel",
+          params: {
+            ...getReferences(["every", "backgroundColor"]),
+            color: { param: "heartColor" },
+          },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter],
+    ),
+    "love-heart-tunnel-steady": getLoop(
+      "Heart tunnel (steady)",
+      8,
+      [
+        {
+          effect: "heart-tunnel",
+          params: {
+            ...getReferences(["every", "backgroundColor"]),
+            color: { param: "heartColor" },
+            motion: "steady",
+            spin: 0.35,
+            pop: 0.4,
+          },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter],
+    ),
+    "love-equalizer": getLoop(
+      "Heart equalizer",
+      16,
+      [
+        {
+          effect: "heart-equalizer",
+          params: {
+            ...getReferences(["every"]),
+            color: { param: "heartColor" },
+          },
+        },
+      ],
+      [lovePulseParameter, loveColorParameter],
+    ),
+    "love-cat-dance": getLoop(
+      "Lovestruck cat dance",
+      16,
+      [
+        loveFloatLayer,
+        {
+          effect: "cat-dance",
+          params: {
+            ...getReferences(["move", "offbeat", "eyes", "heartColor"]),
+            size: 12,
+            spacing: 30,
+          },
+        },
+      ],
+      [
+        getValueParameter(
+          "Move",
+          "move",
+          {
+            Sway: "sway",
+            Hop: "hop",
+            "Paws up": "paws-up",
+            Wiggle: "wiggle",
+            Headbang: "headbang",
+          },
+          "Sway",
+        ),
+        getValueParameter(
+          "Eyes",
+          "eyes",
+          { Hearts: "hearts", Happy: "happy", Open: "open" },
+          "Hearts",
+        ),
+        getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
+        lovePulseParameter,
+        loveColorParameter,
+      ],
+    ),
+    "cat-heart-hands": getLoop(
+      "Cat heart hands",
+      8,
+      [
+        {
+          effect: "cat-heart-hands",
+          params: getReferences(["every", "heartColor"]),
+        },
+      ],
+      [lovePulseParameter, loveColorParameter],
+    ),
+    "cat-kiss": getLoop(
+      "Cat smooch",
+      16,
+      [
+        {
+          effect: "cat-kiss",
+          params: getReferences(["every", "heartColor"]),
+        },
+      ],
+      [lovePulseParameter, loveColorParameter],
+    ),
+    "hero-love": getLoop(
+      "Frieren and Himmel love",
+      16,
+      [loveFloatLayer, { effect: "hero-dance", params: getReferences(["move", "sync"]) }],
+      [
+        getValueParameter(
+          "Move",
+          "move",
+          { Sway: "sway", Twist: "twist", Headbang: "headbang" },
+          "Sway",
+        ),
+        heroSyncParameter,
+        lovePulseParameter,
+        loveColorParameter,
+      ],
+    ),
   }),
   ...getFolder("KPop Demon Hunters", {
     "demon-hunters": {
@@ -1586,6 +2101,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           Purple: PURPLE,
           Green: GREEN,
           White: WHITE,
+          Pink: PINK,
           Blood: BLOOD_COLOR,
           "Fresh blood": FRESH_BLOOD_COLOR,
         }),
@@ -1708,5 +2224,5 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   }),
   ...getFolder("Halloween/Blood", bloodAnimations),
   ...getFolder("Halloween/Blood/Bass", bassBloodAnimations),
-  ...getFolder("One-offs", { rumble }),
+  ...getFolder("One-offs", { rumble, "vocal-planet-dying": vocalPlanetDying }),
 };

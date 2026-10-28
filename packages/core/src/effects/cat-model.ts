@@ -8,6 +8,7 @@ import {
   addEllipsoid,
   createMesh,
   drawMesh,
+  getRotation,
   normalize,
   subtract,
 } from "../mesh.ts";
@@ -33,6 +34,11 @@ const CAMERA_DISTANCE = 6;
 const MODEL_CENTER: Vector = [0, 0.2, 0];
 const EYES_CENTER: Vector = [0, 0.68, 1.08];
 const LIGHT = normalize([-0.4, 0.6, 0.7]);
+const SIT_ANGLE = (-62 * Math.PI) / 180;
+
+export const SIT = getRotation(SIT_ANGLE, 0, 0);
+export const UNSIT = getRotation(-SIT_ANGLE, 0, 0);
+export const TUCK = getRotation(-SIT_ANGLE - Math.PI / 2, 0, 0);
 
 export type CatJoint =
   | "head"
@@ -96,6 +102,10 @@ function createCatGroups(): CatGroup[] {
 }
 
 const catGroups = createCatGroups();
+
+function getJointPivot(joint: CatJoint): Vector {
+  return catGroups.find((group) => group.joint === joint)?.pivot ?? [0, 0, 0];
+}
 
 export function scale([r, g, b]: Color, amount: number): Color {
   return [r * amount, g * amount, b * amount];
@@ -211,10 +221,38 @@ export function drawCatProp<M extends string>(
   placement: CatPlacement,
   mesh: Mesh<M>,
   getColor: (material: M, position: Vector, shade: number) => Color,
+  joint?: CatJoint,
 ): void {
+  const project = getCatProjector(placement);
+  const rotation = joint ? placement.pose?.[joint] : undefined;
+  const transform = joint ? getJointTransform(getJointPivot(joint), rotation) : undefined;
   drawMesh(raster, mesh, {
-    project: getCatProjector(placement),
-    getShade: (normal) => getShade(placement.rotate(normal)),
+    project: transform ? (vector) => project(transform(vector)) : project,
+    getShade: (normal) => getShade(placement.rotate(rotation ? rotation(normal) : normal)),
     getColor,
   });
+}
+
+export function getCatPoint(placement: CatPlacement, point: Vector, joint?: CatJoint): Vector {
+  const rotation = joint ? placement.pose?.[joint] : undefined;
+  const transform = joint ? getJointTransform(getJointPivot(joint), rotation) : undefined;
+  return getCatProjector(placement)(transform ? transform(point) : point);
+}
+
+export function getCatOffset(rotate: Rotation, offset: Vector, size: number): Vector {
+  const [x, y, depth] = rotate(offset);
+  return [x * size, -y * size, depth];
+}
+
+export function getJointAim(rotate: Rotation, [x, y, depth]: Vector): Rotation {
+  const getDot = (axis: Vector): number => {
+    const [ax, ay, az] = rotate(axis);
+    return ax * x + ay * y + az * depth;
+  };
+  const [modelX, modelY, modelDepth] = normalize([
+    getDot([1, 0, 0]),
+    getDot([0, 1, 0]),
+    getDot([0, 0, 1]),
+  ]);
+  return getRotation(-Math.asin(modelDepth), 0, Math.atan2(modelX, -modelY));
 }

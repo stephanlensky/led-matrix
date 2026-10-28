@@ -3,7 +3,6 @@ import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { type Color, HEIGHT, type RgbaImage, WIDTH, setRgbaPixel } from "../frame.ts";
 import {
-  type Rotation,
   type Vector,
   addCone,
   addEllipsoid,
@@ -16,7 +15,7 @@ import {
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import { type Palette, drawSprite, getAnimationFrame } from "../sprite.ts";
 import { TAU, coatParams, getCoats, toRadians } from "./cat-duo.ts";
-import { type CatPose, drawCat, drawCatProp, getGhostCoat } from "./cat-model.ts";
+import { type CatPose, drawCat, drawCatProp, getCatOffset, getGhostCoat } from "./cat-model.ts";
 import { batFrames } from "./demon-hunters/sprites.ts";
 
 type BroomPart = "handle" | "bristles" | "band";
@@ -112,11 +111,6 @@ function getRiderPose(beat: number): CatPose {
   };
 }
 
-function getOffset(rotate: Rotation, offset: Vector, size: number): Vector {
-  const [x, y, depth] = rotate(offset);
-  return [x * size, -y * size, depth];
-}
-
 export const catBroom = defineEffect({
   id: "cat-broom",
   name: "Cat broom ride",
@@ -169,7 +163,7 @@ export const catBroom = defineEffect({
       const random = createRandom(hashSeed(0x5ca7, spark));
       const delay = (spark + getCycle(beat * 4)) * 0.004;
       const [trailX, trailY] = getPosition(progress - delay);
-      const [bristleX, bristleY] = getOffset(rotate, BRISTLE_TIP, size);
+      const [bristleX, bristleY] = getCatOffset(rotate, BRISTLE_TIP, size);
       const fade = 1 - spark / 24;
       fillRasterCircle(
         raster,
@@ -192,7 +186,7 @@ export const catBroom = defineEffect({
       return part === "band" ? getScaled(ribbon, shade) : getScaled([110, 70, 40], shade);
     });
     for (const { offset, coat, hasHat } of riders) {
-      const [offsetX, offsetY, depth] = getOffset(rotate, offset, size);
+      const [offsetX, offsetY, depth] = getCatOffset(rotate, offset, size);
       const placement = { x: x + offsetX, y: y + offsetY, size, rotate, depth, pose };
       drawCat(raster, placement, coat);
       if (hasHat) {

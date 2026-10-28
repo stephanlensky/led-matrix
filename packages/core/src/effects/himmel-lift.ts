@@ -15,9 +15,9 @@ const benchMesh = createBenchMesh();
 const benchBarbellMesh = createBarbellMesh([0, 0, 0], 0.95, 0.19);
 const squatBarbellMesh = createBarbellMesh([0, 0.66, -0.24], 1.2);
 
-type Rep = { depth: number; punch: number };
+export type Rep = { depth: number; punch: number };
 
-function getRep(beat: number, every: number): Rep {
+export function getRep(beat: number, every: number): Rep {
   const phase = getCycle(beat / every);
   const since = phase * every;
   const punch = Math.exp(-since * 8);

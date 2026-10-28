@@ -41,9 +41,9 @@ function addHalfCylinder(
   }
 }
 
-export function createChestMesh(): Mesh<PropPart> {
+export function createChestMesh(half = CHEST_HALF): Mesh<PropPart> {
   const mesh = createMesh<PropPart>();
-  const [hx, hy, hz] = CHEST_HALF;
+  const [hx, hy, hz] = half;
   addBox(mesh, [hx - WALL, 0, 0], [WALL, hy, hz], "chest");
   addBox(mesh, [-hx + WALL, 0, 0], [WALL, hy, hz], "chest");
   for (const side of [-1, 1]) {
@@ -76,9 +76,9 @@ export function createChestMesh(): Mesh<PropPart> {
   return mesh;
 }
 
-export function createLidMesh(): Mesh<PropPart> {
+export function createLidMesh(half = CHEST_HALF): Mesh<PropPart> {
   const mesh = createMesh<PropPart>();
-  const [hx, , hz] = CHEST_HALF;
+  const [hx, , hz] = half;
   const depth = hx * 2;
   addHalfCylinder(mesh, [hx, 0, 0], [hx, 0.2, hz], "chest");
   addBox(mesh, [hx, 0.005, 0], [hx - 0.02, 0.01, hz - 0.02], "mouth");
@@ -153,14 +153,14 @@ export function createBarbellMesh(
   return mesh;
 }
 
-export function createBenchMesh(): Mesh<PropPart> {
+export function createBenchMesh(hasRack = true): Mesh<PropPart> {
   const mesh = createMesh<PropPart>();
   addBox(mesh, [0, -0.1, -0.15], [0.26, 0.06, 0.85], "cushion");
   for (const z of [-0.8, 0.5]) {
     addBox(mesh, [0, -0.42, z], [0.2, 0.26, 0.04], "metal");
     addBox(mesh, [0, -0.66, z], [0.3, 0.03, 0.08], "metal");
   }
-  for (const side of [-1, 1]) {
+  for (const side of hasRack ? [-1, 1] : []) {
     addBox(mesh, [side * 0.62, 0.05, -0.75], [0.03, 0.75, 0.03], "metal");
     addBox(mesh, [side * 0.62, -0.68, -0.75], [0.08, 0.02, 0.14], "metal");
     addBox(mesh, [side * 0.62, 0.62, -0.68], [0.04, 0.02, 0.07], "metal");

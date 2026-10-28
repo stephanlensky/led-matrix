@@ -33,6 +33,10 @@ export function subtract([ax, ay, az]: Vector, [bx, by, bz]: Vector): Vector {
   return [ax - bx, ay - by, az - bz];
 }
 
+export function compose(...rotations: Rotation[]): Rotation {
+  return (vector) => rotations.reduceRight((value, rotation) => rotation(value), vector);
+}
+
 export function getRotation(pitch: number, yaw: number, roll: number): Rotation {
   const [sinX, cosX] = [Math.sin(pitch), Math.cos(pitch)];
   const [sinY, cosY] = [Math.sin(yaw), Math.cos(yaw)];

@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { HEIGHT, WIDTH } from "../frame.ts";
 import { easings } from "../keyframes.ts";
-import { type Rotation, createRaster, getRotation, resolveRaster } from "../mesh.ts";
+import { type Rotation, compose, createRaster, getRotation, resolveRaster } from "../mesh.ts";
 import { TAU, coatParams, getCoats, toRadians } from "./cat-duo.ts";
+import { type CatFace, drawEyes, eyeStyles, getCatFace, getEyelessCoat } from "./cat-face.ts";
 import { type CatPose, drawCat } from "./cat-model.ts";
 
 export const danceMoves = [
@@ -14,6 +16,7 @@ export const danceMoves = [
   "twist",
   "conga",
   "wiggle",
+  "twerk",
 ] as const;
 
 type DanceMove = (typeof danceMoves)[number];
@@ -191,6 +194,31 @@ function getWiggle(beat: number, dancer: Dancer, size: number): DancerFrame {
   };
 }
 
+function getTwerk(beat: number, dancer: Dancer, size: number): DancerFrame {
+  const phase = beat + dancer.phase;
+  const bounce = getHeadbangAngle(getCycle(phase));
+  const shake = Math.sin(phase * Math.PI);
+  const lean = toRadians(35 + 20 * bounce);
+  const bend = toRadians(-35 * bounce);
+  return {
+    x: dancer.x + shake,
+    y: BASE_Y + 2 - bounce * 2,
+    size,
+    rotate: compose(
+      getRotation(VIEW_PITCH, Math.PI - dancer.side * 0.5, 0),
+      getRotation(lean, toRadians(14 * shake), toRadians(-18 * shake)),
+    ),
+    pose: {
+      head: getRotation(-lean - toRadians(15), dancer.side * toRadians(-90), toRadians(15 * shake)),
+      tail: getRotation(toRadians(20 - 40 * bounce), 0, toRadians(60 * shake)),
+      frontLeftLeg: getPitch(-lean + toRadians(-20)),
+      frontRightLeg: getPitch(-lean + toRadians(-20)),
+      backLeftLeg: getPitch(-lean + bend),
+      backRightLeg: getPitch(-lean + bend),
+    },
+  };
+}
+
 const moveFrames: Record<
   DanceMove,
   (beat: number, dancer: Dancer, size: number, progress: number) => DancerFrame
@@ -202,6 +230,7 @@ const moveFrames: Record<
   twist: getTwist,
   conga: getConga,
   wiggle: getWiggle,
+  twerk: getTwerk,
 };
 
 export const catDance = defineEffect({
@@ -214,6 +243,8 @@ export const catDance = defineEffect({
     size: z.number().min(4).max(16).default(10),
     offbeat: z.boolean().default(false),
     spacing: z.number().min(0).max(40).default(28),
+    eyes: z.enum(eyeStyles).default("open"),
+    heartColor: colorSchema.default("#ff2a6d"),
   }),
   render(image, { params, beat, progress }) {
     const [tabbyCoat, blackCoat] = getCoats(params);
@@ -223,10 +254,26 @@ export const catDance = defineEffect({
       [{ x: WIDTH / 2 + params.spacing / 2, phase: 0, side: -1 }, blackCoat],
     ];
     const raster = createRaster();
+    const faces: CatFace[] = [];
     for (const [dancer, coat] of dancers) {
       const frame = moveFrames[params.move](beat, dancer, params.size, progress);
-      drawCat(raster, frame, coat);
+      drawCat(raster, frame, params.eyes === "open" ? coat : getEyelessCoat(coat));
+      faces.push(getCatFace(frame));
     }
     resolveRaster(raster, image);
+    if (params.eyes !== "open") {
+      const pop = 1 + 0.3 * Math.exp(-getCycle(beat) * 6);
+      for (const face of faces) {
+        drawEyes(
+          image,
+          face,
+          params.eyes,
+          parseColor(params.eyeColor),
+          parseColor(params.heartColor),
+          pop,
+          params.size * 0.32,
+        );
+      }
+    }
   },
 });

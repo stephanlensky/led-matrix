@@ -63,6 +63,20 @@ import { catPairSpawn } from "./cat-pair-spawn.ts";
 import { catEyes } from "./cat-eyes.ts";
 import { catBroom, catGhosts } from "./cat-halloween.ts";
 import { catHyperspace } from "./cat-hyperspace.ts";
+import { catRacecar } from "./cat-racecar.ts";
+import { catWands } from "./cat-wands.ts";
+import { catSpace } from "./cat-space.ts";
+import { catLaptop } from "./cat-laptop.ts";
+import { catCyberspace, catLaptopPortal } from "./cat-cyberspace.ts";
+import { catPhone } from "./cat-phone.ts";
+import { heartFloat, heartPulse } from "./heart-pulse.ts";
+import { heartEqualizer } from "./heart-equalizer.ts";
+import { equalizer } from "./equalizer.ts";
+import { catHeartHands, catKiss } from "./cat-love.ts";
+import { heartEcg, heartGrid, heartTunnel, heartZoom } from "./heart-patterns.ts";
+import { catBench, catMimic, catSquat } from "./cat-gym.ts";
+import { catJam } from "./cat-jam.ts";
+import { vocalScene } from "./vocal-scenes.ts";
 import { demonHunters } from "./demon-hunters/index.ts";
 import { hunterDance } from "./hunter-dance.ts";
 import { hunterHyperspace } from "./hunter-hyperspace.ts";
@@ -141,6 +155,28 @@ export const effects: readonly Effect[] = [
   catBounce,
   catPairSpawn,
   catHyperspace,
+  catRacecar,
+  catWands,
+  catSpace,
+  catLaptop,
+  catLaptopPortal,
+  catCyberspace,
+  catPhone,
+  heartPulse,
+  catHeartHands,
+  catKiss,
+  heartFloat,
+  heartZoom,
+  heartGrid,
+  heartEcg,
+  heartTunnel,
+  heartEqualizer,
+  equalizer,
+  catBench,
+  catSquat,
+  catMimic,
+  catJam,
+  vocalScene,
   catExplode,
   catBloodSpray,
   catDance,
