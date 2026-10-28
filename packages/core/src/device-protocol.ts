@@ -6,6 +6,8 @@ export const SERVER_PORT = 7701;
 export const PROTOCOL_VERSION = 1;
 export const HEADER_SIZE = 4;
 export const FRAME_HEADER_SIZE = 12;
+export const COMPRESSED_FRAME_HEADER_SIZE = 14;
+export const MAX_PACKET_SIZE = 1472;
 export const MAX_CHUNK_PIXELS = 448;
 export const STALE_FRAME_WINDOW = 16;
 export const FRAME_TIMEOUT_MS = 2000;
@@ -18,6 +20,7 @@ const STATUS_SIZE = 32;
 export const MessageType = {
   frame: 0x01,
   setBrightness: 0x02,
+  compressedFrame: 0x03,
   status: 0x81,
 } as const;
 
@@ -29,11 +32,20 @@ export const DeviceMode = {
 
 export type DeviceMode = (typeof DeviceMode)[keyof typeof DeviceMode];
 
+export const DeviceFeature = {
+  compressedFrames: 0x01,
+} as const;
+
+const MAX_RUN = 128;
+const MIN_REPEAT_RUN = 3;
+const REPEAT_FLAG = 0x80;
+
 export const deviceStatusSchema = z.object({
   width: z.int(),
   height: z.int(),
   brightness: z.int(),
   mode: z.literal([DeviceMode.idle, DeviceMode.streaming, DeviceMode.fallback]),
+  features: z.int(),
   uptimeMs: z.int(),
   framesShown: z.int(),
   framesDropped: z.int(),
@@ -85,6 +97,103 @@ export function encodeFrame(frame: Frame, sequence: number): Uint8Array[] {
   });
 }
 
+function isSamePixel(frame: Frame, a: number, b: number): boolean {
+  const first = a * CHANNELS;
+  const second = b * CHANNELS;
+  return (
+    frame[first] === frame[second] &&
+    frame[first + 1] === frame[second + 1] &&
+    frame[first + 2] === frame[second + 2]
+  );
+}
+
+function getRunLength(frame: Frame, start: number): number {
+  let length = 1;
+  while (
+    length < MAX_RUN &&
+    start + length < PIXEL_COUNT &&
+    isSamePixel(frame, start, start + length)
+  ) {
+    length++;
+  }
+  return length;
+}
+
+type CompressedChunk = { offset: number; pixelCount: number; bytes: number[] };
+
+function getCompressedChunk(frame: Frame, offset: number): CompressedChunk {
+  const bytes: number[] = [];
+  const budget = MAX_PACKET_SIZE - COMPRESSED_FRAME_HEADER_SIZE;
+  let pixel = offset;
+  while (pixel < PIXEL_COUNT && bytes.length + 1 + CHANNELS <= budget) {
+    const run = getRunLength(frame, pixel);
+    if (run >= MIN_REPEAT_RUN) {
+      bytes.push(
+        REPEAT_FLAG + run - 1,
+        ...frame.subarray(pixel * CHANNELS, (pixel + 1) * CHANNELS),
+      );
+      pixel += run;
+      continue;
+    }
+    let count = 1;
+    while (
+      count < MAX_RUN &&
+      pixel + count < PIXEL_COUNT &&
+      bytes.length + 1 + (count + 1) * CHANNELS <= budget &&
+      getRunLength(frame, pixel + count) < MIN_REPEAT_RUN
+    ) {
+      count++;
+    }
+    bytes.push(count - 1, ...frame.subarray(pixel * CHANNELS, (pixel + count) * CHANNELS));
+    pixel += count;
+  }
+  return { offset, pixelCount: pixel - offset, bytes };
+}
+
+export function encodeCompressedFrame(frame: Frame, sequence: number): Uint8Array[] {
+  const chunks: CompressedChunk[] = [];
+  for (let offset = 0; offset < PIXEL_COUNT;) {
+    const chunk = getCompressedChunk(frame, offset);
+    chunks.push(chunk);
+    offset += chunk.pixelCount;
+  }
+  return chunks.map(({ offset, pixelCount, bytes: data }, chunkIndex) => {
+    const { bytes, view } = createMessage(
+      MessageType.compressedFrame,
+      COMPRESSED_FRAME_HEADER_SIZE + data.length,
+    );
+    view.setUint32(4, sequence >>> 0, true);
+    view.setUint8(8, chunkIndex);
+    view.setUint8(9, chunks.length);
+    view.setUint16(10, offset, true);
+    view.setUint16(12, pixelCount, true);
+    bytes.set(data, COMPRESSED_FRAME_HEADER_SIZE);
+    return bytes;
+  });
+}
+
+export function decodeRunLength(data: Uint8Array, pixelCount: number): Uint8Array | undefined {
+  const pixels = new Uint8Array(pixelCount * CHANNELS);
+  let position = 0;
+  let pixel = 0;
+  while (position < data.length) {
+    const token = data[position++]!;
+    const isRepeat = token >= REPEAT_FLAG;
+    const count = (token & (REPEAT_FLAG - 1)) + 1;
+    const size = isRepeat ? CHANNELS : count * CHANNELS;
+    if (pixel + count > pixelCount || position + size > data.length) {
+      return undefined;
+    }
+    for (let index = 0; index < count; index++) {
+      const source = isRepeat ? position : position + index * CHANNELS;
+      pixels.set(data.subarray(source, source + CHANNELS), (pixel + index) * CHANNELS);
+    }
+    position += size;
+    pixel += count;
+  }
+  return pixel === pixelCount ? pixels : undefined;
+}
+
 export function encodeSetBrightness(brightness: number): Uint8Array {
   const { bytes, view } = createMessage(MessageType.setBrightness, BRIGHTNESS_SIZE);
   view.setUint8(4, brightness);
@@ -97,6 +206,7 @@ export function encodeStatus(status: DeviceStatus): Uint8Array {
   view.setUint16(6, status.height, true);
   view.setUint8(8, status.brightness);
   view.setUint8(9, status.mode);
+  view.setUint8(10, status.features);
   view.setUint32(12, status.uptimeMs >>> 0, true);
   view.setUint32(16, status.framesShown >>> 0, true);
   view.setUint32(20, status.framesDropped >>> 0, true);
@@ -138,6 +248,27 @@ export function decodeMessage(bytes: Uint8Array): DeviceMessage | undefined {
         pixels: bytes.subarray(FRAME_HEADER_SIZE),
       };
     }
+    case MessageType.compressedFrame: {
+      if (bytes.length < COMPRESSED_FRAME_HEADER_SIZE) {
+        return undefined;
+      }
+      const offset = view.getUint16(10, true);
+      const pixelCount = view.getUint16(12, true);
+      if (pixelCount === 0 || offset + pixelCount > PIXEL_COUNT) {
+        return undefined;
+      }
+      const pixels = decodeRunLength(bytes.subarray(COMPRESSED_FRAME_HEADER_SIZE), pixelCount);
+      return pixels
+        ? {
+            type: "frame",
+            sequence: view.getUint32(4, true),
+            chunkIndex: view.getUint8(8),
+            chunkCount: view.getUint8(9),
+            offset,
+            pixels,
+          }
+        : undefined;
+    }
     case MessageType.setBrightness:
       return bytes.length < BRIGHTNESS_SIZE
         ? undefined
@@ -154,6 +285,7 @@ export function decodeMessage(bytes: Uint8Array): DeviceMessage | undefined {
           height: view.getUint16(6, true),
           brightness: view.getUint8(8),
           mode,
+          features: view.getUint8(10),
           uptimeMs: view.getUint32(12, true),
           framesShown: view.getUint32(16, true),
           framesDropped: view.getUint32(20, true),

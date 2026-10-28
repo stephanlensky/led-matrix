@@ -51,6 +51,21 @@ Assembling frames:
 - A chunk whose sequence is 0 to 15 behind the newest sequence seen is stale and ignored (late or duplicated packets). Anything further behind is treated as a restarted stream and accepted, so the server can restart without the device rejecting frames.
 - Sequence comparisons use wrapping arithmetic: `int32_t(a - b)`.
 
+### `0x03` compressed frame chunk
+
+Sent instead of `0x01` to devices whose status sets the compressed frames feature. Each chunk covers a range of pixels, run-length encoded, and the server fills each packet with as many pixels as fit, so a mostly black frame is one packet instead of ten.
+
+| Offset | Size | Field                                    |
+| ------ | ---- | ---------------------------------------- |
+| 4      | 4    | frame sequence number (u32, wraps)       |
+| 8      | 1    | chunk index                              |
+| 9      | 1    | chunk count                              |
+| 10     | 2    | offset of the first pixel (`y * 64 + x`) |
+| 12     | 2    | number of pixels in the chunk            |
+| 14     | n    | runs                                     |
+
+Each run starts with a byte `t`. Below `0x80` it is followed by `t + 1` pixels as `R G B`; from `0x80` up it is followed by one `R G B` pixel repeated `(t & 0x7f) + 1` times. A chunk whose runs don't cover exactly its pixel count, or run past the end of the packet, is dropped. Chunks are assembled into frames exactly like `0x01` chunks.
+
 ### `0x02` set brightness
 
 | Offset | Size | Field                |
@@ -71,7 +86,8 @@ Sent once at startup, every 1000 ms, and right after the brightness changes. The
 | 6      | 2    | height in pixels                      |
 | 8      | 1    | brightness                            |
 | 9      | 1    | mode: 0 idle, 1 streaming, 2 fallback |
-| 10     | 2    | reserved, 0                           |
+| 10     | 1    | features: bit 0 compressed frames     |
+| 11     | 1    | reserved, 0                           |
 | 12     | 4    | uptime in ms (u32, wraps)             |
 | 16     | 4    | frames shown since boot               |
 | 20     | 4    | frames dropped since boot             |

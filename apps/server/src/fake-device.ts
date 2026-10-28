@@ -2,6 +2,7 @@ import { createSocket } from "node:dgram";
 import { parseArgs } from "node:util";
 import {
   DEVICE_PORT,
+  DeviceFeature,
   DeviceMode,
   FRAME_TIMEOUT_MS,
   type Frame,
@@ -23,6 +24,7 @@ const { values: options } = parseArgs({
     "server-port": { type: "string", default: String(SERVER_PORT) },
     loss: { type: "string", default: "0" },
     brightness: { type: "string", default: "255" },
+    raw: { type: "boolean", default: false },
   },
 });
 
@@ -57,6 +59,7 @@ function sendStatus(): void {
     height: HEIGHT,
     brightness,
     mode: getMode(),
+    features: options.raw ? 0 : DeviceFeature.compressedFrames,
     uptimeMs: performance.now() - startedAt,
     framesShown,
     framesDropped: assembler.getFramesDropped(),

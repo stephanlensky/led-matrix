@@ -45,6 +45,7 @@ void sendStatus(uint32_t now) {
   const auto status = protocol::encodeStatus({
       .brightness = brightness,
       .mode = isStreaming(now) ? protocol::Mode::streaming : protocol::Mode::idle,
+      .features = protocol::compressedFramesFeature,
       .uptimeMs = now,
       .framesShown = framesShown,
       .framesDropped = receiver::getFramesDropped(),

@@ -1,6 +1,7 @@
 import { type Socket, createSocket } from "node:dgram";
 import {
   DEVICE_PORT,
+  DeviceFeature,
   DeviceMode,
   type DeviceState,
   type DeviceStatus,
@@ -8,6 +9,7 @@ import {
   SERVER_PORT,
   STATUS_INTERVAL_MS,
   decodeMessage,
+  encodeCompressedFrame,
   encodeFrame,
   encodeSetBrightness,
 } from "@led-matrix/core";
@@ -118,7 +120,11 @@ export async function createDeviceLink({
   }
 
   function sendFrame(frame: Frame): void {
-    for (const packet of encodeFrame(frame, sequence)) {
+    const isCompressed = ((status?.features ?? 0) & DeviceFeature.compressedFrames) !== 0;
+    const packets = isCompressed
+      ? encodeCompressedFrame(frame, sequence)
+      : encodeFrame(frame, sequence);
+    for (const packet of packets) {
       send(packet);
     }
     sentFrames[sequence % SENT_FRAME_HISTORY] = { sequence, sentAt: getTime() };

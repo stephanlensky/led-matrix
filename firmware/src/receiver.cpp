@@ -61,6 +61,11 @@ void handlePacket(size_t size) {
     if (chunk && assembler.add(*chunk)) {
       addFrame(chunk->sequence);
     }
+  } else if (type == protocol::MessageType::compressedFrame) {
+    const auto chunk = protocol::decodeCompressedFrameChunk(packet, size);
+    if (chunk && assembler.add(*chunk)) {
+      addFrame(chunk->sequence);
+    }
   } else if (type == protocol::MessageType::setBrightness) {
     const auto value = protocol::decodeSetBrightness(packet, size);
     if (value) {

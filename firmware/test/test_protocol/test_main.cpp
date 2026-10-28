@@ -110,13 +110,14 @@ void test_encodes_status_in_little_endian() {
   const auto bytes = encodeStatus({
       .brightness = 128,
       .mode = Mode::streaming,
+      .features = compressedFramesFeature,
       .uptimeMs = 123456,
       .framesShown = 900,
       .framesDropped = 3,
       .shownSequence = 0x01020304,
       .shownAgeMs = 300,
   });
-  const uint8_t expected[] = {0x4c, 0x4d, 1, 0x81, 64, 0, 64, 0, 128, 1, 0, 0, 0x40, 0xe2, 0x01, 0,
+  const uint8_t expected[] = {0x4c, 0x4d, 1, 0x81, 64, 0, 64, 0, 128, 1, 1, 0, 0x40, 0xe2, 0x01, 0,
                               0x84, 3,    0, 0,    3,  0, 0,  0, 4,   3, 2, 1, 0x2c, 1,    0,    0};
   TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, bytes.data(), statusSize);
 }
@@ -171,6 +172,72 @@ void test_follows_sequence_across_wraparound() {
   TEST_ASSERT_FALSE(addAll(assembler, encodeFrame(createGradient(), 0xffffffff)));
 }
 
+Packet createCompressedChunk(uint32_t sequence, uint8_t chunkIndex, uint8_t chunkCount,
+                             uint16_t offset, uint16_t chunkPixels, const Packet& data) {
+  Packet packet = {0x4c,
+                   0x4d,
+                   version,
+                   static_cast<uint8_t>(MessageType::compressedFrame),
+                   static_cast<uint8_t>(sequence),
+                   static_cast<uint8_t>(sequence >> 8),
+                   static_cast<uint8_t>(sequence >> 16),
+                   static_cast<uint8_t>(sequence >> 24),
+                   chunkIndex,
+                   chunkCount,
+                   static_cast<uint8_t>(offset),
+                   static_cast<uint8_t>(offset >> 8),
+                   static_cast<uint8_t>(chunkPixels),
+                   static_cast<uint8_t>(chunkPixels >> 8)};
+  packet.insert(packet.end(), data.begin(), data.end());
+  return packet;
+}
+
+Packet getRepeatRuns(size_t count, uint8_t red, uint8_t green, uint8_t blue) {
+  Packet data;
+  for (size_t remaining = count; remaining > 0;) {
+    const size_t run = std::min<size_t>(remaining, 128);
+    data.insert(data.end(), {static_cast<uint8_t>(0x80 + run - 1), red, green, blue});
+    remaining -= run;
+  }
+  return data;
+}
+
+bool addCompressed(FrameAssembler& assembler, const Packet& packet) {
+  const auto chunk = decodeCompressedFrameChunk(packet.data(), packet.size());
+  return chunk && assembler.add(*chunk);
+}
+
+void test_reassembles_compressed_frame() {
+  Frame assembled(frameSize, 0xff);
+  FrameAssembler assembler(assembled.data());
+  Packet tail = {0x01, 10, 20, 30, 40, 50, 60};
+  const Packet runs = getRepeatRuns(94, 0, 0, 255);
+  tail.insert(tail.end(), runs.begin(), runs.end());
+  const Packet head = createCompressedChunk(9, 0, 2, 0, 4000, getRepeatRuns(4000, 255, 0, 0));
+  TEST_ASSERT_FALSE(addCompressed(assembler, createCompressedChunk(9, 1, 2, 4000, 96, tail)));
+  TEST_ASSERT_TRUE(addCompressed(assembler, head));
+  TEST_ASSERT_EQUAL(255, assembled[3999 * channels]);
+  TEST_ASSERT_EQUAL(0, assembled[3999 * channels + 2]);
+  TEST_ASSERT_EQUAL(10, assembled[4000 * channels]);
+  TEST_ASSERT_EQUAL(60, assembled[4001 * channels + 2]);
+  TEST_ASSERT_EQUAL(255, assembled[(pixelCount - 1) * channels + 2]);
+}
+
+void test_rejects_malformed_runs() {
+  uint8_t pixels[2 * channels];
+  const uint8_t valid[] = {0x81, 1, 2, 3};
+  const uint8_t overflow[] = {0x82, 1, 2, 3};
+  const uint8_t shortRun[] = {0x80, 1, 2, 3};
+  const uint8_t truncated[] = {0x01, 1, 2, 3};
+  TEST_ASSERT_TRUE(decodeRunLength(valid, sizeof(valid), pixels, 2));
+  TEST_ASSERT_EQUAL(3, pixels[5]);
+  TEST_ASSERT_FALSE(decodeRunLength(overflow, sizeof(overflow), pixels, 2));
+  TEST_ASSERT_FALSE(decodeRunLength(shortRun, sizeof(shortRun), pixels, 2));
+  TEST_ASSERT_FALSE(decodeRunLength(truncated, sizeof(truncated), pixels, 2));
+  const Packet outside = createCompressedChunk(1, 0, 1, 4090, 10, getRepeatRuns(10, 1, 2, 3));
+  TEST_ASSERT_FALSE(decodeCompressedFrameChunk(outside.data(), outside.size()).has_value());
+}
+
 void setUp() {}
 
 void tearDown() {}
@@ -187,5 +254,7 @@ int main() {
   RUN_TEST(test_ignores_late_chunks_from_older_frames);
   RUN_TEST(test_accepts_restarted_sequence_far_behind);
   RUN_TEST(test_follows_sequence_across_wraparound);
+  RUN_TEST(test_reassembles_compressed_frame);
+  RUN_TEST(test_rejects_malformed_runs);
   return UNITY_END();
 }

@@ -1,6 +1,7 @@
 import { type Socket, createSocket } from "node:dgram";
 import { once } from "node:events";
 import {
+  DeviceFeature,
   DeviceMode,
   type DeviceMessage,
   type DeviceState,
@@ -21,6 +22,7 @@ const status: DeviceStatus = {
   height: 64,
   brightness: 255,
   mode: DeviceMode.idle,
+  features: 0,
   uptimeMs: 1000,
   framesShown: 0,
   framesDropped: 0,
@@ -102,6 +104,21 @@ describe("device link", () => {
     );
     const frame = frames.at(-1);
     expect(frame && getPixel(frame, 5, 5)).toEqual([255, 0, 0]);
+  });
+
+  it("sends compressed frames to devices that support them", async () => {
+    const { engine, link, device } = await setup();
+    await sendStatus(device.socket, link.getPort(), {
+      ...status,
+      features: DeviceFeature.compressedFrames,
+    });
+    await vi.waitFor(() => expect(link.getState().connected).toBe(true));
+    engine.play("red", red);
+    engine.tick();
+    await vi.waitFor(() => expect(device.messages).toHaveLength(1));
+    const [message] = device.messages;
+    const frame = message?.type === "frame" ? createFrameAssembler().add(message) : undefined;
+    expect(frame && getPixel(frame, 63, 63)).toEqual([255, 0, 0]);
   });
 
   it("disconnects after missing status messages", async () => {

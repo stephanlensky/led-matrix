@@ -6,6 +6,8 @@ import {
   STALE_FRAME_WINDOW,
   createFrameAssembler,
   decodeMessage,
+  decodeRunLength,
+  encodeCompressedFrame,
   encodeFrame,
   encodeSetBrightness,
   encodeStatus,
@@ -22,8 +24,32 @@ function createGradient(): Frame {
   return frame;
 }
 
-function getChunks(frame: Frame, sequence: number): FrameChunk[] {
-  return encodeFrame(frame, sequence).map((packet) => {
+function createNoise(): Frame {
+  const frame = createFrame();
+  let seed = 1;
+  for (let index = 0; index < frame.length; index++) {
+    seed = (seed * 1_103_515_245 + 12_345) >>> 0;
+    frame[index] = seed >>> 24;
+  }
+  return frame;
+}
+
+function createSprite(): Frame {
+  const frame = createFrame();
+  for (let y = 20; y < 40; y += 1) {
+    for (let x = 24; x < 40; x += 1) {
+      setPixel(frame, x, y, [x * 4, 0, y * 4]);
+    }
+  }
+  return frame;
+}
+
+function getChunks(
+  frame: Frame,
+  sequence: number,
+  encode: typeof encodeFrame = encodeFrame,
+): FrameChunk[] {
+  return encode(frame, sequence).map((packet) => {
     const message = decodeMessage(packet);
     if (message?.type !== "frame") {
       throw new Error("Expected a frame chunk");
@@ -57,6 +83,7 @@ describe("device protocol", () => {
       height: 64,
       brightness: 128,
       mode: DeviceMode.streaming,
+      features: 1,
       uptimeMs: 123_456,
       framesShown: 900,
       framesDropped: 3,
@@ -76,6 +103,38 @@ describe("device protocol", () => {
     expect(decodeMessage(Uint8Array.of(0, 0, 1, 1))).toBeUndefined();
     expect(decodeMessage(Uint8Array.of(0x4c, 0x4d, 2, 1))).toBeUndefined();
     expect(decodeMessage(packet.slice(0, 13))).toBeUndefined();
+  });
+});
+
+describe("compressed frames", () => {
+  it.each([
+    ["black", createFrame(), 1],
+    ["sprite", createSprite(), 1],
+    ["gradient", createGradient(), 9],
+    ["noise", createNoise(), 9],
+  ])("round trips a %s frame in %i packets", (_name, frame, packetCount) => {
+    const packets = encodeCompressedFrame(frame, 7);
+    expect(packets).toHaveLength(packetCount);
+    expect(Math.max(...packets.map((packet) => packet.length))).toBeLessThanOrEqual(1472);
+    const chunks = getChunks(frame, 7, encodeCompressedFrame);
+    expect(addAll(createFrameAssembler(), chunks.toReversed())).toEqual(frame);
+  });
+
+  it("encodes the header with the pixel range of each chunk", () => {
+    const [packet = new Uint8Array()] = encodeCompressedFrame(createFrame(), 0x01020304);
+    expect([...packet.subarray(0, 14)]).toEqual([
+      0x4c, 0x4d, 1, 0x03, 0x04, 0x03, 0x02, 0x01, 0, 1, 0, 0, 0x00, 0x10,
+    ]);
+    expect(packet).toHaveLength(14 + 32 * 4);
+  });
+
+  it("rejects runs that overflow or leave pixels unset", () => {
+    expect(decodeRunLength(Uint8Array.of(0x81, 1, 2, 3), 2)).toEqual(
+      Uint8Array.of(1, 2, 3, 1, 2, 3),
+    );
+    expect(decodeRunLength(Uint8Array.of(0x82, 1, 2, 3), 2)).toBeUndefined();
+    expect(decodeRunLength(Uint8Array.of(0x80, 1, 2, 3), 2)).toBeUndefined();
+    expect(decodeRunLength(Uint8Array.of(0x01, 1, 2, 3), 2)).toBeUndefined();
   });
 });
 

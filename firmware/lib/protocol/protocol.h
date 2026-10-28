@@ -13,6 +13,7 @@ constexpr uint16_t serverPort = 7701;
 constexpr uint8_t version = 1;
 constexpr size_t headerSize = 4;
 constexpr size_t frameHeaderSize = 12;
+constexpr size_t compressedFrameHeaderSize = 14;
 constexpr size_t setBrightnessSize = headerSize + 1;
 constexpr size_t statusSize = 32;
 constexpr size_t maxPacketSize = 1472;
@@ -24,8 +25,14 @@ constexpr uint16_t height = 64;
 constexpr size_t channels = 3;
 constexpr size_t pixelCount = width * height;
 constexpr size_t frameSize = pixelCount * channels;
+constexpr uint8_t compressedFramesFeature = 0x01;
 
-enum class MessageType : uint8_t { frame = 0x01, setBrightness = 0x02, status = 0x81 };
+enum class MessageType : uint8_t {
+  frame = 0x01,
+  setBrightness = 0x02,
+  compressedFrame = 0x03,
+  status = 0x81
+};
 
 enum class Mode : uint8_t { idle = 0, streaming = 1, fallback = 2 };
 
@@ -38,9 +45,20 @@ struct FrameChunk {
   size_t pixelCount;
 };
 
+struct CompressedFrameChunk {
+  uint32_t sequence;
+  uint8_t chunkIndex;
+  uint8_t chunkCount;
+  uint16_t offset;
+  uint16_t pixelCount;
+  const uint8_t* data;
+  size_t dataSize;
+};
+
 struct Status {
   uint8_t brightness;
   Mode mode;
+  uint8_t features;
   uint32_t uptimeMs;
   uint32_t framesShown;
   uint32_t framesDropped;
@@ -50,6 +68,8 @@ struct Status {
 
 std::optional<MessageType> getMessageType(const uint8_t* data, size_t size);
 std::optional<FrameChunk> decodeFrameChunk(const uint8_t* data, size_t size);
+std::optional<CompressedFrameChunk> decodeCompressedFrameChunk(const uint8_t* data, size_t size);
+bool decodeRunLength(const uint8_t* data, size_t size, uint8_t* pixels, size_t pixelCount);
 std::optional<uint8_t> decodeSetBrightness(const uint8_t* data, size_t size);
 std::array<uint8_t, statusSize> encodeStatus(const Status& status);
 
@@ -57,10 +77,13 @@ class FrameAssembler {
  public:
   explicit FrameAssembler(uint8_t* frame);
   bool add(const FrameChunk& chunk);
+  bool add(const CompressedFrameChunk& chunk);
   uint32_t getFramesDropped() const { return framesDropped; }
 
  private:
   bool isStale(uint32_t sequence) const;
+  bool start(uint32_t sequence, uint8_t chunkIndex, uint8_t chunkCount);
+  bool finish(uint8_t chunkIndex, uint8_t chunkCount);
 
   uint8_t* frame;
   std::optional<uint32_t> pendingSequence;
