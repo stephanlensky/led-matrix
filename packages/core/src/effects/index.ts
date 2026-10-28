@@ -106,6 +106,7 @@ import { text } from "./text.ts";
 import { tamagotchi, tamagotchiBurst, tamagotchiTwinkle } from "./tamagotchi.ts";
 import { wordSlam } from "./word-slam.ts";
 import { explosion, mushroomCloud } from "./explosion.ts";
+import { smpteBars } from "./smpte-bars.ts";
 
 export const effects: readonly Effect[] = [
   solid,
@@ -200,6 +201,7 @@ export const effects: readonly Effect[] = [
   wordSlam,
   explosion,
   mushroomCloud,
+  smpteBars,
   bloodDrips,
   equalizer,
   catBench,

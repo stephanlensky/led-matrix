@@ -830,6 +830,18 @@ const explosionAnimations: Record<string, AnimationInput> = {
   ]),
 };
 
+const smpteBars: AnimationInput = {
+  name: "SMPTE bars",
+  sections: [
+    { name: "Bars", mode: { type: "loop", beats: 8 }, layers: [{ effect: "smpte-bars" }] },
+    {
+      name: "Melt",
+      mode: { type: "once", beats: 32 },
+      layers: [{ effect: "smpte-bars", params: { melt: getRamp(0, 1) } }],
+    },
+  ],
+};
+
 const vocalPlanetDying: AnimationInput = {
   name: "The planet is dying",
   sections: [
@@ -2536,5 +2548,9 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("Halloween/Blood/Bass", bassBloodAnimations),
   ...getFolder("Tamagotchi", tamagotchiAnimations),
   ...getFolder("Explosions", explosionAnimations),
-  ...getFolder("One-offs", { rumble, "vocal-planet-dying": vocalPlanetDying }),
+  ...getFolder("One-offs", {
+    rumble,
+    "smpte-bars": smpteBars,
+    "vocal-planet-dying": vocalPlanetDying,
+  }),
 };
