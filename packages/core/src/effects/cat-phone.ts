@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { colorSchema, parseColor } from "../color.ts";
+import { colorSchema, getBackgroundColor, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import {
   type Color,
@@ -116,7 +116,6 @@ const RECEIVER_SPLIT_VIEW: View = { x: -4, y: 24, zoom: 0.75 };
 const BUZZ_BEATS = 8;
 const SWOOSH_SLOPE = 0.45;
 const WHITE: Color = [255, 255, 255];
-const BLACK: Color = [0, 0, 0];
 const YELLOW: Color = [255, 220, 60];
 const DARK_PHONE: Color = [40, 40, 52];
 const LIGHT_PHONE: Color = [232, 222, 236];
@@ -495,9 +494,24 @@ const phoneParams = {
   every: z.number().min(0.25).max(4).default(1),
   heartColor: colorSchema.default("#ff3c78"),
   screenColor: colorSchema.default("#3a8cff"),
+  background: z.boolean().default(false),
+  backgroundColor: colorSchema.default("#140c2c"),
+  replyBackgroundColor: colorSchema.default("#2a0a26"),
 };
 
 type PhoneParams = z.output<z.ZodObject<typeof phoneParams>>;
+
+function fillBackground(
+  image: RgbaImage,
+  params: PhoneParams,
+  color: string,
+  brightness: number,
+): void {
+  fillRgbaImage(
+    image,
+    scale(getBackgroundColor({ background: params.background, color }), brightness),
+  );
+}
 
 type Pulse = { pulse: number; phase: number; since: number; kick: number };
 
@@ -549,7 +563,7 @@ function drawSender(
   const sent = clamp((story - 2) * 4);
   const flash = story >= 2 && story < 2.6 ? 1 - (story - 2) / 0.6 : 0.35 * tap * (1 - sent);
   const glow = parseColor(params.screenColor);
-  fillRgbaImage(image, BLACK);
+  fillBackground(image, params, params.backgroundColor, 1 + 0.5 * kick);
   const raster = createRaster();
   const size = 19 - 4 * recoil;
   const points = drawPhoneCharacter(
@@ -640,7 +654,7 @@ function drawReceiver(
   const love = story >= 6 ? 1 : 0;
   const crouch = easings.easeInOutSine(getSpan(story, 6.8, BUZZ_BEATS));
   const notice = easings.easeOutCubic(getSpan(story, 2, 2.4));
-  fillRgbaImage(image, BLACK);
+  fillBackground(image, params, params.replyBackgroundColor, 1 + 0.5 * kick + 0.5 * love);
   const raster = createRaster();
   const shake = buzz * Math.sin(story * 60) * (0.5 + buzzKick);
   const lit = story >= 2 ? 1 : 0;
@@ -753,9 +767,17 @@ function getDancingCat(
   };
 }
 
-function drawDanceFloor(image: RgbaImage, params: PhoneParams, pulse: number): void {
+function drawDanceFloor(image: RgbaImage, params: PhoneParams, pulse: number, kick: number): void {
   const heart = parseColor(params.heartColor);
-  fillRgbaImage(image, BLACK);
+  fillBackground(image, params, params.replyBackgroundColor, 1 + 0.6 * kick);
+  if (params.background) {
+    drawHeart(image, {
+      x: WIDTH / 2,
+      y: 28,
+      size: 54 * (1 + 0.07 * kick),
+      color: scale(heart, 0.28 + 0.2 * kick),
+    });
+  }
   drawSparkles(image, pulse, [mix(heart, WHITE, 0.4)], 0.8);
 }
 
@@ -772,7 +794,7 @@ function drawJoy(
   const heart = parseColor(params.heartColor);
   const glow = parseColor(params.screenColor);
   const dance = getDance(beat, params.every);
-  drawDanceFloor(image, params, dance.pulse);
+  drawDanceFloor(image, params, dance.pulse, dance.kick);
   const raster = createRaster();
   const points = drawPhoneCharacter(
     raster,
@@ -861,7 +883,7 @@ function drawDuetCats(
     spin: move.isBig && !isTouching(move, beat) ? 1 : 0,
     lean: isTouching(move, beat) ? 1 : 0,
   });
-  drawDanceFloor(image, params, dance.pulse);
+  drawDanceFloor(image, params, dance.pulse, dance.kick);
   const raster = createRaster();
   const sender = drawPhoneCharacter(
     raster,
@@ -974,7 +996,7 @@ function drawWaiting(
   const check = getCycle(beat / 8) * 8;
   const look = easings.easeInOutSine(getSpan(check, 4, 5)) * (1 - getSpan(check, 6.5, 7.5));
   const sigh = Math.sin(Math.PI * getSpan(check, 6.5, 8));
-  fillRgbaImage(image, BLACK);
+  fillBackground(image, params, params.replyBackgroundColor, 1 + 0.5 * kick);
   const raster = createRaster();
   drawPhoneCharacter(
     raster,

@@ -11,6 +11,10 @@ export const DRIED_BLOOD_COLOR = "#4c0704";
 export const FRESH_BLOOD_COLOR = "#d0001c";
 export const BLOOD_PALETTE = [DRIED_BLOOD_COLOR, BLOOD_COLOR, FRESH_BLOOD_COLOR] as const;
 
+export function getBackgroundColor(params: { background: boolean; color: string }): Color {
+  return params.background ? parseColor(params.color) : [0, 0, 0];
+}
+
 export function parseColor(hex: string): Color {
   const value = Number.parseInt(hex.slice(1), 16);
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];

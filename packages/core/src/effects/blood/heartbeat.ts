@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { FRESH_BLOOD_COLOR, colorSchema, parseColor } from "../../color.ts";
 import { defineEffect } from "../../effect.ts";
-import { WIDTH, setRgbaPixel } from "../../frame.ts";
+import { HEIGHT, WIDTH, setRgbaPixel } from "../../frame.ts";
 import { getScaledColor } from "./shared.ts";
 
 const HEAD_X = WIDTH - 9;
 const BASELINE = 38;
 const SUBSAMPLES = 6;
+const GRID = 8;
 
 const WAVES = [
   { at: 0.12, width: 0.045, height: 0.14 },
@@ -34,6 +35,8 @@ export const bloodHeartbeat = defineEffect({
     flatline: z.boolean().default(false),
     beatsPerScreen: z.number().min(1).max(16).default(4),
     amplitude: z.number().min(4).max(30).default(20),
+    glow: z.number().min(0).max(1).default(0.3),
+    background: z.boolean().default(false),
   }),
   render(image, { params, beat, cycle }) {
     const color = parseColor(params.color);
@@ -51,6 +54,22 @@ export const bloodHeartbeat = defineEffect({
       const phase = (time - start) / duration;
       return phase < 1 ? getWave(phase) : 0;
     };
+
+    const interval = getInterval(beat);
+    const sinceBeat = beat - Math.floor(beat / interval) * interval;
+    const isFlat = params.flatline;
+    const glow = isFlat
+      ? 0
+      : params.glow * Math.min(1.5, Math.sqrt(1 / interval)) * Math.exp(-sinceBeat * 6);
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        const isGrid = x % GRID === 0 || y % GRID === 0;
+        const shade = params.background
+          ? (isGrid ? 0.07 : 0.015) * (isFlat ? 0.5 : 1) + glow * 0.35
+          : 0;
+        setRgbaPixel(image, x, y, getScaledColor(color, shade));
+      }
+    }
 
     const maxAge = HEAD_X / pixelsPerBeat;
     for (let x = 0; x <= HEAD_X; x++) {

@@ -534,7 +534,7 @@ function getCatPhoneSection(name: string, mode: SectionInput["mode"], scene: str
     layers: [
       {
         effect: "cat-phone",
-        params: { ...getReferences(["every", "message", "sender"]), scene },
+        params: { ...getReferences(["every", "message", "sender", "background"]), scene },
       },
     ],
   };
@@ -591,6 +591,13 @@ const loveFloatLayer: LayerInput = {
   params: { ...getReferences(["every"]), color: { param: "heartColor" }, y: 48, rise: 46 },
 };
 
+const backgroundParameter = getValueParameter(
+  "Background",
+  "background",
+  { Off: false, On: true },
+  "Off",
+);
+
 const lovePulseParameter = getValueParameter(
   "Pulse",
   "every",
@@ -601,11 +608,11 @@ const lovePulseParameter = getValueParameter(
 const loveColorParameter = getParameter(
   "Hearts",
   {
-    Pink: { heartColor: HEART_PINK },
-    "Hot pink": { heartColor: PINK },
-    "Light pink": { heartColor: LIGHT_PINK },
-    Red: { heartColor: "#ff1030" },
-    Purple: { heartColor: "#d040ff" },
+    Pink: { heartColor: HEART_PINK, backgroundColor: "#2a0418" },
+    "Hot pink": { heartColor: PINK, backgroundColor: "#2a0014" },
+    "Light pink": { heartColor: LIGHT_PINK, backgroundColor: "#2a0a18" },
+    Red: { heartColor: "#ff1030", backgroundColor: "#240006" },
+    Purple: { heartColor: "#d040ff", backgroundColor: "#16052a" },
   },
   "Pink",
 );
@@ -613,10 +620,10 @@ const loveColorParameter = getParameter(
 const bleedingColorParameter = getParameter(
   "Hearts",
   {
-    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014" },
-    "Hot pink": { heartColor: PINK, bloodColor: FRESH_BLOOD_COLOR },
-    "Light pink": { heartColor: LIGHT_PINK, bloodColor: "#a00010" },
-    Blood: { heartColor: FRESH_BLOOD_COLOR, bloodColor: BLOOD_COLOR },
+    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
+    "Hot pink": { heartColor: PINK, bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#120002" },
+    "Light pink": { heartColor: LIGHT_PINK, bloodColor: "#a00010", backgroundColor: "#0e0204" },
+    Blood: { heartColor: FRESH_BLOOD_COLOR, bloodColor: BLOOD_COLOR, backgroundColor: BLACK },
   },
   "Pink",
 );
@@ -635,13 +642,13 @@ function getBleedingLoop(
       {
         effect,
         params: {
-          ...getReferences(["bloodColor"]),
+          ...getReferences(["bloodColor", "background", "backgroundColor"]),
           color: { param: "heartColor" },
           ...params,
         },
       },
     ],
-    [...parameters, bleedingColorParameter],
+    [...parameters, bleedingColorParameter, backgroundParameter],
   );
 }
 
@@ -651,10 +658,11 @@ const bloodHeartColorParameter = getParameter(
     "Fresh blood": {
       heartColor: FRESH_BLOOD_COLOR,
       bloodColor: BLOOD_COLOR,
+      backgroundColor: "#120002",
     },
-    Blood: { heartColor: "#a00008", bloodColor: FRESH_BLOOD_COLOR },
-    "Dried blood": { heartColor: "#6a0a06", bloodColor: "#a00010" },
-    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014" },
+    Blood: { heartColor: "#a00008", bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#0a0000" },
+    "Dried blood": { heartColor: "#6a0a06", bloodColor: "#a00010", backgroundColor: BLACK },
+    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
   },
   "Fresh blood",
 );
@@ -915,6 +923,7 @@ function getHeartbeatSections(extraLayers: (pulse: number) => LayerInput[]): Sec
             interval,
             previousInterval: heartbeatTempos[Math.max(0, index - 1)]?.[1] ?? interval,
             color: { param: "color" },
+            background: { param: "background" },
           },
         },
         ...extraLayers(4 / interval / 4),
@@ -926,7 +935,12 @@ function getHeartbeatSections(extraLayers: (pulse: number) => LayerInput[]): Sec
       layers: [
         {
           effect: "blood-heartbeat",
-          params: { interval: 0.5, flatline: true, color: { param: "color" } },
+          params: {
+            interval: 0.5,
+            flatline: true,
+            color: { param: "color" },
+            background: { param: "background" },
+          },
         },
         ...extraLayers(0),
       ],
@@ -1078,12 +1092,12 @@ const bloodAnimations: Record<string, AnimationInput> = {
   },
   "heartbeat-monitor": {
     name: "Heartbeat monitor",
-    parameters: [heartbeatColorParameter],
+    parameters: [heartbeatColorParameter, backgroundParameter],
     sections: getHeartbeatSections(() => []),
   },
   "heartbeat-crt": {
     name: "Heartbeat monitor (CRT)",
-    parameters: [heartbeatColorParameter],
+    parameters: [heartbeatColorParameter, backgroundParameter],
     sections: getHeartbeatSections((pulse) => [
       { effect: "chromatic", params: { offset: 1, pulse } },
       { effect: "trails", params: { decay: 0.8 } },
@@ -1450,12 +1464,12 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-zoom",
         params: {
-          ...getReferences(["every", "speed"]),
+          ...getReferences(["every", "speed", "background", "backgroundColor"]),
           color: { param: "heartColor" },
         },
       },
     ],
-    [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+    [lovePulseParameter, loveColorParameter, backgroundParameter, heartZoomSpeedParameter],
   ),
   "love-heart-zoom-outline": getLoop(
     "Heart zoom outlined",
@@ -1464,13 +1478,13 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-zoom",
         params: {
-          ...getReferences(["every", "speed"]),
+          ...getReferences(["every", "speed", "background", "backgroundColor"]),
           color: { param: "heartColor" },
           outline: 1.5,
         },
       },
     ],
-    [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+    [lovePulseParameter, loveColorParameter, backgroundParameter, heartZoomSpeedParameter],
   ),
   "love-heart-zoom-steady": getLoop(
     "Heart zoom (steady)",
@@ -1479,7 +1493,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-zoom",
         params: {
-          ...getReferences(["every", "speed"]),
+          ...getReferences(["every", "speed", "background", "backgroundColor"]),
           color: { param: "heartColor" },
           motion: "steady",
           flash: 0.35,
@@ -1487,7 +1501,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       },
     ],
-    [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+    [lovePulseParameter, loveColorParameter, backgroundParameter, heartZoomSpeedParameter],
   ),
   "love-heart-zoom-outline-steady": getLoop(
     "Heart zoom outlined (steady)",
@@ -1496,7 +1510,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-zoom",
         params: {
-          ...getReferences(["every", "speed"]),
+          ...getReferences(["every", "speed", "background", "backgroundColor"]),
           color: { param: "heartColor" },
           outline: 1.5,
           motion: "steady",
@@ -1504,7 +1518,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       },
     ],
-    [lovePulseParameter, loveColorParameter, heartZoomSpeedParameter],
+    [lovePulseParameter, loveColorParameter, backgroundParameter, heartZoomSpeedParameter],
   ),
   "love-heart-grid": getLoop(
     "Heart grid",
@@ -1513,7 +1527,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-grid",
         params: {
-          ...getReferences(["every", "wave", "scroll"]),
+          ...getReferences(["every", "wave", "scroll", "background", "backgroundColor"]),
           color: { param: "heartColor" },
         },
       },
@@ -1528,6 +1542,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       getValueParameter("Scroll", "scroll", { Still: 0, Drift: 2 }, "Drift"),
       lovePulseParameter,
       loveColorParameter,
+      backgroundParameter,
     ],
   ),
   "love-heartbeat": getLoop(
@@ -1537,12 +1552,12 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-ecg",
         params: {
-          ...getReferences(["every"]),
+          ...getReferences(["every", "background", "backgroundColor"]),
           color: { param: "heartColor" },
         },
       },
     ],
-    [lovePulseParameter, loveColorParameter],
+    [lovePulseParameter, loveColorParameter, backgroundParameter],
   ),
   "love-heart-tunnel": getLoop(
     "Heart tunnel",
@@ -1551,12 +1566,12 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-tunnel",
         params: {
-          ...getReferences(["every"]),
+          ...getReferences(["every", "background", "backgroundColor"]),
           color: { param: "heartColor" },
         },
       },
     ],
-    [lovePulseParameter, loveColorParameter],
+    [lovePulseParameter, loveColorParameter, backgroundParameter],
   ),
   "love-heart-tunnel-steady": getLoop(
     "Heart tunnel (steady)",
@@ -1565,7 +1580,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-tunnel",
         params: {
-          ...getReferences(["every"]),
+          ...getReferences(["every", "background", "backgroundColor"]),
           color: { param: "heartColor" },
           motion: "steady",
           spin: 0.35,
@@ -1573,7 +1588,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       },
     ],
-    [lovePulseParameter, loveColorParameter],
+    [lovePulseParameter, loveColorParameter, backgroundParameter],
   ),
   "love-equalizer": getLoop(
     "Heart equalizer",
@@ -2086,8 +2101,11 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "cat-space": getLoop(
       "Cat astronauts",
       32,
-      [{ effect: "cat-space", params: getReferences(["every"]) }],
-      [getValueParameter("Twinkle", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat")],
+      [{ effect: "cat-space", params: getReferences(["every", "background"]) }],
+      [
+        getValueParameter("Twinkle", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat"),
+        backgroundParameter,
+      ],
     ),
     "cat-laptop": getLoop(
       "Cat laptop jam",
@@ -2153,6 +2171,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           },
           "Tabby → Black",
         ),
+        backgroundParameter,
       ],
       sections: [
         getCatPhoneSection("Typing", { type: "once", beats: 48 }, "typing"),
@@ -2236,26 +2255,46 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "rotten-heart": getLoop(
       "Rotten heart pulse",
       8,
-      [{ effect: "heart-corrupt", params: { ...getReferences(["every"]), style: "rotten" } }],
-      [lovePulseParameter],
+      [
+        {
+          effect: "heart-corrupt",
+          params: { ...getReferences(["every", "background"]), style: "rotten" },
+        },
+      ],
+      [lovePulseParameter, backgroundParameter],
     ),
     "glitch-heart": getLoop(
       "Glitched heart pulse",
       8,
-      [{ effect: "heart-corrupt", params: { ...getReferences(["every"]), style: "glitch" } }],
-      [lovePulseParameter],
+      [
+        {
+          effect: "heart-corrupt",
+          params: { ...getReferences(["every", "background"]), style: "glitch" },
+        },
+      ],
+      [lovePulseParameter, backgroundParameter],
     ),
     "raw-heart": getLoop(
       "Raw heart pulse",
       8,
-      [{ effect: "heart-corrupt", params: { ...getReferences(["every"]), style: "raw" } }],
-      [lovePulseParameter],
+      [
+        {
+          effect: "heart-corrupt",
+          params: { ...getReferences(["every", "background"]), style: "raw" },
+        },
+      ],
+      [lovePulseParameter, backgroundParameter],
     ),
     "void-heart": getLoop(
       "Void heart pulse",
       8,
-      [{ effect: "heart-corrupt", params: { ...getReferences(["every"]), style: "void" } }],
-      [lovePulseParameter],
+      [
+        {
+          effect: "heart-corrupt",
+          params: { ...getReferences(["every", "background"]), style: "void" },
+        },
+      ],
+      [lovePulseParameter, backgroundParameter],
     ),
     "bleeding-heart": getBleedingLoop("Bleeding heart", 8, "heart-bleed", getReferences(["every"])),
     heartbreak: getBleedingLoop("Heartbreak", 8, "heart-break", {}, []),
