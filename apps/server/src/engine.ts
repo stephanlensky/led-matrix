@@ -104,6 +104,7 @@ export function createPlaybackEngine({
     | { id: string; entries: TimelineEntry[]; startedAt: number; reported: string }
     | undefined;
   let pausedAt: number | undefined;
+  let pausedLatency = 0;
   let bpm = initialBpm;
   let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -135,7 +136,7 @@ export function createPlaybackEngine({
   }
 
   function getRenderTime(): number {
-    return getPlaybackTime() + getLatency();
+    return pausedAt === undefined ? getTime() + getLatency() : pausedAt + pausedLatency;
   }
 
   function getSectionIndex(time: number): number {
@@ -317,6 +318,7 @@ export function createPlaybackEngine({
   function setPaused(paused: boolean): void {
     if (paused && pausedAt === undefined) {
       pausedAt = getTime();
+      pausedLatency = getLatency();
     } else if (!paused && pausedAt !== undefined) {
       const offset = getTime() - pausedAt;
       shiftActive(offset);

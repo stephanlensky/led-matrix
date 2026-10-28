@@ -258,6 +258,25 @@ describe("playback engine", () => {
     expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
   });
 
+  it("keeps showing the same frame while paused when the latency changes", () => {
+    const clock = { time: 0 };
+    let latency = 100;
+    const engine = createPlaybackEngine({
+      renderer: createRenderer({ fps: 30 }),
+      fps: 30,
+      bpm: 120,
+      getTime: () => clock.time,
+      getLatency: () => latency,
+    });
+    engine.play("strobe", strobe);
+    clock.time = 150;
+    engine.pause();
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
+    latency = 400;
+    clock.time = 5000;
+    expect(getPixel(engine.renderFrame(), 0, 0)).toEqual([0, 0, 0]);
+  });
+
   it("reports render errors once and falls back to black", () => {
     const onError = vi.fn<(error: unknown) => void>();
     const { engine } = createEngine(onError);

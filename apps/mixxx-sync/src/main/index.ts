@@ -180,5 +180,5 @@ app.on("window-all-closed", () => {
   library.close();
   mappingFile.close();
   uiState.flush();
-  app.quit();
+  void editorOutput.stop().finally(() => app.quit());
 });
