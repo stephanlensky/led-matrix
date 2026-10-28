@@ -62,6 +62,40 @@ const MULTI_PALETTES: Readonly<Record<string, Palette>> = {
 
 const PALETTES = { ...SINGLE_PALETTES, ...MULTI_PALETTES };
 
+const RED_SHADES: Readonly<Record<string, string>> = {
+  Red: RED,
+  "Fresh blood": FRESH_BLOOD_COLOR,
+  Blood: BLOOD_COLOR,
+  "Dried blood": DRIED_BLOOD_COLOR,
+};
+
+const RED_STROBE_PALETTES: Readonly<Record<string, Palette>> = Object.fromEntries(
+  Object.entries(RED_SHADES).flatMap(([name, color]) => [
+    [`${name}/white`, [color, WHITE]],
+    [`${name}/black`, [color, BLACK]],
+    [`${name}/white/black`, [color, WHITE, BLACK]],
+    [`${name}/black/white/black`, [color, BLACK, WHITE, BLACK]],
+  ]),
+);
+
+const MIXED_RED_STROBE_PALETTES: Readonly<Record<string, Palette>> = {
+  "Bloodbath/white": [DRIED_BLOOD_COLOR, BLOOD_COLOR, FRESH_BLOOD_COLOR, WHITE],
+  "Bloodbath/black": [FRESH_BLOOD_COLOR, BLOOD_COLOR, DRIED_BLOOD_COLOR, BLACK],
+  "Red/blood/white": [RED, BLOOD_COLOR, WHITE],
+  "Red/fresh blood/white/black": [RED, WHITE, FRESH_BLOOD_COLOR, BLACK],
+  "Fresh blood/dried blood/white/black": [FRESH_BLOOD_COLOR, WHITE, DRIED_BLOOD_COLOR, BLACK],
+  "Red/blood/black/white": [RED, BLACK, BLOOD_COLOR, WHITE],
+  "Blood/dried blood/black": [BLOOD_COLOR, DRIED_BLOOD_COLOR, BLACK],
+};
+
+const STROBE_PALETTES: Readonly<Record<string, Palette>> = {
+  Red: [RED],
+  ...SINGLE_PALETTES,
+  ...MULTI_PALETTES,
+  ...RED_STROBE_PALETTES,
+  ...MIXED_RED_STROBE_PALETTES,
+};
+
 const PALETTE_KEYS = ["color1", "color2", "color3", "color4", "colorCount"] as const;
 
 function getReferences(keys: readonly string[]): Record<string, { param: string }> {
@@ -1664,16 +1698,17 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       4,
       [
         {
-          effect: "strobe",
+          effect: "color-flash",
           params: {
-            color: { param: "color" },
+            ...paletteParams,
             flashesPerBeat: { param: "flashesPerBeat" },
             duty: 0.2,
+            fade: 0,
           },
         },
       ],
       [
-        getColorParameter("White", SINGLE_COLORS),
+        getLightColorParameter("White", STROBE_PALETTES),
         getValueParameter(
           "Speed",
           "flashesPerBeat",
