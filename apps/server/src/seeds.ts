@@ -500,6 +500,20 @@ const hunterSyncParameter = getValueParameter(
   "Together",
 );
 
+const heroSyncParameter = getValueParameter(
+  "Sync",
+  "sync",
+  { Together: "together", Alternating: "alternate", Offbeat: "offbeat" },
+  "Together",
+);
+
+const liftTempoParameter = getValueParameter(
+  "Tempo",
+  "every",
+  { Beat: 1, "2 beats": 2, Bar: 4 },
+  "2 beats",
+);
+
 const sprayReferences = { period: 8, ...getReferences(["perStep", "beatBurst", "power"]) };
 
 const heartbeatTempos = [
@@ -1456,6 +1470,53 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         { effect: "hunter-hyperspace", params: getReferences(["orbits", "turns"]) },
       ],
       [getLightColorParameter("White"), hyperspaceSpeedParameter, hyperspaceOrbitParameter],
+    ),
+  }),
+  ...getFolder("Frieren", {
+    "frieren-mimic": getLoop(
+      "Frieren in a mimic",
+      8,
+      [{ effect: "frieren-mimic", params: getReferences(["every"]) }],
+      [getValueParameter("Chomp", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat")],
+    ),
+    "himmel-bench": getLoop(
+      "Himmel bench press",
+      8,
+      [{ effect: "himmel-bench", params: getReferences(["every"]) }],
+      [liftTempoParameter],
+    ),
+    "himmel-squat": getLoop(
+      "Himmel squat",
+      8,
+      [{ effect: "himmel-squat", params: getReferences(["every"]) }],
+      [liftTempoParameter],
+    ),
+    "himmel-sleep": getLoop("Himmel sleeping", 16, [{ effect: "himmel-sleep" }]),
+    "frieren-himmel-headbang": getLoop(
+      "Frieren and Himmel headbang",
+      8,
+      [{ effect: "hero-dance", params: { move: "headbang", ...getReferences(["sync"]) } }],
+      [heroSyncParameter],
+    ),
+    "frieren-himmel-dance": getLoop(
+      "Frieren and Himmel dance",
+      16,
+      [{ effect: "hero-dance", params: getReferences(["move", "sync"]) }],
+      [
+        getValueParameter(
+          "Move",
+          "move",
+          {
+            Sway: "sway",
+            Jump: "jump",
+            "Fist pump": "pump",
+            Twist: "twist",
+            Point: "point",
+          },
+          "Sway",
+        ),
+        heroSyncParameter,
+      ],
     ),
   }),
   ...getFolder("Halloween", {

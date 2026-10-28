@@ -11,11 +11,11 @@ export const hunterMoves = ["headbang", "sway", "jump", "pump", "twist", "point"
 
 export const hunterSyncs = ["together", "alternate", "wave"] as const;
 
-type HunterMove = (typeof hunterMoves)[number];
+export type HunterMove = (typeof hunterMoves)[number];
 
 type HunterSync = (typeof hunterSyncs)[number];
 
-type DancerFrame = {
+export type DancerFrame = {
   x: number;
   y: number;
   size: number;
@@ -23,9 +23,9 @@ type DancerFrame = {
   pose: HunterPose;
 };
 
-type Dancer = { x: number; phase: number; side: number };
+export type Dancer = { x: number; phase: number; side: number };
 
-const BASE_Y = HEIGHT / 2 + 3;
+export const BASE_Y = HEIGHT / 2 + 3;
 
 function getPitch(angle: number): Rotation {
   return getRotation(angle, 0, 0);
@@ -174,15 +174,17 @@ function getPoint(beat: number, dancer: Dancer, size: number): DancerFrame {
   };
 }
 
-const moveFrames: Record<HunterMove, (beat: number, dancer: Dancer, size: number) => DancerFrame> =
-  {
-    headbang: getHeadbang,
-    sway: getSway,
-    jump: getJump,
-    pump: getPump,
-    twist: getTwist,
-    point: getPoint,
-  };
+export const hunterMoveFrames: Record<
+  HunterMove,
+  (beat: number, dancer: Dancer, size: number) => DancerFrame
+> = {
+  headbang: getHeadbang,
+  sway: getSway,
+  jump: getJump,
+  pump: getPump,
+  twist: getTwist,
+  point: getPoint,
+};
 
 const syncPhases: Record<HunterSync, readonly number[]> = {
   together: [0, 0, 0],
@@ -209,7 +211,7 @@ export const hunterDance = defineEffect({
         phase: syncPhases[params.sync][index] ?? 0,
         side,
       };
-      drawHunter(raster, hunter, moveFrames[params.move](beat, dancer, params.size));
+      drawHunter(raster, hunter, hunterMoveFrames[params.move](beat, dancer, params.size));
     }
     resolveRaster(raster, image);
   },

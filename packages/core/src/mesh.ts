@@ -107,6 +107,67 @@ export function addCone<M extends string>(
   }
 }
 
+const BOX_FACES: readonly [normal: Vector, u: Vector, v: Vector][] = [
+  [
+    [1, 0, 0],
+    [0, 0, -1],
+    [0, 1, 0],
+  ],
+  [
+    [-1, 0, 0],
+    [0, 0, 1],
+    [0, 1, 0],
+  ],
+  [
+    [0, 1, 0],
+    [1, 0, 0],
+    [0, 0, -1],
+  ],
+  [
+    [0, -1, 0],
+    [1, 0, 0],
+    [0, 0, 1],
+  ],
+  [
+    [0, 0, 1],
+    [1, 0, 0],
+    [0, 1, 0],
+  ],
+  [
+    [0, 0, -1],
+    [-1, 0, 0],
+    [0, 1, 0],
+  ],
+];
+
+export function addBox<M extends string>(
+  mesh: Mesh<M>,
+  [cx, cy, cz]: Vector,
+  [hx, hy, hz]: Vector,
+  material: M,
+): void {
+  for (const [normal, u, v] of BOX_FACES) {
+    const start = mesh.positions.length;
+    for (const [su, sv] of [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ] as const) {
+      mesh.positions.push([
+        cx + (normal[0] + su * u[0] + sv * v[0]) * hx,
+        cy + (normal[1] + su * u[1] + sv * v[1]) * hy,
+        cz + (normal[2] + su * u[2] + sv * v[2]) * hz,
+      ]);
+      mesh.normals.push(normal);
+    }
+    mesh.triangles.push(
+      [start, start + 1, start + 2, material],
+      [start, start + 2, start + 3, material],
+    );
+  }
+}
+
 export function createRaster(samples = 3): Raster {
   const width = WIDTH * samples;
   const height = HEIGHT * samples;

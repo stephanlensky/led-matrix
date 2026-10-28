@@ -66,6 +66,10 @@ import { catHyperspace } from "./cat-hyperspace.ts";
 import { demonHunters } from "./demon-hunters/index.ts";
 import { hunterDance } from "./hunter-dance.ts";
 import { hunterHyperspace } from "./hunter-hyperspace.ts";
+import { heroDance } from "./frieren-dance.ts";
+import { frierenMimic } from "./frieren-mimic.ts";
+import { himmelBench, himmelSquat } from "./himmel-lift.ts";
+import { himmelSleep } from "./himmel-sleep.ts";
 import { bigText } from "./big-text.ts";
 import { clip } from "./clip.ts";
 import { plasma } from "./plasma.ts";
@@ -148,6 +152,11 @@ export const effects: readonly Effect[] = [
   demonHunters,
   hunterDance,
   hunterHyperspace,
+  heroDance,
+  frierenMimic,
+  himmelBench,
+  himmelSquat,
+  himmelSleep,
   emboss,
   tilt,
   pixelate,
