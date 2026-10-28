@@ -12,6 +12,7 @@ import {
   type MouseEvent,
   type ReactNode,
   type RefObject,
+  memo,
   useDeferredValue,
   useEffect,
   useId,
@@ -168,7 +169,7 @@ function TrackLanes({
   );
 }
 
-function TrackRow({ track, player, isLive, views, ...props }: RowProps) {
+const TrackRow = memo(function TrackRow({ track, player, isLive, views, ...props }: RowProps) {
   const { track: current, loop } = usePlayerState(player);
   const isCurrent = current?.id === track.id;
   const selection = loop?.trackId === track.id ? loop.beats : undefined;
@@ -259,17 +260,32 @@ function TrackRow({ track, player, isLive, views, ...props }: RowProps) {
       </div>
     </div>
   );
+});
+
+type RowRange = { start: number; end: number };
+
+function getRowRange(element: HTMLElement, count: number): RowRange {
+  const { scrollTop, clientHeight } = element;
+  return {
+    start: Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN),
+    end: Math.min(count, Math.ceil((scrollTop + clientHeight) / ROW_HEIGHT) + OVERSCAN),
+  };
 }
 
-function useViewport(scrollRef: RefObject<HTMLElement | null>) {
-  const [viewport, setViewport] = useState({ top: 0, height: 0 });
+function useRowRange(scrollRef: RefObject<HTMLElement | null>, count: number): RowRange {
+  const [range, setRange] = useState<RowRange>({ start: 0, end: 0 });
 
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) {
       return undefined;
     }
-    const update = () => setViewport({ top: element.scrollTop, height: element.clientHeight });
+    const update = () => {
+      const next = getRowRange(element, count);
+      setRange((current) =>
+        current.start === next.start && current.end === next.end ? current : next,
+      );
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(element);
@@ -278,9 +294,9 @@ function useViewport(scrollRef: RefObject<HTMLElement | null>) {
       observer.disconnect();
       element.removeEventListener("scroll", update);
     };
-  }, [scrollRef]);
+  }, [scrollRef, count]);
 
-  return viewport;
+  return range;
 }
 
 function VirtualTrackList({
@@ -304,9 +320,7 @@ function VirtualTrackList({
   live: LiveTrack | undefined;
   views: TrackViews;
 }) {
-  const { top, height } = useViewport(scrollRef);
-  const start = Math.max(0, Math.floor(top / ROW_HEIGHT) - OVERSCAN);
-  const end = Math.min(tracks.length, Math.ceil((top + height) / ROW_HEIGHT) + OVERSCAN);
+  const { start, end } = useRowRange(scrollRef, tracks.length);
 
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
