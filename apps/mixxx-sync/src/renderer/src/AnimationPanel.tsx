@@ -1,8 +1,4 @@
-import {
-  type ParameterSelection,
-  type StoredAnimation,
-  getParameterSelection,
-} from "@led-matrix/core";
+import type { StoredAnimation } from "@led-matrix/core";
 import { Label } from "@led-matrix/ui/components/label";
 import {
   Select,
@@ -29,15 +25,20 @@ export function useAnimations(api: ApiClient): LoadState<StoredAnimation[]> {
 
 export type CueParams = {
   animation: StoredAnimation;
-  params: ParameterSelection | undefined;
+  values: Partial<Record<string, string>>;
+  count: number;
   onChange: (name: string, option: string) => void;
 };
 
-function CueParamSelects({ animation, params, onChange }: CueParams) {
-  const selection = getParameterSelection(animation, params);
+function CueParamSelects({ animation, values, count, onChange }: CueParams) {
   const parameters = animation.parameters?.filter(({ options }) => options.length > 1) ?? [];
   return (
     <div className="flex flex-col gap-1.5 border-t px-3 py-2">
+      {count > 1 && (
+        <p className="text-xs text-muted-foreground">
+          {count} {animation.name} clips
+        </p>
+      )}
       {parameters.map((parameter, index) => (
         <div key={parameter.name} className="flex items-center gap-3">
           <Label
@@ -47,7 +48,7 @@ function CueParamSelects({ animation, params, onChange }: CueParams) {
             {parameter.name}
           </Label>
           <Select
-            value={selection[parameter.name] ?? null}
+            value={values[parameter.name] ?? null}
             onValueChange={(option: string | null) => {
               if (option !== null) {
                 onChange(parameter.name, option);
@@ -55,7 +56,7 @@ function CueParamSelects({ animation, params, onChange }: CueParams) {
             }}
           >
             <SelectTrigger id={`cue-parameter-${index}`} size="sm" className="min-w-0 flex-1">
-              <SelectValue />
+              <SelectValue placeholder="Mixed" />
             </SelectTrigger>
             <SelectContent>
               {parameter.options.map(({ name }) => (
@@ -76,12 +77,14 @@ export function AnimationPanel({
   simulator,
   preview,
   cueParams,
+  selectedIds,
   onPreviewChange,
 }: {
   animations: LoadState<StoredAnimation[]>;
   simulator: ReactNode;
   preview: AnimationPreview | undefined;
   cueParams: CueParams | undefined;
+  selectedIds: ReadonlySet<string>;
   onPreviewChange: (preview: AnimationPreview | undefined) => void;
 }) {
   const asideRef = useRef<HTMLElement>(null);
@@ -107,6 +110,7 @@ export function AnimationPanel({
         activeId={preview?.animationId}
         activeSection={preview?.section}
         activeParams={preview?.params}
+        selectedIds={selectedIds}
         onPlay={(animationId) =>
           onPreviewChange({ animationId, section: undefined, params: undefined })
         }

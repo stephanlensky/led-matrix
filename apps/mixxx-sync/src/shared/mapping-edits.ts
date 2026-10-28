@@ -75,13 +75,15 @@ export function pasteCue(
   );
 }
 
-export function copyCue(
+export function pasteCues(
   file: MappingFile,
   location: string,
-  index: number,
-  beat: number,
+  cues: readonly AnimationCue[],
+  delta: number,
 ): MappingFile {
-  return pasteCue(file, location, getCueAt(getTrackCues(file, location), index), beat);
+  return cues
+    .toSorted((a, b) => a.beat - b.beat)
+    .reduce((current, cue) => pasteCue(current, location, cue, cue.beat + delta), file);
 }
 
 export function replaceCue(
@@ -148,16 +150,20 @@ export function trimCueStart(
   return setTrackCues(file, location, cues);
 }
 
-export function moveCue(
+export function moveCues(
   file: MappingFile,
   location: string,
-  index: number,
-  beat: number,
+  indices: readonly number[],
+  delta: number,
 ): MappingFile {
   const cues = getTrackCues(file, location);
-  const cue = getCueAt(cues, index);
-  const end = cue.end === undefined ? undefined : cue.end + beat - cue.beat;
-  cues[index] = getCueWithEnd({ ...cue, beat }, end);
+  for (const index of indices) {
+    const cue = getCueAt(cues, index);
+    cues[index] = getCueWithEnd(
+      { ...cue, beat: cue.beat + delta },
+      cue.end === undefined ? undefined : cue.end + delta,
+    );
+  }
   return setTrackCues(file, location, cues);
 }
 
@@ -172,27 +178,35 @@ export function resizeCue(
   return setTrackCues(file, location, cues);
 }
 
-export function setCueParam(
+export function setCuesParam(
   file: MappingFile,
   location: string,
-  index: number,
+  indices: readonly number[],
   name: string,
   option: string | undefined,
 ): MappingFile {
   const cues = getTrackCues(file, location);
-  const { params: current, ...cue } = getCueAt(cues, index);
-  const { [name]: _option, ...rest } = current ?? {};
-  const params = option === undefined ? rest : { ...rest, [name]: option };
-  cues[index] = Object.keys(params).length === 0 ? cue : { ...cue, params };
+  for (const index of indices) {
+    const { params: current, ...cue } = getCueAt(cues, index);
+    const { [name]: _option, ...rest } = current ?? {};
+    const params = option === undefined ? rest : { ...rest, [name]: option };
+    cues[index] = Object.keys(params).length === 0 ? cue : { ...cue, params };
+  }
   return setTrackCues(file, location, cues);
 }
 
-export function removeCue(file: MappingFile, location: string, index: number): MappingFile {
+export function removeCues(
+  file: MappingFile,
+  location: string,
+  indices: readonly number[],
+): MappingFile {
   const cues = getTrackCues(file, location);
-  getCueAt(cues, index);
+  for (const index of indices) {
+    getCueAt(cues, index);
+  }
   return setTrackCues(
     file,
     location,
-    cues.filter((_cue, cueIndex) => cueIndex !== index),
+    cues.filter((_cue, index) => !indices.includes(index)),
   );
 }

@@ -65,14 +65,37 @@ export function getEndRange(cues: readonly Cue[], index: number, track: BeatRang
   };
 }
 
-export function getNudgedBeat(
+export function getGroupMoveRange(
   cues: readonly Cue[],
-  index: number,
+  indices: readonly number[],
+  track: BeatRange,
+): BeatRange {
+  const selected = new Set(indices);
+  let min = 0;
+  let max = 0;
+  let isFirst = true;
+  for (const index of selected) {
+    const cue = cues[index];
+    if (!cue) {
+      continue;
+    }
+    const range = getMoveRange(cues, index, track);
+    const cueMin = selected.has(index - 1) ? -Infinity : range.min - cue.beat;
+    const cueMax = selected.has(index + 1) ? Infinity : range.max - cue.beat;
+    min = isFirst ? cueMin : Math.max(min, cueMin);
+    max = isFirst ? cueMax : Math.min(max, cueMax);
+    isFirst = false;
+  }
+  return { min: Math.min(min, 0), max: Math.max(max, 0) };
+}
+
+export function getNudgedDelta(
+  cues: readonly Cue[],
+  indices: readonly number[],
   delta: number,
   track: BeatRange,
-): number | undefined {
-  const cue = cues[index];
-  return cue && getClampedBeat(cue.beat + delta, getMoveRange(cues, index, track));
+): number {
+  return getClampedBeat(delta, getGroupMoveRange(cues, indices, track));
 }
 
 export function getDropRange(track: BeatRange): BeatRange {
@@ -138,12 +161,12 @@ export function getGridBeat(beat: number): number {
 
 export function getSnapTargets(
   cues: readonly Cue[],
-  exclude: number | undefined,
+  exclude: readonly number[],
   mixxxCues: readonly MixxxCue[],
   beats: Beats,
 ): number[] {
   const targets = cues.flatMap((cue, index) =>
-    index === exclude ? [] : cue.end === undefined ? [cue.beat] : [cue.beat, cue.end],
+    exclude.includes(index) ? [] : cue.end === undefined ? [cue.beat] : [cue.beat, cue.end],
   );
   for (const cue of mixxxCues) {
     if (cue.type === "main") {
@@ -209,6 +232,45 @@ export function getCopySnap(
   const isStart = nearest.beat === nearest.range.min;
   const target = isStart ? nearest.beat : length === undefined ? undefined : nearest.beat + length;
   return { beat: nearest.beat, target, isValid: true };
+}
+
+export function getCueLength({ beat, end }: Cue): number | undefined {
+  return end === undefined ? undefined : end - beat;
+}
+
+export function isCopyValid(
+  cues: readonly Cue[],
+  copies: readonly Cue[],
+  delta: number,
+  track: BeatRange,
+): boolean {
+  return copies.every((copy) => {
+    const beat = copy.beat + delta;
+    const gap = getGapRange(cues, beat, getCueLength(copy), track);
+    return gap !== undefined && beat >= gap.min && beat <= gap.max;
+  });
+}
+
+export function getGroupCopySnap(
+  beat: number,
+  anchor: Cue,
+  copies: readonly Cue[],
+  cues: readonly Cue[],
+  targets: readonly number[],
+  track: BeatRange,
+  scale: LaneScale,
+  isFree: boolean,
+): CopySnap {
+  const length = getCueLength(anchor);
+  if (copies.length <= 1) {
+    return getCopySnap(beat, length, targets, getGapRanges(cues, length, track), scale, isFree);
+  }
+  const snap = isFree ? { beat, target: undefined } : getMoveSnap(beat, length, targets, scale);
+  return {
+    beat: snap.beat,
+    target: snap.target,
+    isValid: isCopyValid(cues, copies, snap.beat - anchor.beat, track),
+  };
 }
 
 export function getMoveSnap(

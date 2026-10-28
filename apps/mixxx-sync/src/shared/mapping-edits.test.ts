@@ -3,14 +3,14 @@ import type { MappingFile } from "./mapping.ts";
 import {
   addCue,
   clearCueEnd,
-  copyCue,
-  moveCue,
+  moveCues,
   pasteCue,
-  removeCue,
+  pasteCues,
+  removeCues,
   replaceCue,
   resizeCue,
   setCueLoops,
-  setCueParam,
+  setCuesParam,
   setCueTrim,
   trimCueStart,
 } from "./mapping-edits.ts";
@@ -58,9 +58,9 @@ describe("addCue", () => {
   });
 });
 
-describe("moveCue", () => {
+describe("moveCues", () => {
   it("shifts the end with the beat", () => {
-    expect(moveCue(file, location, 1, 36).tracks[location]?.[1]).toEqual({
+    expect(moveCues(file, location, [1], 4).tracks[location]?.[1]).toEqual({
       beat: 36,
       end: 52,
       animation: "cat",
@@ -69,19 +69,28 @@ describe("moveCue", () => {
   });
 
   it("keeps cues sorted", () => {
-    expect(moveCue(file, location, 0, 80).tracks[location]?.map(({ beat }) => beat)).toEqual([
+    expect(moveCues(file, location, [0], 80).tracks[location]?.map(({ beat }) => beat)).toEqual([
       32, 64, 80,
     ]);
   });
 
+  it("moves a group together", () => {
+    expect(moveCues(file, location, [1, 2], 8).tracks[location]).toEqual([
+      { beat: 0, animation: "cat" },
+      { beat: 40, end: 56, animation: "cat", section: "Spawn" },
+      { beat: 72, animation: "plasma" },
+    ]);
+  });
+
   it("rejects a move onto another cue", () => {
-    expect(() => moveCue(file, location, 0, 64)).toThrow("Cue beats must increase");
+    expect(() => moveCues(file, location, [0], 64)).toThrow("Cue beats must increase");
   });
 });
 
-describe("copyCue", () => {
+describe("pasteCues", () => {
   it("keeps the original and shifts the copy's end", () => {
-    expect(copyCue(file, location, 1, 48).tracks[location]).toEqual([
+    const cue = { beat: 32, end: 48, animation: "cat", section: "Spawn" };
+    expect(pasteCues(file, location, [cue], 16).tracks[location]).toEqual([
       { beat: 0, animation: "cat" },
       { beat: 32, end: 48, animation: "cat", section: "Spawn" },
       { beat: 48, end: 64, animation: "cat", section: "Spawn" },
@@ -91,19 +100,34 @@ describe("copyCue", () => {
 
   it("ends the copy at the next cue and drops its loop count", () => {
     const looped = setCueLoops(file, location, 1, { end: 48, count: 2 });
-    expect(copyCue(looped, location, 1, 56).tracks[location]?.[2]).toEqual({
+    const cue = { beat: 32, end: 48, animation: "cat", section: "Spawn", loops: 2 };
+    expect(pasteCues(looped, location, [cue], 24).tracks[location]?.[2]).toEqual({
       beat: 56,
       end: 64,
       animation: "cat",
       section: "Spawn",
     });
-    expect(copyCue(looped, location, 1, 8).tracks[location]?.[1]).toEqual({
+    expect(pasteCues(looped, location, [cue], -24).tracks[location]?.[1]).toEqual({
       beat: 8,
       end: 24,
       animation: "cat",
       section: "Spawn",
       loops: 2,
     });
+  });
+});
+
+describe("pasteCues group", () => {
+  it("pastes every cue shifted by the delta", () => {
+    const cues = [
+      { beat: 0, end: 4, animation: "cat" },
+      { beat: 8, end: 12, animation: "plasma" },
+    ];
+    expect(pasteCues(file, "/music/b.flac", cues, 16).tracks["/music/b.flac"]).toEqual([
+      { beat: 0, animation: "plasma" },
+      { beat: 16, end: 20, animation: "cat" },
+      { beat: 24, end: 28, animation: "plasma" },
+    ]);
   });
 });
 
@@ -174,25 +198,31 @@ describe("resizeCue", () => {
   });
 });
 
-describe("removeCue", () => {
+describe("removeCues", () => {
   it("keeps the following cues on their animation", () => {
     const cues = [
       { beat: 0, animation: "cat" },
       { beat: 16, animation: "plasma" },
       { beat: 32, section: 1 },
     ];
-    expect(removeCue({ tracks: { a: cues } }, "a", 1).tracks["a"]).toEqual([
+    expect(removeCues({ tracks: { a: cues } }, "a", [1]).tracks["a"]).toEqual([
       { beat: 0, animation: "cat" },
       { beat: 32, animation: "plasma", section: 1 },
     ]);
   });
 
+  it("removes several cues", () => {
+    expect(removeCues(file, location, [0, 2]).tracks[location]).toEqual([
+      { beat: 32, end: 48, animation: "cat", section: "Spawn" },
+    ]);
+  });
+
   it("deletes a track with no cues", () => {
-    expect(Object.keys(removeCue(file, "/music/b.flac", 0).tracks)).toEqual([location]);
+    expect(Object.keys(removeCues(file, "/music/b.flac", [0]).tracks)).toEqual([location]);
   });
 
   it("rejects a missing cue", () => {
-    expect(() => removeCue(file, location, 3)).toThrow("Cue 3 not found");
+    expect(() => removeCues(file, location, [3])).toThrow("Cue 3 not found");
   });
 });
 
@@ -269,7 +299,7 @@ describe("trimCueStart", () => {
   });
 });
 
-describe("setCueParam", () => {
+describe("setCuesParam", () => {
   it("sets an option and keeps the params on cues that inherited them", () => {
     const params: MappingFile = {
       tracks: {
@@ -279,9 +309,24 @@ describe("setCueParam", () => {
         ],
       },
     };
-    expect(setCueParam(params, location, 0, "Speed", "Double").tracks[location]).toEqual([
+    expect(setCuesParam(params, location, [0], "Speed", "Double").tracks[location]).toEqual([
       { beat: 0, animation: "strobe", params: { Color: "White", Speed: "Double" } },
       { beat: 16, animation: "strobe", section: 1, params: { Color: "White" } },
+    ]);
+  });
+
+  it("sets an option on several cues", () => {
+    const params: MappingFile = {
+      tracks: {
+        [location]: [
+          { beat: 0, animation: "strobe", params: { Color: "White" } },
+          { beat: 16, animation: "strobe" },
+        ],
+      },
+    };
+    expect(setCuesParam(params, location, [0, 1], "Color", "Red").tracks[location]).toEqual([
+      { beat: 0, animation: "strobe", params: { Color: "Red" } },
+      { beat: 16, animation: "strobe", params: { Color: "Red" } },
     ]);
   });
 
@@ -289,7 +334,7 @@ describe("setCueParam", () => {
     const params: MappingFile = {
       tracks: { [location]: [{ beat: 0, animation: "strobe", params: { Color: "White" } }] },
     };
-    expect(setCueParam(params, location, 0, "Color", undefined).tracks[location]).toEqual([
+    expect(setCuesParam(params, location, [0], "Color", undefined).tracks[location]).toEqual([
       { beat: 0, animation: "strobe" },
     ]);
   });

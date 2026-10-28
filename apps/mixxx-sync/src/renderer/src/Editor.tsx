@@ -1,4 +1,4 @@
-import { type StoredAnimation, createRenderer } from "@led-matrix/core";
+import { type StoredAnimation, createRenderer, getParameterSelection } from "@led-matrix/core";
 import { createApiClient } from "@led-matrix/ui/lib/api";
 import { browserCanvas } from "@led-matrix/ui/lib/browser-canvas";
 import { ClipsContext, createBrowserClips } from "@led-matrix/ui/lib/clips";
@@ -9,9 +9,9 @@ import { AnimationPanel, type CueParams, useAnimations } from "./AnimationPanel.
 import { LibraryNav } from "./LibraryNav.tsx";
 import { type AnimationPreview, PlaybackSimulator } from "./Playback.tsx";
 import { ResizeHandle, useStoredSize } from "./ResizeHandle.tsx";
-import { getNudgedBeat } from "../../shared/lane-edit.ts";
-import { type MappingFile, getExplicitCues } from "../../shared/mapping.ts";
-import { moveCue, removeCue, setCueParam } from "../../shared/mapping-edits.ts";
+import { getNudgedDelta } from "../../shared/lane-edit.ts";
+import { type ExplicitCue, type MappingFile, getExplicitCues } from "../../shared/mapping.ts";
+import { moveCues, removeCues, setCuesParam } from "../../shared/mapping-edits.ts";
 import { BEATS_PER_BAR } from "../../shared/track-scale.ts";
 import { type Player, createPlayer } from "./player.ts";
 import { type LiveTrack, TrackList } from "./TrackList.tsx";
@@ -96,22 +96,22 @@ function useLaneEditor(mapping: MappingEditor): LaneEditor & EditorActions {
       onSelect: setSelection,
       remove() {
         if (selection) {
-          update((current) => removeCue(current, selection.location, selection.index));
+          update((current) => removeCues(current, selection.location, selection.indices));
           setSelection(undefined);
         }
       },
       setParam(name, option) {
         if (selection) {
           update((current) =>
-            setCueParam(current, selection.location, selection.index, name, option),
+            setCuesParam(current, selection.location, selection.indices, name, option),
           );
         }
       },
       nudge(delta) {
         const cues = selection && file?.tracks[selection.location];
-        const beat = cues && getNudgedBeat(cues, selection.index, delta, selection.trackRange);
-        if (selection && beat !== undefined && beat !== cues?.[selection.index]?.beat) {
-          update((current) => moveCue(current, selection.location, selection.index, beat));
+        const moved = cues && getNudgedDelta(cues, selection.indices, delta, selection.trackRange);
+        if (selection && moved) {
+          update((current) => moveCues(current, selection.location, selection.indices, moved));
         }
       },
       undo() {
@@ -127,19 +127,35 @@ function useLaneEditor(mapping: MappingEditor): LaneEditor & EditorActions {
   );
 }
 
+function getSelectedCues({ selection }: LaneEditor, file: MappingFile | undefined): ExplicitCue[] {
+  const cues = selection && file?.tracks[selection.location];
+  if (!cues) {
+    return [];
+  }
+  const explicitCues = getExplicitCues(cues);
+  return selection.indices.flatMap((index) => explicitCues[index] ?? []);
+}
+
 function getCueParams(
-  editor: LaneEditor & EditorActions,
-  file: MappingFile | undefined,
+  cues: readonly ExplicitCue[],
+  setParam: EditorActions["setParam"],
   animationsById: ReadonlyMap<string, StoredAnimation> | undefined,
 ): CueParams | undefined {
-  const { selection, setParam } = editor;
-  const cues = selection && file?.tracks[selection.location];
-  const cue = cues && getExplicitCues(cues)[selection.index];
-  const animation = cue && animationsById?.get(cue.animation);
-  if (!cue || !animation?.parameters?.some(({ options }) => options.length > 1)) {
+  const [first] = cues;
+  const animation = first && animationsById?.get(first.animation);
+  if (
+    !animation?.parameters?.some(({ options }) => options.length > 1) ||
+    cues.some((cue) => cue.animation !== animation.id)
+  ) {
     return undefined;
   }
-  return { animation, params: cue.params, onChange: setParam };
+  const [selection, ...rest] = cues.map((cue) => getParameterSelection(animation, cue.params));
+  const values = Object.fromEntries(
+    Object.entries(selection ?? {}).filter(([name, option]) =>
+      rest.every((other) => other[name] === option),
+    ),
+  );
+  return { animation, values, count: cues.length, onChange: setParam };
 }
 
 function useLiveTrack(): LiveTrack | undefined {
@@ -258,7 +274,9 @@ function EditorContent({ settings }: { settings: Settings }) {
     },
     [player],
   );
-  const cueParams = getCueParams(editor, mapping.mapping, source.animationsById);
+  const selectedCues = getSelectedCues(editor, mapping.mapping);
+  const cueParams = getCueParams(selectedCues, editor.setParam, source.animationsById);
+  const selectedIds = new Set(selectedCues.map((cue) => cue.animation));
   const live = useLiveTrack();
   const [isDeviceOutput, setIsDeviceOutput] = useState(false);
   const setDeviceOutput = useCallback((isEnabled: boolean) => {
@@ -355,6 +373,7 @@ function EditorContent({ settings }: { settings: Settings }) {
           animations={animations}
           preview={preview}
           cueParams={cueParams}
+          selectedIds={selectedIds}
           onPreviewChange={(next) => {
             setPreview(next);
             if (next) {

@@ -45,9 +45,9 @@ import {
   getClampedBeat,
   getEndRange,
   getGapRange,
-  getGapRanges,
-  getCopySnap,
-  getMoveRange,
+  getCueLength,
+  getGroupCopySnap,
+  getGroupMoveRange,
   getMoveSnap,
   getSnap,
   getSnapTargets,
@@ -62,13 +62,12 @@ import {
   type AnimationCue,
   addCue,
   clearCueEnd,
-  copyCue,
-  moveCue,
-  pasteCue,
+  moveCues,
+  pasteCues,
   replaceCue,
   resizeCue,
   setCueLoops,
-  setCueParam,
+  setCuesParam,
   setCueTrim,
   trimCueStart,
 } from "../../shared/mapping-edits.ts";
@@ -95,7 +94,11 @@ export type AnimationSource = {
 
 type Scale = { beats: Beats; duration: number };
 
-export type CueSelection = { location: string; index: number; trackRange: BeatRange };
+export type CueSelection = {
+  location: string;
+  indices: readonly number[];
+  trackRange: BeatRange;
+};
 
 export type LaneEditor = {
   update: MappingEditor["update"];
@@ -109,7 +112,10 @@ type Drag = {
   kind: DragKind;
   isTrimmed: boolean;
   isCopy: boolean;
-  cue: AnimationCue | undefined;
+  group: readonly number[];
+  copies: AnimationCue[];
+  anchor: AnimationCue;
+  clickSelection: readonly number[] | undefined;
   target: string | undefined;
   index: number;
   pointerId: number;
@@ -118,7 +124,7 @@ type Drag = {
   value: number;
   length: number | undefined;
   range: BeatRange;
-  gaps: BeatRange[];
+  track: BeatRange;
   targets: number[];
   laneScale: LaneScale;
   left: number;
@@ -134,8 +140,7 @@ type Draft = {
 };
 
 type CopyPlacement = {
-  beat: number;
-  end: number;
+  delta: number;
   target: number | undefined;
   isValid: boolean;
 };
@@ -173,11 +178,14 @@ function getRange(
   kind: DragKind,
   cues: readonly Cue[],
   index: number,
+  group: readonly number[],
   track: BeatRange,
   isTrimmed: boolean,
 ) {
   if (kind === "move") {
-    return getMoveRange(cues, index, track);
+    const beat = cues[index]?.beat ?? 0;
+    const { min, max } = getGroupMoveRange(cues, group, track);
+    return { min: beat + min, max: beat + max };
   }
   if (kind === "end") {
     return getEndRange(cues, index, track);
@@ -192,6 +200,64 @@ function getDragSnap(drag: Drag, beat: number, isFree: boolean): Snap {
   return drag.kind === "move"
     ? getMoveSnap(beat, drag.length, drag.targets, drag.laneScale)
     : getSnap(beat, drag.targets, drag.laneScale);
+}
+
+function getCueStop(cues: readonly Cue[], beat: number, track: BeatRange): number {
+  return cues.find((cue) => cue.beat > beat)?.beat ?? track.max;
+}
+
+function getCopyGhosts(
+  cues: readonly Cue[],
+  copies: readonly AnimationCue[],
+  delta: number,
+  track: BeatRange,
+  animationsById: ReadonlyMap<string, StoredAnimation> | undefined,
+): Ghost[] {
+  return copies.map((copy) => {
+    const beat = copy.beat + delta;
+    const stop = getCueStop(cues, beat, track);
+    const length = getCueLength(copy);
+    const end = length === undefined ? stop : Math.min(beat + length, stop);
+    const name = animationsById?.get(copy.animation)?.name ?? "";
+    return { beat, stop: end, end, name, snap: undefined, replace: undefined };
+  });
+}
+
+function getCopySpan(
+  cues: readonly Cue[],
+  copies: readonly AnimationCue[],
+  delta: number,
+  track: BeatRange,
+): BeatRange | undefined {
+  const first = copies[0];
+  const last = copies.at(-1);
+  if (!first || !last) {
+    return undefined;
+  }
+  const beat = last.beat + delta;
+  const length = getCueLength(last);
+  return {
+    min: first.beat + delta,
+    max: length === undefined ? getCueStop(cues, beat, track) : beat + length,
+  };
+}
+
+function getBeatIndices(cues: readonly Cue[] | undefined, beats: readonly number[]): number[] {
+  return cues
+    ? beats.map((beat) => cues.findIndex((cue) => cue.beat === beat)).filter((index) => index >= 0)
+    : [];
+}
+
+function getCommonParams(blocks: readonly AnimationBlock[]): Partial<Record<string, string>> {
+  const [first, ...rest] = blocks;
+  if (!first) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(first.params).filter(([name, option]) =>
+      rest.every((block) => block.params[name] === option),
+    ),
+  );
 }
 
 function getBeatFraction({ beats, duration }: Scale, beat: number): number {
@@ -275,6 +341,7 @@ type BlockHandlers = {
   onSetStretch: (block: AnimationBlock, isStretched: boolean) => void;
   onSetTrim: (block: AnimationBlock, isTrimmed: boolean) => void;
   onSetParam: (block: AnimationBlock, name: string, option: string) => void;
+  getParams: (block: AnimationBlock) => Partial<Record<string, string>>;
 };
 
 function getHandleTitle(side: "start" | "end", isTrimmed: boolean): string {
@@ -449,6 +516,7 @@ function getMenuParameters({ source }: AnimationBlock): Parameter[] {
 
 function BlockMenu({ block, handlers }: { block: AnimationBlock; handlers: BlockHandlers }) {
   const parameters = getMenuParameters(block);
+  const params = handlers.getParams(block);
   return (
     <ContextMenuContent>
       {block.isLoop ? (
@@ -472,12 +540,12 @@ function BlockMenu({ block, handlers }: { block: AnimationBlock; handlers: Block
           <ContextMenuSubTrigger>
             {parameter.name}
             <span className="ml-auto pl-4 text-xs text-muted-foreground">
-              {block.params[parameter.name]}
+              {params[parameter.name] ?? "Mixed"}
             </span>
           </ContextMenuSubTrigger>
           <ContextMenuSubContent>
             <ContextMenuRadioGroup
-              value={block.params[parameter.name]}
+              value={params[parameter.name] ?? ""}
               onValueChange={(option: string) => handlers.onSetParam(block, parameter.name, option)}
             >
               {parameter.options.map(({ name }) => (
@@ -563,14 +631,22 @@ export function AnimationLane({
       : undefined;
   }
 
+  const selected = editor?.selection?.location === location ? editor.selection.indices : [];
+
+  function setSelection(indices: readonly number[]) {
+    if (editor && track) {
+      editor.onSelect(indices.length === 0 ? undefined : { location, indices, trackRange: track });
+    }
+  }
+
   function getEdit(drag: Drag, value: number) {
     const cue = savedCues[drag.index];
     return (file: MappingFile) => {
       if (drag.isCopy) {
-        return copyCue(file, location, drag.index, value);
+        return pasteCues(file, location, drag.copies, value - drag.value);
       }
       if (drag.kind === "move") {
-        return moveCue(file, location, drag.index, value);
+        return moveCues(file, location, drag.group, value - drag.value);
       }
       if (drag.kind === "end") {
         return resizeCue(file, location, drag.index, { beat: cue?.beat ?? value, end: value });
@@ -581,11 +657,38 @@ export function AnimationLane({
     };
   }
 
+  function getParamGroup(block: AnimationBlock): AnimationBlock[] {
+    const blocks = selected.flatMap(
+      (index) => lane?.blocks.find((other) => other.index === index) ?? [],
+    );
+    const isGroup =
+      selected.includes(block.index) &&
+      blocks.every((other) => other.source.id === block.source.id);
+    return isGroup ? blocks : [block];
+  }
+
+  function getDragGroup(kind: DragKind, index: number, isShift: boolean) {
+    const isSelected = selected.includes(index);
+    if (kind !== "move") {
+      return { group: [index], clickSelection: undefined };
+    }
+    if (isShift) {
+      return isSelected
+        ? { group: selected, clickSelection: selected.filter((other) => other !== index) }
+        : { group: [...selected, index].toSorted((a, b) => a - b), clickSelection: undefined };
+    }
+    return isSelected
+      ? { group: selected, clickSelection: selected.length > 1 ? [index] : undefined }
+      : { group: [index], clickSelection: undefined };
+  }
+
   const handlers: BlockHandlers = {
     onPointerDown(event, kind, block) {
       const cue = savedCues[block.index];
+      const explicitCues = getExplicitCues(savedCues);
+      const anchor = explicitCues[block.index];
       const measured = getLaneScale();
-      if (event.button !== 0 || !editor || !track || !beats || !cue || !measured) {
+      if (event.button !== 0 || !editor || !track || !beats || !cue || !anchor || !measured) {
         return;
       }
       event.stopPropagation();
@@ -593,28 +696,31 @@ export function AnimationLane({
       isClickSuppressedRef.current = false;
       const value = kind === "end" ? (cue.end ?? block.stop) : cue.beat;
       const isCopy = kind === "move" && event.shiftKey;
-      const length = kind === "move" && cue.end !== undefined ? cue.end - cue.beat : undefined;
+      const { group, clickSelection } = getDragGroup(kind, block.index, event.shiftKey);
       dragRef.current = {
         kind,
         isTrimmed: block.isTrimmed,
         isCopy,
-        cue: isCopy ? getExplicitCues(savedCues)[block.index] : undefined,
+        group,
+        copies: isCopy ? group.flatMap((index) => explicitCues[index] ?? []) : [],
+        anchor,
+        clickSelection,
         target: undefined,
         index: block.index,
         pointerId: event.pointerId,
         startX: event.clientX,
         startBeat: getPointerBeat(measured.laneScale, measured.left, event.clientX),
         value,
-        length,
-        range: getRange(kind, savedCues, block.index, track, block.isTrimmed),
-        gaps: isCopy ? getGapRanges(savedCues, length, track) : [],
-        targets: getSnapTargets(savedCues, isCopy ? undefined : block.index, mixxxCues, beats),
+        length: kind === "move" ? getCueLength(cue) : undefined,
+        range: getRange(kind, savedCues, block.index, group, track, block.isTrimmed),
+        track,
+        targets: getSnapTargets(savedCues, isCopy ? [] : group, mixxxCues, beats),
         ...measured,
         current: value,
         isValid: true,
         isMoved: false,
       };
-      editor.onSelect({ location, index: block.index, trackRange: track });
+      setSelection(group);
     },
     onClick(event) {
       if (isClickSuppressedRef.current) {
@@ -628,8 +734,8 @@ export function AnimationLane({
       }
     },
     onContextMenu(block) {
-      if (editor && track) {
-        editor.onSelect({ location, index: block.index, trackRange: track });
+      if (!selected.includes(block.index)) {
+        setSelection([block.index]);
       }
     },
     onSetStretch(block, isStretched) {
@@ -640,7 +746,11 @@ export function AnimationLane({
       editor?.update((file) => setCueTrim(file, location, block.index, isTrimmed));
     },
     onSetParam(block, name, option) {
-      editor?.update((file) => setCueParam(file, location, block.index, name, option));
+      const indices = getParamGroup(block).map(({ index }) => index);
+      editor?.update((file) => setCuesParam(file, location, indices, name, option));
+    },
+    getParams(block) {
+      return getCommonParams(getParamGroup(block));
     },
   };
 
@@ -658,11 +768,12 @@ export function AnimationLane({
     if (drag.isCopy) {
       const target = getLaneTarget(event.clientX, event.clientY);
       drag.target = target?.location !== location ? target?.location : undefined;
-      if (target && drag.target && drag.cue) {
+      if (target && drag.target) {
         setDraft(undefined);
         setCueCopy({
           ...target,
-          cue: drag.cue,
+          cues: drag.copies,
+          anchor: drag.anchor,
           clientX: event.clientX,
           offset: drag.startBeat - drag.value,
           isFree: event.altKey,
@@ -687,7 +798,16 @@ export function AnimationLane({
   }
 
   function handleCopyMove(drag: Drag, beat: number, isFree: boolean) {
-    const snap = getCopySnap(beat, drag.length, drag.targets, drag.gaps, drag.laneScale, isFree);
+    const snap = getGroupCopySnap(
+      beat,
+      drag.anchor,
+      drag.copies,
+      savedCues,
+      drag.targets,
+      drag.track,
+      drag.laneScale,
+      isFree,
+    );
     const next = snap.isValid
       ? getEditedCues(location, savedCues, getEdit(drag, snap.beat))
       : undefined;
@@ -697,11 +817,10 @@ export function AnimationLane({
       setDraft({ cues: next, snap: snap.target, blocked: undefined });
       return;
     }
-    const stop = savedCues.find((cue) => cue.beat > snap.beat)?.beat ?? track?.max ?? snap.beat;
     setDraft({
       cues: savedCues,
       snap: undefined,
-      blocked: { min: snap.beat, max: drag.length === undefined ? stop : snap.beat + drag.length },
+      blocked: getCopySpan(savedCues, drag.copies, snap.beat - drag.value, drag.track),
     });
   }
 
@@ -712,21 +831,28 @@ export function AnimationLane({
     }
     dragRef.current = undefined;
     setDraft(undefined);
-    if (drag.isMoved) {
-      isClickSuppressedRef.current = true;
-      if (drag.target) {
-        dropCueCopy();
-        return;
+    if (!drag.isMoved) {
+      if (drag.clickSelection) {
+        setSelection(drag.clickSelection);
       }
-      if (drag.isValid && drag.current !== drag.value) {
-        editor?.update(getEdit(drag, drag.current));
-        if (drag.isCopy && track) {
-          editor?.onSelect({
-            location,
-            index: savedCues.filter((cue) => cue.beat < drag.current).length,
-            trackRange: track,
-          });
-        }
+      return;
+    }
+    isClickSuppressedRef.current = true;
+    if (drag.target) {
+      dropCueCopy();
+      return;
+    }
+    if (drag.isValid && drag.current !== drag.value) {
+      const edit = getEdit(drag, drag.current);
+      editor?.update(edit);
+      if (drag.isCopy) {
+        const delta = drag.current - drag.value;
+        setSelection(
+          getBeatIndices(
+            getEditedCues(location, savedCues, edit),
+            drag.copies.map((cue) => cue.beat + delta),
+          ),
+        );
       }
     }
   }
@@ -741,34 +867,34 @@ export function AnimationLane({
     if (!isEditable || !track || !beats) {
       return undefined;
     }
-    const { cue, clientX, left, width, offset, isFree } = dropped;
+    const { cues: copies, anchor, clientX, left, width, offset, isFree } = dropped;
     const laneScale = { beats, duration, width };
-    const length = cue.end === undefined ? undefined : cue.end - cue.beat;
-    const beat = getPointerBeat(laneScale, left, clientX) - offset;
-    const snap = getCopySnap(
-      beat,
-      length,
-      getSnapTargets(savedCues, undefined, mixxxCues, beats),
-      getGapRanges(savedCues, length, track),
+    const snap = getGroupCopySnap(
+      getPointerBeat(laneScale, left, clientX) - offset,
+      anchor,
+      copies,
+      savedCues,
+      getSnapTargets(savedCues, [], mixxxCues, beats),
+      track,
       laneScale,
       isFree,
     );
-    const stop = savedCues.find((other) => other.beat > snap.beat)?.beat ?? track.max;
-    const end = length === undefined ? stop : Math.min(snap.beat + length, stop);
-    return { beat: snap.beat, end, target: snap.target, isValid: snap.isValid };
+    return { delta: snap.beat - anchor.beat, target: snap.target, isValid: snap.isValid };
   }
 
   function handleCopyDrop(dropped: CueCopy) {
     const placement = getCopyPlacement(dropped);
-    if (!editor || !track || !placement?.isValid) {
+    if (!editor || !placement?.isValid) {
       return;
     }
-    editor.update((file) => pasteCue(file, location, dropped.cue, placement.beat));
-    editor.onSelect({
-      location,
-      index: savedCues.filter((cue) => cue.beat < placement.beat).length,
-      trackRange: track,
-    });
+    const edit = (file: MappingFile) => pasteCues(file, location, dropped.cues, placement.delta);
+    editor.update(edit);
+    setSelection(
+      getBeatIndices(
+        getEditedCues(location, savedCues, edit),
+        dropped.cues.map((cue) => cue.beat + placement.delta),
+      ),
+    );
   }
 
   useEffect(() => setCopyDrop(location, handleCopyDrop));
@@ -789,7 +915,7 @@ export function AnimationLane({
     }
     const snap = event.altKey
       ? { beat, target: undefined }
-      : getSnap(beat, getSnapTargets(savedCues, undefined, mixxxCues, beats), measured.laneScale);
+      : getSnap(beat, getSnapTargets(savedCues, [], mixxxCues, beats), measured.laneScale);
     const section = drag?.section ?? 0;
     const length = animation && getNaturalBeats(animation, section, getBpm(beats, beat), fps);
     const gap = getGapRange(savedCues, beat, length, track);
@@ -857,7 +983,7 @@ export function AnimationLane({
           ...(drag.params === undefined ? {} : { params: drag.params }),
         }),
       );
-      editor.onSelect({ location, index: replace, trackRange: track });
+      setSelection([replace]);
       return;
     }
     editor.update((file) =>
@@ -869,11 +995,7 @@ export function AnimationLane({
         ...(end === undefined ? {} : { end }),
       }),
     );
-    editor.onSelect({
-      location,
-      index: savedCues.filter((cue) => cue.beat < beat).length,
-      trackRange: track,
-    });
+    setSelection([savedCues.filter((cue) => cue.beat < beat).length]);
   }
 
   function handleClick(event: MouseEvent<HTMLDivElement>) {
@@ -907,21 +1029,17 @@ export function AnimationLane({
     );
   }
   const placement = copy && getCopyPlacement(copy);
-  const copyGhost: Ghost | undefined = placement?.isValid
-    ? {
-        beat: placement.beat,
-        stop: placement.end,
-        end: placement.end,
-        name: animationsById?.get(copy?.cue.animation ?? "")?.name ?? "",
-        snap: placement.target,
-        replace: undefined,
-      }
-    : undefined;
-  const shownGhost = ghost ?? copyGhost;
+  const copyGhosts =
+    copy && placement?.isValid && track
+      ? getCopyGhosts(savedCues, copy.cues, placement.delta, track, animationsById)
+      : [];
+  const shownGhosts = ghost ? [ghost] : copyGhosts;
   const blocked =
     draft?.blocked ??
-    (placement && !placement.isValid ? { min: placement.beat, max: placement.end } : undefined);
-  const snapBeat = draft?.snap ?? shownGhost?.snap;
+    (copy && placement && !placement.isValid && track
+      ? getCopySpan(savedCues, copy.cues, placement.delta, track)
+      : undefined);
+  const snapBeat = draft?.snap ?? ghost?.snap ?? placement?.target;
   return (
     <div
       ref={laneRef}
@@ -935,7 +1053,7 @@ export function AnimationLane({
       onDrop={handleDrop}
       onClick={handleClick}
     >
-      {lane.blocks.length === 0 && !shownGhost && editor && (
+      {lane.blocks.length === 0 && shownGhosts.length === 0 && editor && (
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground/60">
           Drop an animation here
         </span>
@@ -947,15 +1065,14 @@ export function AnimationLane({
           scale={scale}
           range={range}
           source={source}
-          isSelected={
-            editor?.selection?.location === location && editor.selection.index === block.index
-          }
+          isSelected={selected.includes(block.index)}
           live={live?.index === block.index ? live : undefined}
           handlers={isEditable ? handlers : undefined}
         />
       ))}
-      {shownGhost && (
+      {shownGhosts.map((shownGhost) => (
         <div
+          key={shownGhost.beat}
           className={`pointer-events-none absolute inset-y-0 z-20 border-2 border-dashed ${shownGhost.replace === undefined ? "border-sky-400 bg-sky-400/20" : "border-amber-400 bg-amber-400/30"}`}
           style={getSpanStyle(
             getBeatFraction(scale, shownGhost.beat),
@@ -966,7 +1083,7 @@ export function AnimationLane({
             {shownGhost.name}
           </span>
         </div>
-      )}
+      ))}
       {blocked && (
         <div
           className="pointer-events-none absolute inset-y-0 z-20 border-2 border-dashed border-red-500 bg-red-500/25"

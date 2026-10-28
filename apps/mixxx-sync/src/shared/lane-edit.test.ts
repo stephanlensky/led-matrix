@@ -8,9 +8,12 @@ import {
   getGapRange,
   getGapRanges,
   getCopySnap,
+  isCopyValid,
   getMoveRange,
   getMoveSnap,
-  getNudgedBeat,
+  getGroupCopySnap,
+  getGroupMoveRange,
+  getNudgedDelta,
   getSnap,
   getSnapTargets,
   getStartRange,
@@ -56,12 +59,42 @@ describe("ranges", () => {
   });
 });
 
-describe("getNudgedBeat", () => {
+describe("getNudgedDelta", () => {
   it("moves a cue by the delta without crossing its neighbours", () => {
-    expect(getNudgedBeat(cues, 1, 4, track)).toBe(36);
-    expect(getNudgedBeat(cues, 1, 32, track)).toBe(48);
-    expect(getNudgedBeat(cues, 0, -4, track)).toBe(-1);
-    expect(getNudgedBeat(cues, 3, 1, track)).toBeUndefined();
+    expect(getNudgedDelta(cues, [1], 4, track)).toBe(4);
+    expect(getNudgedDelta(cues, [1], 32, track)).toBe(16);
+    expect(getNudgedDelta(cues, [0], -4, track)).toBe(-1);
+    expect(getNudgedDelta(cues, [3], 1, track)).toBe(0);
+  });
+
+  it("moves a group together, limited by the cues outside it", () => {
+    expect(getNudgedDelta(cues, [1, 2], 32, track)).toBe(32);
+    expect(getNudgedDelta(cues, [1, 2], -40, track)).toBe(-31);
+    expect(getNudgedDelta(cues, [0, 2], 40, track)).toBe(31);
+  });
+});
+
+describe("getGroupMoveRange", () => {
+  it("ignores neighbours that move with the group", () => {
+    expect(getGroupMoveRange(cues, [0, 1, 2], track)).toEqual({ min: -1, max: 134 });
+  });
+});
+
+describe("isCopyValid", () => {
+  it("needs every copy to land in a gap", () => {
+    const copies = [cues[1]!, { beat: 50, end: 52, animation: "cat" }];
+    expect(isCopyValid(cues, copies, -30, track)).toBe(false);
+    expect(isCopyValid(cues.slice(0, 2), copies, 20, track)).toBe(true);
+    expect(isCopyValid(cues, copies, 20, track)).toBe(false);
+  });
+});
+
+describe("getGroupCopySnap", () => {
+  it("snaps the anchor and checks the whole group", () => {
+    const copies = [cues[1]!, { beat: 50, end: 52, animation: "cat" }];
+    expect(
+      getGroupCopySnap(51.6, cues[1]!, copies, cues.slice(0, 2), [], track, scale, false),
+    ).toEqual({ beat: 52, target: 52, isValid: true });
   });
 });
 
@@ -152,7 +185,7 @@ describe("getSnapTargets", () => {
     const mixxxCues: MixxxCue[] = [
       { type: "intro", hotcue: undefined, label: "", color: 0, start: 2.25, end: 10.25 },
     ];
-    expect(getSnapTargets(cues, 1, mixxxCues, beats)).toEqual([0, 64, 4, 20]);
+    expect(getSnapTargets(cues, [1], mixxxCues, beats)).toEqual([0, 64, 4, 20]);
   });
 
   it("rounds Mixxx cues that sit just off the grid to the nearest beat", () => {
@@ -160,7 +193,7 @@ describe("getSnapTargets", () => {
       { type: "hotcue", hotcue: 0, label: "", color: 0, start: 2.265, end: undefined },
       { type: "hotcue", hotcue: 1, label: "", color: 0, start: 4.375, end: undefined },
     ];
-    expect(getSnapTargets(cues, 1, mixxxCues, beats)).toEqual([0, 64, 4, 8.25]);
+    expect(getSnapTargets(cues, [1], mixxxCues, beats)).toEqual([0, 64, 4, 8.25]);
   });
 });
 

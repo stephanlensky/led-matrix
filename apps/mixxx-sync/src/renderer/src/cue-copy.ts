@@ -2,7 +2,8 @@ import { useSyncExternalStore } from "react";
 import type { AnimationCue } from "../../shared/mapping-edits.ts";
 
 export type CueCopy = {
-  cue: AnimationCue;
+  cues: AnimationCue[];
+  anchor: AnimationCue;
   location: string;
   clientX: number;
   left: number;

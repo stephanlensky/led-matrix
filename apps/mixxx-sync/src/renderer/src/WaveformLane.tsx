@@ -284,7 +284,7 @@ export function WaveformLane({
       left: rect.left,
       laneScale: { beats, duration, width: rect.width },
       track: getTrackRange(beats, duration),
-      targets: getSnapTargets([], undefined, cues, beats),
+      targets: getSnapTargets([], [], cues, beats),
     };
     dragRef.current = {
       ...scale,

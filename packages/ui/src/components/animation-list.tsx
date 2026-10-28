@@ -23,6 +23,7 @@ type AnimationListProps = {
   activeId: string | null | undefined;
   activeSection: number | undefined;
   activeParams?: ParameterSelection | undefined;
+  selectedIds?: ReadonlySet<string>;
   onPlay: (id: string) => void;
   onSelectSection: (index: number) => void;
   onSelectParam?: (name: string, option: string) => void;
@@ -220,6 +221,7 @@ function FolderContents(props: FolderContentsProps) {
     activeId,
     activeSection,
     activeParams,
+    selectedIds,
     onPlay,
     onSelectSection,
     onSelectParam,
@@ -263,6 +265,7 @@ function FolderContents(props: FolderContentsProps) {
           <li key={animation.id}>
             <ListRow
               isActive={isActive}
+              isSelected={selectedIds?.has(animation.id) ?? false}
               depth={depth}
               icon={<PlayIcon />}
               title={animation.name}
@@ -309,6 +312,15 @@ function getActiveFolder(
   return animations.find(({ id }) => id === activeId)?.folder;
 }
 
+function getSelectedFolders(
+  animations: readonly StoredAnimation[],
+  selectedIds: ReadonlySet<string> | undefined,
+): string[] {
+  return animations.flatMap(({ id, folder }) =>
+    selectedIds?.has(id) ? getFolderAncestors(folder) : [],
+  );
+}
+
 function getAllFolders(folder: AnimationFolder): string[] {
   return folder.folders.flatMap((child) => [child.path, ...getAllFolders(child)]);
 }
@@ -319,9 +331,18 @@ export function AnimationList({ animations, isExpanded = false, ...props }: Anim
     () => new Set(getFolderAncestors(activeFolder)),
   );
   const [revealedFolder, setRevealedFolder] = useState(activeFolder);
-  if (activeFolder !== revealedFolder) {
+  const selectedKey = [...(props.selectedIds ?? [])].toSorted().join("\n");
+  const [revealedSelection, setRevealedSelection] = useState("");
+  if (activeFolder !== revealedFolder || selectedKey !== revealedSelection) {
     setRevealedFolder(activeFolder);
-    setExpandedFolders(new Set([...expandedFolders, ...getFolderAncestors(activeFolder)]));
+    setRevealedSelection(selectedKey);
+    setExpandedFolders(
+      new Set([
+        ...expandedFolders,
+        ...(activeFolder === revealedFolder ? [] : getFolderAncestors(activeFolder)),
+        ...getSelectedFolders(animations, props.selectedIds),
+      ]),
+    );
   }
   const tree = useMemo(() => getFolderTree(animations), [animations]);
   const allFolders = useMemo(() => new Set(getAllFolders(tree)), [tree]);
