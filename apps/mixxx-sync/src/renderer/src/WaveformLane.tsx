@@ -1,3 +1,4 @@
+import { clearImageCanvas, setImageCanvas } from "@led-matrix/ui/lib/canvas-image";
 import {
   type MouseEvent,
   type PointerEvent,
@@ -53,7 +54,7 @@ function getRangeSize({ start, end }: TrackRange): number {
 }
 
 function drawTicks(
-  context: CanvasRenderingContext2D,
+  context: OffscreenCanvasRenderingContext2D,
   beats: Beats,
   duration: number,
   range: TrackRange,
@@ -73,7 +74,7 @@ function drawTicks(
 }
 
 function drawWaveform(
-  context: CanvasRenderingContext2D,
+  context: OffscreenCanvasRenderingContext2D,
   waveform: Waveform,
   range: TrackRange,
   { width, height }: Size,
@@ -93,23 +94,26 @@ function drawWaveform(
   context.fillRect(0, Math.floor(middle), width, 1);
 }
 
-function useCanvasSize(canvasRef: RefObject<HTMLCanvasElement | null>): Size | undefined {
+function useImageSize(imageRef: RefObject<HTMLImageElement | null>): Size | undefined {
   const [size, setSize] = useState<Size>();
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
+    const image = imageRef.current;
+    if (!image) {
       return undefined;
     }
     const observer = new ResizeObserver(() =>
       setSize({
-        width: Math.round(canvas.clientWidth * devicePixelRatio),
-        height: Math.round(canvas.clientHeight * devicePixelRatio),
+        width: Math.round(image.clientWidth * devicePixelRatio),
+        height: Math.round(image.clientHeight * devicePixelRatio),
       }),
     );
-    observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [canvasRef]);
+    observer.observe(image);
+    return () => {
+      observer.disconnect();
+      clearImageCanvas(image);
+    };
+  }, [imageRef]);
 
   return size;
 }
@@ -240,8 +244,8 @@ export function WaveformLane({
   const dragRef = useRef<SelectionDrag>(undefined);
   const isClickSuppressedRef = useRef(false);
   const [draft, setDraft] = useState<BeatSelection>();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const size = useCanvasSize(canvasRef);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const size = useImageSize(imageRef);
   const { ranges, markers } = useMemo(() => getCueMarkers(cues), [cues]);
   const isDetailNeeded =
     waveform !== undefined &&
@@ -251,20 +255,22 @@ export function WaveformLane({
   const visibleWaveform = isDetailNeeded ? (fullWaveform ?? waveform) : waveform;
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context || !size) {
+    const image = imageRef.current;
+    if (!image || !size || size.width === 0 || size.height === 0) {
       return;
     }
-    canvas.width = size.width;
-    canvas.height = size.height;
-    context.clearRect(0, 0, size.width, size.height);
+    const canvas = new OffscreenCanvas(size.width, size.height);
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return;
+    }
     if (beats) {
       drawTicks(context, beats, duration, range, size);
     }
     if (visibleWaveform) {
       drawWaveform(context, visibleWaveform, range, size);
     }
+    void setImageCanvas(image, canvas);
   }, [size, visibleWaveform, beats, duration, range]);
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -357,9 +363,11 @@ export function WaveformLane({
             duration={duration}
           />
         ))}
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-y-0 h-full"
+        <img
+          ref={imageRef}
+          alt=""
+          draggable={false}
+          className="pointer-events-none absolute inset-y-0 h-full"
           style={{
             left: `${range.start * 100}%`,
             width: `${getRangeSize(range) * 100}%`,

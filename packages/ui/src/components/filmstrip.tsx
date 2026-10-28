@@ -9,6 +9,7 @@ import {
   getAnimationLength,
 } from "@led-matrix/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { clearImageCanvas, setImageCanvas } from "../lib/canvas-image.ts";
 import { useBrowserClips } from "../lib/clips.ts";
 
 const RENDER_DELAY_MS = 150;
@@ -30,7 +31,7 @@ function getImageData(frame: Frame): ImageData {
 
 export function Filmstrip({ getFrame }: FilmstripProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const [size, setSize] = useState<Size>();
   const { subscribe } = useBrowserClips();
 
@@ -50,8 +51,17 @@ export function Filmstrip({ getFrame }: FilmstripProps) {
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !size || size.width === 0 || size.height === 0) {
+    const image = imageRef.current;
+    return () => {
+      if (image) {
+        clearImageCanvas(image);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const image = imageRef.current;
+    if (!image || !size || size.width === 0 || size.height === 0) {
       return undefined;
     }
     const tile = size.height;
@@ -67,14 +77,15 @@ export function Filmstrip({ getFrame }: FilmstripProps) {
     stripContext.imageSmoothingQuality = "high";
 
     function drawTile(index: number) {
-      if (!canvas || !pixelContext || !stripContext) {
+      if (!image || !pixelContext || !stripContext) {
         return;
       }
       if (index === count) {
-        canvas.width = strip.width;
-        canvas.height = strip.height;
-        canvas.style.width = `${strip.width / devicePixelRatio}px`;
-        canvas.getContext("2d")?.drawImage(strip, 0, 0);
+        void setImageCanvas(image, strip).then((isSet) => {
+          if (isSet) {
+            image.style.width = `${strip.width / devicePixelRatio}px`;
+          }
+        });
         return;
       }
       const progress = Math.min(((index + 0.5) * tile) / strip.width, 1);
@@ -96,7 +107,12 @@ export function Filmstrip({ getFrame }: FilmstripProps) {
 
   return (
     <div ref={containerRef} className="absolute inset-0 overflow-hidden">
-      <canvas ref={canvasRef} className="absolute top-0 left-0 h-full w-0" />
+      <img
+        ref={imageRef}
+        alt=""
+        draggable={false}
+        className="pointer-events-none absolute top-0 left-0 h-full w-0"
+      />
     </div>
   );
 }
