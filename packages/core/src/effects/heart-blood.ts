@@ -37,7 +37,6 @@ const HEART_HEIGHT = 0.99;
 const colorParams = {
   color: colorSchema.default("#ff2a6d"),
   bloodColor: colorSchema.default("#c00014"),
-  backgroundColor: colorSchema.default("#100003"),
 };
 
 function getHeartCover(dx: number, dy: number, size: number): number {
@@ -151,7 +150,6 @@ export const heartBleed = defineEffect({
     const size = params.size * (1 + 0.12 * thump);
     const top = params.y - (size * HEART_HEIGHT) / 2;
     const height = size * HEART_HEIGHT;
-    fillImage(image, scale(parseColor(params.backgroundColor), 1 + 0.5 * thump));
     for (let y = 0; y < HEIGHT; y++) {
       for (let x = 0; x < WIDTH; x++) {
         const dx = x + 0.5 - WIDTH / 2;
@@ -224,7 +222,6 @@ export const heartBreak = defineEffect({
   render(image, { params, beat }) {
     const color = parseColor(params.color);
     const blood = parseColor(params.bloodColor);
-    const background = parseColor(params.backgroundColor);
     const time = getCycle(beat / params.beats) * params.beats;
     const crackAt = params.beats / 2;
     const since = time - crackAt;
@@ -241,7 +238,7 @@ export const heartBreak = defineEffect({
     const crackBottom = top + size * HEART_HEIGHT * crack;
     const pivot: Point = [WIDTH / 2, params.y + (size * HEART_HEIGHT) / 2];
     const sorrow = open * 0.45;
-    fillImage(image, mix(background, blood, 0.4 * flash));
+    fillImage(image, scale(blood, 0.4 * flash));
     for (let y = 0; y < HEIGHT; y++) {
       for (let x = 0; x < WIDTH; x++) {
         for (const side of [-1, 1] as const) {
@@ -320,7 +317,6 @@ export const heartMelt = defineEffect({
   render(image, { params, beat }) {
     const color = parseColor(params.color);
     const blood = parseColor(params.bloodColor);
-    const background = parseColor(params.backgroundColor);
     const pulse = beat / params.every;
     const kick = Math.exp(-getCycle(pulse) * 6);
     const step = Math.floor(pulse) + easings.easeOutCubic(getCycle(pulse));
@@ -342,7 +338,7 @@ export const heartMelt = defineEffect({
         const isLit = Math.floor(band) % 2 === 0;
         const rot = clamp(shift / 10);
         const tone = mix(mix(color, WHITE, 0.35 * kick), scale(blood, 1 + 0.3 * kick), rot);
-        const dark = mix(background, scale(blood, 0.35), rot * 0.6);
+        const dark = scale(blood, 0.35 * rot * 0.6);
         const [own, other] = isLit ? [tone, dark] : [dark, tone];
         const near = mix(own, other, 0.5);
         setRgbaPixel(
@@ -396,20 +392,13 @@ export const heartFlatline = defineEffect({
   render(image, { params, beat }) {
     const color = parseColor(params.color);
     const blood = parseColor(params.bloodColor);
-    const background = parseColor(params.backgroundColor);
     const time = getCycle(beat / params.beats) * params.beats;
     const progress = time / params.beats;
     const dying = clamp((progress - 0.45) / 0.4);
     const shock = Math.exp(-time * 5);
     const { thump } = getFlatlineTrace(beat, params.beats);
     const trace = mix(parseColor(params.traceColor), blood, dying);
-    const gridColor = mix(mix(background, color, 0.18), scale(blood, 0.4), dying);
-    for (let y = 0; y < HEIGHT; y++) {
-      for (let x = 0; x < WIDTH; x++) {
-        const isLine = x % 8 === 4 || y % 8 === 4;
-        setRgbaPixel(image, x, y, mix(isLine ? gridColor : background, WHITE, 0.6 * shock));
-      }
-    }
+    fillImage(image, scale(WHITE, 0.6 * shock));
     if (params.size > 0) {
       const size = params.size * (1 + 0.16 * thump - 0.12 * dying);
       const tone = mix(color, scale(blood, 0.7), dying);
@@ -544,7 +533,6 @@ export const heartArrow = defineEffect({
     const random = createRandom(hashSeed(ARROW_SEED, loop));
     const wound: Point = [center[0] - 4 + random() * 3, center[1] + 1 + random() * 3];
     const stain = (2 + 12 * easings.easeOutCubic(clamp(time / (params.beats * 0.7)))) * (1 - heal);
-    fillImage(image, scale(parseColor(params.backgroundColor), 1 + 0.6 * thump));
     for (let y = 0; y < HEIGHT; y++) {
       for (let x = 0; x < WIDTH; x++) {
         const dx = x + 0.5 - center[0];
@@ -623,7 +611,6 @@ export const heartRain = defineEffect({
     const pulse = beat / params.every;
     const newest = Math.floor(pulse);
     const floor = HEIGHT - params.pool - 1;
-    fillImage(image, parseColor(params.backgroundColor));
     const life = RAIN_FALL + RAIN_STAIN;
     for (let index = newest - Math.ceil(life); index <= newest; index++) {
       for (let heart = 0; heart < params.count; heart++) {
@@ -689,7 +676,6 @@ export const heartBurst = defineEffect({
   render(image, { params, beat }) {
     const color = parseColor(params.color);
     const blood = parseColor(params.bloodColor);
-    const background = parseColor(params.backgroundColor);
     const loop = Math.floor(beat / params.beats);
     const time = getCycle(beat / params.beats) * params.beats;
     const reset = clamp(time - (params.beats - 1));
@@ -700,7 +686,6 @@ export const heartBurst = defineEffect({
       .toSorted((a, b) => a.key - b.key)
       .map(({ cell }) => cell);
     const span = params.beats - 3;
-    fillImage(image, background);
     for (const [rank, cell] of order.entries()) {
       const row = Math.floor(cell / columns);
       const column = cell % columns;
@@ -718,7 +703,7 @@ export const heartBurst = defineEffect({
           x: x + (getNoise(seed, Math.floor(beat * 8)) - 0.5) * fear * 3,
           y,
           size: params.spacing * params.size * (1 + 0.4 * kick) * swell,
-          color: mix(mix(mix(background, color, 0.7), mix(color, WHITE, 0.35), kick), blood, fear),
+          color: mix(mix(scale(color, 0.7), mix(color, WHITE, 0.35), kick), blood, fear),
         });
         continue;
       }
@@ -936,13 +921,7 @@ function drawBackgroundSplats(image: RgbaImage, beat: number, color: Color): voi
   }
 }
 
-function drawVoidRipples(
-  image: RgbaImage,
-  centerY: number,
-  pulse: number,
-  background: Color,
-  blood: Color,
-): void {
+function drawVoidRipples(image: RgbaImage, centerY: number, pulse: number, blood: Color): void {
   const push = Math.floor(pulse) + easings.easeOutCubic(getCycle(pulse));
   for (let y = 0; y < HEIGHT; y++) {
     for (let x = 0; x < WIDTH; x++) {
@@ -950,7 +929,7 @@ function drawVoidRipples(
       const wave = getCycle(size / 14 - push);
       const ring = clamp((Math.abs(wave - 0.5) - 0.3) * 6);
       const fade = clamp(1.4 - size / 70);
-      setRgbaPixel(image, x, y, mix(background, scale(blood, 0.7), ring * fade));
+      setRgbaPixel(image, x, y, scale(blood, 0.7 * ring * fade));
     }
   }
 }
@@ -962,7 +941,6 @@ export const heartCorrupt = defineEffect({
   params: z.object({
     color: colorSchema.default("#d0001c"),
     bloodColor: colorSchema.default("#8a0303"),
-    backgroundColor: colorSchema.default("#080000"),
     style: z.enum(corruptStyles).default("rotten"),
     every: z.number().min(0.25).max(4).default(1),
     size: z.number().min(10).max(56).default(36),
@@ -974,7 +952,6 @@ export const heartCorrupt = defineEffect({
   render(image, { params, beat }) {
     const color = parseColor(params.color);
     const blood = parseColor(params.bloodColor);
-    const background = parseColor(params.backgroundColor);
     const style = params.style;
     const pulse = beat / params.every;
     const cycle = getCycle(pulse);
@@ -991,10 +968,7 @@ export const heartCorrupt = defineEffect({
       isLoveFlicker: getNoise(CORRUPT_SEED, Math.floor(beat * 8)) < 0.05,
     };
     if (style === "void") {
-      drawVoidRipples(image, params.y, pulse, background, blood);
-    } else {
-      const flash = style === "glitch" ? 0 : 0.35 * thump;
-      fillImage(image, mix(background, scale(blood, 0.5), flash));
+      drawVoidRipples(image, params.y, pulse, blood);
     }
     if (style === "rotten") {
       drawFallingDrops(image, beat, blood);

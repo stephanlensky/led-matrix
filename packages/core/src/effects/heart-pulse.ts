@@ -9,6 +9,7 @@ import { drawHeart, getHeartSize } from "./heart.ts";
 import { drawFloatingHearts, drawSparkles } from "./heart-particles.ts";
 
 const WHITE: Color = [255, 255, 255];
+const BLACK: Color = [0, 0, 0];
 
 export function getBeatKick(beat: number, every: number): { pulse: number; kick: number } {
   const pulse = beat / every;
@@ -21,7 +22,6 @@ export const heartPulse = defineEffect({
   kind: "pixel",
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
-    backgroundColor: colorSchema.default("#2a0418"),
     every: z.number().min(0.25).max(4).default(1),
     size: z.number().min(0).max(60).default(30),
     spacing: z.number().min(4).max(30).default(12),
@@ -32,7 +32,7 @@ export const heartPulse = defineEffect({
   }),
   render(image, { params, beat }) {
     const color = parseColor(params.color);
-    const background = parseColor(params.backgroundColor);
+    const background = BLACK;
     const { pulse, kick } = getBeatKick(beat, params.every);
     const push = Math.floor(pulse) + easings.easeOutCubic(getCycle(pulse));
     const ring = mix(background, color, params.rings);

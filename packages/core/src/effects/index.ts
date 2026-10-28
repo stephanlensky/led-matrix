@@ -92,6 +92,7 @@ import { demonHunters } from "./demon-hunters/index.ts";
 import { hunterDance } from "./hunter-dance.ts";
 import { hunterHyperspace } from "./hunter-hyperspace.ts";
 import { heroDance } from "./frieren-dance.ts";
+import { heroHeartHands, heroKiss } from "./hero-love.ts";
 import { frierenMimic } from "./frieren-mimic.ts";
 import { himmelBench, himmelSquat } from "./himmel-lift.ts";
 import { himmelSleep } from "./himmel-sleep.ts";
@@ -221,6 +222,8 @@ export const effects: readonly Effect[] = [
   hunterDance,
   hunterHyperspace,
   heroDance,
+  heroHeartHands,
+  heroKiss,
   frierenMimic,
   himmelBench,
   himmelSquat,

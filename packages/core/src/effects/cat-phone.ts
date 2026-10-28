@@ -23,16 +23,7 @@ import {
   getRotation,
 } from "../mesh.ts";
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
-import {
-  type CatId,
-  TAU,
-  catIds,
-  clamp,
-  furParams,
-  getCoat,
-  getSpan,
-  toRadians,
-} from "./cat-duo.ts";
+import { TAU, catIds, clamp, furParams, getCoat, getSpan, toRadians } from "./cat-duo.ts";
 import { getCycle } from "./cat-dance.ts";
 import { getSquashedRotation } from "./cat-laptop.ts";
 import {
@@ -50,6 +41,14 @@ import {
   scale,
 } from "./cat-model.ts";
 import { getOvershoot } from "./cat-wands.ts";
+import {
+  type HeroId,
+  type HeroPlacement,
+  drawHero,
+  getHeroPoint,
+  heroIds,
+} from "./frieren-model.ts";
+import { HAND, getArm, getHeroEyes } from "./hero-love.ts";
 import { type CatFace, type EyeStyle, drawEyes, getCatFace, getEyelessCoat } from "./cat-face.ts";
 import { blendPixel, drawHeart, getHeartCoverage } from "./heart.ts";
 import { HEART_SEED, drawFloatingHearts, drawSparkle, drawSparkles } from "./heart-particles.ts";
@@ -60,8 +59,21 @@ type PhoneScreen = (u: number, v: number) => Color;
 
 type Angles = { pitch: number; yaw?: number; roll?: number };
 
+const characterIds = [...catIds, ...heroIds] as const;
+
+type CharacterId = (typeof characterIds)[number];
+
+const partners: Readonly<Record<CharacterId, CharacterId>> = {
+  tabby: "black",
+  black: "tabby",
+  frieren: "himmel",
+  himmel: "frieren",
+};
+
+type Character = { type: "cat"; coat: Coat } | { type: "hero"; hero: HeroId };
+
 type PhoneCat = {
-  coat: Coat;
+  character: Character;
   side: number;
   x: number;
   y: number;
@@ -81,7 +93,7 @@ type PhoneCat = {
   eyes: EyeStyle;
 };
 
-type PhoneCatPoints = CatFace & { phone: Vector };
+type PhoneCatPoints = CatFace & { phone: Vector; hasClosedEyes: boolean; eyeSize: number };
 
 type View = { x: number; y: number; zoom: number };
 
@@ -104,6 +116,7 @@ const RECEIVER_SPLIT_VIEW: View = { x: -4, y: 24, zoom: 0.75 };
 const BUZZ_BEATS = 8;
 const SWOOSH_SLOPE = 0.45;
 const WHITE: Color = [255, 255, 255];
+const BLACK: Color = [0, 0, 0];
 const YELLOW: Color = [255, 220, 60];
 const DARK_PHONE: Color = [40, 40, 52];
 const LIGHT_PHONE: Color = [232, 222, 236];
@@ -133,7 +146,14 @@ function drawPhone(raster: Raster, placement: CatPlacement, color: Color, screen
   });
 }
 
-function drawPhoneCat(raster: Raster, cat: PhoneCat, view = FULL_VIEW): PhoneCatPoints {
+function drawPhoneCharacter(raster: Raster, cat: PhoneCat, view = FULL_VIEW): PhoneCatPoints {
+  const { character } = cat;
+  return character.type === "cat"
+    ? drawPhoneCat(raster, cat, character.coat, view)
+    : drawPhoneHero(raster, cat, character.hero, view);
+}
+
+function drawPhoneCat(raster: Raster, cat: PhoneCat, coat: Coat, view: View): PhoneCatPoints {
   const { side } = cat;
   const size = cat.size * view.zoom;
   const camera = getRotation(VIEW_PITCH, toRadians(CAT_YAW * side) + (cat.turn ?? 0), 0);
@@ -154,7 +174,7 @@ function drawPhoneCat(raster: Raster, cat: PhoneCat, view = FULL_VIEW): PhoneCat
       tail: getRotation(toRadians(60), toRadians(30 * cat.tail), 0),
     },
   };
-  drawCat(raster, placement, cat.eyes === "open" ? cat.coat : getEyelessCoat(cat.coat));
+  drawCat(raster, placement, cat.eyes === "open" ? coat : getEyelessCoat(coat));
   const [pawX, pawY, pawDepth] = getCatPoint(
     placement,
     [side * PAW_TIP[0], PAW_TIP[1], PAW_TIP[2]],
@@ -177,7 +197,92 @@ function drawPhoneCat(raster: Raster, cat: PhoneCat, view = FULL_VIEW): PhoneCat
     cat.phone.color,
     cat.phone.screen,
   );
-  return { ...getCatFace(placement), phone };
+  return { ...getCatFace(placement), phone, hasClosedEyes: false, eyeSize: 5.5 };
+}
+
+const HERO_SCALE = 0.8;
+const HERO_GROUND = -1.12;
+const HERO_HEAD_CENTER: Vector = [0, 1.05, 0.02];
+const HERO_TOP: Vector = [0, 1.62, 0];
+const OVERHEAD: Vector = [0.85, 0.8, 0.15];
+
+function getMix([ax, ay, az]: Vector, [bx, by, bz]: Vector, amount: number): Vector {
+  return [ax + (bx - ax) * amount, ay + (by - ay) * amount, az + (bz - az) * amount];
+}
+
+function getSided([x, y, depth]: Vector, side: number): Vector {
+  return [x * side, y, depth];
+}
+
+function drawPhoneHero(raster: Raster, cat: PhoneCat, hero: HeroId, view: View): PhoneCatPoints {
+  const { side } = cat;
+  const size = cat.size * view.zoom * HERO_SCALE;
+  const camera = getRotation(VIEW_PITCH, toRadians(CAT_YAW * side) + (cat.turn ?? 0), 0);
+  const raise = clamp((-cat.hold.pitch - 8) / 30);
+  const holdOverhead = clamp((-cat.hold.pitch - 60) / 90);
+  const hold = getMix(
+    getMix(getSided([0.22, 0.2, 0.4], side), getSided([0.18, 0.42, 0.5], side), raise),
+    getSided(OVERHEAD, side),
+    holdOverhead,
+  );
+  const reach = clamp((-cat.free.pitch - 20) / 42);
+  const freeOverhead = clamp((-cat.free.pitch - 100) / 40);
+  const free = getMix(
+    getMix(
+      getSided([0.45, 0.05, 0.15], -side),
+      [hold[0] - side * 0.12, hold[1] + 0.05, hold[2] + 0.08],
+      reach,
+    ),
+    getSided(OVERHEAD, -side),
+    freeOverhead,
+  );
+  const placement: HeroPlacement = {
+    x: (cat.x - WIDTH / 2) * view.zoom + WIDTH / 2 + view.x,
+    y: (cat.y + 0.5 * cat.size) * view.zoom + view.y + HERO_GROUND * size,
+    size,
+    rotate: getSquashedRotation(camera, cat.squash ?? 0, HERO_GROUND),
+    eyesClosed: cat.eyes !== "open",
+    pose: {
+      head: getAngles({ ...cat.head, pitch: cat.head.pitch * 0.7 }, side),
+      hair: getRotation(0, 0, toRadians(10 * cat.tail)),
+      cape: getRotation(toRadians(-10 * Math.abs(cat.tail)), 0, 0),
+      ...getArm(side, hold, [side, -1, -0.3]),
+      ...getArm(-side, free, [-side, -1, -0.3]),
+    },
+  };
+  drawHero(raster, hero, placement);
+  const [handX, handY, handDepth] = getHeroPoint(
+    hero,
+    placement,
+    getSided(HAND, side),
+    side > 0 ? "rightForearm" : "leftForearm",
+  );
+  const phoneSize = size;
+  const phone: Vector = [handX, handY - 0.15 * phoneSize, handDepth + 0.05];
+  drawPhone(
+    raster,
+    {
+      x: phone[0],
+      y: phone[1],
+      depth: phone[2],
+      size: phoneSize,
+      rotate: getAngles(cat.phone.rotate, side),
+    },
+    cat.phone.color,
+    cat.phone.screen,
+  );
+  const eyes = getHeroEyes(hero, placement);
+  const center = getHeroPoint(hero, placement, HERO_HEAD_CENTER, "head");
+  const isVisible = eyes.map(([, , depth]) => depth > center[2] + 0.1);
+  return {
+    eyes,
+    isFacing: isVisible.every(Boolean),
+    isVisible,
+    top: getHeroPoint(hero, placement, HERO_TOP, "head"),
+    phone,
+    hasClosedEyes: true,
+    eyeSize: 3,
+  };
 }
 
 function getTypingScreen(glow: Color, beat: number, flash: number): PhoneScreen {
@@ -385,13 +490,11 @@ const sceneNames = ["typing", "send", "buzz", "joy", "arrive", "duet"] as const;
 const phoneParams = {
   ...furParams,
   scene: z.enum(sceneNames).default("typing"),
-  sender: z.enum(catIds).default("tabby"),
+  sender: z.enum(characterIds).default("tabby"),
   message: z.string().max(24).default("CALL ME?"),
   every: z.number().min(0.25).max(4).default(1),
   heartColor: colorSchema.default("#ff3c78"),
   screenColor: colorSchema.default("#3a8cff"),
-  backgroundColor: colorSchema.default("#140c2c"),
-  replyBackgroundColor: colorSchema.default("#2a0a26"),
 };
 
 type PhoneParams = z.output<z.ZodObject<typeof phoneParams>>;
@@ -405,13 +508,30 @@ function getPulse(beat: number, every: number): Pulse {
   return { pulse, phase, since, kick: Math.exp(-since * 6) };
 }
 
-type PhoneCoat = { coat: Coat; eyeColor: Color };
+type PhoneCharacter = { character: Character; eyeColor: Color };
 
-function getPhoneCoat(params: PhoneParams, cat: CatId): PhoneCoat {
+function getPhoneCharacter(params: PhoneParams, id: CharacterId): PhoneCharacter {
+  if (id === "frieren" || id === "himmel") {
+    return { character: { type: "hero", hero: id }, eyeColor: WHITE };
+  }
   return {
-    coat: getCoat({ ...params, cat }),
-    eyeColor: parseColor(cat === "tabby" ? params.tabbyEyeColor : params.eyeColor),
+    character: { type: "cat", coat: getCoat({ ...params, cat: id }) },
+    eyeColor: parseColor(id === "tabby" ? params.tabbyEyeColor : params.eyeColor),
   };
+}
+
+function drawCharacterEyes(
+  image: RgbaImage,
+  points: PhoneCatPoints,
+  style: EyeStyle,
+  eyeColor: Color,
+  heart: Color,
+  pop: number,
+): void {
+  if (points.hasClosedEyes && style === "happy") {
+    return;
+  }
+  drawEyes(image, points, style, eyeColor, heart, pop, points.eyeSize);
 }
 
 type Sender = { story: number; rate: number; look: number; recoil: number };
@@ -419,7 +539,7 @@ type Sender = { story: number; rate: number; look: number; recoil: number };
 function drawSender(
   image: RgbaImage,
   params: PhoneParams,
-  coat: Coat,
+  character: Character,
   beat: number,
   { story, rate, look, recoil }: Sender,
   view = FULL_VIEW,
@@ -429,13 +549,13 @@ function drawSender(
   const sent = clamp((story - 2) * 4);
   const flash = story >= 2 && story < 2.6 ? 1 - (story - 2) / 0.6 : 0.35 * tap * (1 - sent);
   const glow = parseColor(params.screenColor);
-  fillRgbaImage(image, scale(parseColor(params.backgroundColor), 1 + 0.5 * kick));
+  fillRgbaImage(image, BLACK);
   const raster = createRaster();
   const size = 19 - 4 * recoil;
-  const points = drawPhoneCat(
+  const points = drawPhoneCharacter(
     raster,
     {
-      coat,
+      character,
       side: 1,
       x: 24 - 6 * recoil,
       y: 42 + 4 * recoil - 1.5 * kick,
@@ -465,13 +585,13 @@ function drawSender(
 function drawSend(
   image: RgbaImage,
   params: PhoneParams,
-  coat: Coat,
+  character: Character,
   beat: number,
   story: number,
 ): void {
   const heart = parseColor(params.heartColor);
   const pop = easings.easeOutCubic(clamp((story - 2) / 0.6));
-  const points = drawSender(image, params, coat, beat, {
+  const points = drawSender(image, params, character, beat, {
     story,
     rate: story < 2 ? 2 : 1,
     look: easings.easeInOutSine(getSpan(story, 2.2, 3)) * (1 - getSpan(story, 6, 7)),
@@ -506,7 +626,7 @@ function drawSend(
 function drawReceiver(
   image: RgbaImage,
   params: PhoneParams,
-  { coat, eyeColor }: PhoneCoat,
+  { character, eyeColor }: PhoneCharacter,
   beat: number,
   story: number,
 ): void {
@@ -520,13 +640,13 @@ function drawReceiver(
   const love = story >= 6 ? 1 : 0;
   const crouch = easings.easeInOutSine(getSpan(story, 6.8, BUZZ_BEATS));
   const notice = easings.easeOutCubic(getSpan(story, 2, 2.4));
-  fillRgbaImage(image, scale(parseColor(params.replyBackgroundColor), 1 + 0.5 * kick + 0.5 * love));
+  fillRgbaImage(image, BLACK);
   const raster = createRaster();
   const shake = buzz * Math.sin(story * 60) * (0.5 + buzzKick);
   const lit = story >= 2 ? 1 : 0;
   const glowing = buzz * (Math.floor(story * 4) % 2) * 0.4;
-  const points = drawPhoneCat(raster, {
-    coat,
+  const points = drawPhoneCharacter(raster, {
+    character,
     side: -1,
     x: 40 - 8 * crouch,
     y: 42 - 1.2 * kick - 5 * startle + 3 * crouch,
@@ -555,7 +675,7 @@ function drawReceiver(
   if (story >= 2 && story < 4) {
     drawExclamation(image, points.top, (story - 2) * 3, clamp((4 - story) * 2));
   }
-  drawEyes(
+  drawCharacterEyes(
     image,
     points,
     love ? "hearts" : "open",
@@ -587,7 +707,7 @@ function getDance(beat: number, every: number): Dance {
 }
 
 type Dancer = {
-  coat: Coat;
+  character: Character;
   side: number;
   x: number;
   size: number;
@@ -600,7 +720,7 @@ type Dancer = {
 
 function getDancingCat(
   { pulse, phase, since, kick, index, isBig }: Dance,
-  { coat, side, x, size, turn, spin, lean, phone, screen }: Dancer,
+  { character, side, x, size, turn, spin, lean, phone, screen }: Dancer,
 ): PhoneCat {
   const height = isBig ? 13 : 7;
   const hop = height * 4 * phase * (1 - phase);
@@ -608,7 +728,7 @@ function getDancingCat(
   const wave = Math.sin(pulse * TAU) * (1 - reach);
   const flip = index % 2 === 0 ? 1 : -1;
   return {
-    coat,
+    character,
     side,
     x: x + side * 4 * reach,
     y: 46 - hop,
@@ -633,15 +753,9 @@ function getDancingCat(
   };
 }
 
-function drawDanceFloor(image: RgbaImage, params: PhoneParams, pulse: number, kick: number): void {
+function drawDanceFloor(image: RgbaImage, params: PhoneParams, pulse: number): void {
   const heart = parseColor(params.heartColor);
-  fillRgbaImage(image, scale(parseColor(params.replyBackgroundColor), 1 + 0.6 * kick));
-  drawHeart(image, {
-    x: WIDTH / 2,
-    y: 28,
-    size: 54 * (1 + 0.07 * kick),
-    color: scale(heart, 0.28 + 0.2 * kick),
-  });
+  fillRgbaImage(image, BLACK);
   drawSparkles(image, pulse, [mix(heart, WHITE, 0.4)], 0.8);
 }
 
@@ -652,18 +766,18 @@ function getHeartColors(heart: Color): Color[] {
 function drawJoy(
   image: RgbaImage,
   params: PhoneParams,
-  { coat, eyeColor }: PhoneCoat,
+  { character, eyeColor }: PhoneCharacter,
   beat: number,
 ): void {
   const heart = parseColor(params.heartColor);
   const glow = parseColor(params.screenColor);
   const dance = getDance(beat, params.every);
-  drawDanceFloor(image, params, dance.pulse, dance.kick);
+  drawDanceFloor(image, params, dance.pulse);
   const raster = createRaster();
-  const points = drawPhoneCat(
+  const points = drawPhoneCharacter(
     raster,
     getDancingCat(dance, {
-      coat,
+      character,
       side: -1,
       x: WIDTH / 2,
       size: 17,
@@ -676,7 +790,7 @@ function drawJoy(
   );
   drawFloatingHearts(image, dance.pulse, [WIDTH / 2, 44], getHeartColors(heart), 24);
   compositeRaster(raster, image);
-  drawEyes(image, points, dance.isBig ? "hearts" : "happy", eyeColor, heart, 1);
+  drawCharacterEyes(image, points, dance.isBig ? "hearts" : "happy", eyeColor, heart, 1);
 }
 
 const DUET_BEATS = 8;
@@ -733,8 +847,8 @@ type DuetPlacement = {
 function drawDuetCats(
   image: RgbaImage,
   params: PhoneParams,
-  senderCoat: PhoneCoat,
-  receiverCoat: PhoneCoat,
+  senderCharacter: PhoneCharacter,
+  receiverCharacter: PhoneCharacter,
   beat: number,
   placement: DuetPlacement,
   senderDance = getDance(beat, params.every),
@@ -747,12 +861,12 @@ function drawDuetCats(
     spin: move.isBig && !isTouching(move, beat) ? 1 : 0,
     lean: isTouching(move, beat) ? 1 : 0,
   });
-  drawDanceFloor(image, params, dance.pulse, dance.kick);
+  drawDanceFloor(image, params, dance.pulse);
   const raster = createRaster();
-  const sender = drawPhoneCat(
+  const sender = drawPhoneCharacter(
     raster,
     getDancingCat(senderDance, {
-      coat: senderCoat.coat,
+      character: senderCharacter.character,
       side: 1,
       x: placement.senderX,
       size: DUET_SIZE,
@@ -762,10 +876,10 @@ function drawDuetCats(
       screen: getHeartScreen(glow, heart, dance.pulse, 1),
     }),
   );
-  const receiver = drawPhoneCat(
+  const receiver = drawPhoneCharacter(
     raster,
     getDancingCat(dance, {
-      coat: receiverCoat.coat,
+      character: receiverCharacter.character,
       side: -1,
       x: placement.receiverX,
       size: placement.receiverSize,
@@ -781,19 +895,19 @@ function drawDuetCats(
     seed: hashSeed(HEART_SEED, 2),
   });
   compositeRaster(raster, image);
-  drawEyes(
+  drawCharacterEyes(
     image,
     sender,
     getDanceEyes(senderDance),
-    senderCoat.eyeColor,
+    senderCharacter.eyeColor,
     heart,
     1 + 0.2 * Number(touch),
   );
-  drawEyes(
+  drawCharacterEyes(
     image,
     receiver,
     getDanceEyes(dance),
-    receiverCoat.eyeColor,
+    receiverCharacter.eyeColor,
     heart,
     1 + 0.2 * Number(touch),
   );
@@ -805,8 +919,8 @@ function drawDuetCats(
 function drawArrive(
   image: RgbaImage,
   params: PhoneParams,
-  senderCoat: PhoneCoat,
-  receiverCoat: PhoneCoat,
+  senderCharacter: PhoneCharacter,
+  receiverCharacter: PhoneCharacter,
   beat: number,
 ): void {
   const slide = easings.easeInOutCubic(getSpan(beat, 0.5, 3));
@@ -815,8 +929,8 @@ function drawArrive(
   drawDuetCats(
     image,
     params,
-    senderCoat,
-    receiverCoat,
+    senderCharacter,
+    receiverCharacter,
     beat,
     {
       senderX: -16 + (WIDTH / 2 - DUET_X + 16) * enter,
@@ -832,11 +946,11 @@ function drawArrive(
 function drawDuet(
   image: RgbaImage,
   params: PhoneParams,
-  senderCoat: PhoneCoat,
-  receiverCoat: PhoneCoat,
+  senderCharacter: PhoneCharacter,
+  receiverCharacter: PhoneCharacter,
   beat: number,
 ): void {
-  drawDuetCats(image, params, senderCoat, receiverCoat, beat, {
+  drawDuetCats(image, params, senderCharacter, receiverCharacter, beat, {
     senderX: WIDTH / 2 - DUET_X,
     receiverX: WIDTH / 2 + DUET_X,
     receiverSize: DUET_SIZE,
@@ -852,7 +966,7 @@ function getLockScreen(glow: Color, light: number): PhoneScreen {
 function drawWaiting(
   image: RgbaImage,
   params: PhoneParams,
-  coat: Coat,
+  character: Character,
   beat: number,
   view: View,
 ): void {
@@ -860,12 +974,12 @@ function drawWaiting(
   const check = getCycle(beat / 8) * 8;
   const look = easings.easeInOutSine(getSpan(check, 4, 5)) * (1 - getSpan(check, 6.5, 7.5));
   const sigh = Math.sin(Math.PI * getSpan(check, 6.5, 8));
-  fillRgbaImage(image, scale(parseColor(params.replyBackgroundColor), 1 + 0.5 * kick));
+  fillRgbaImage(image, BLACK);
   const raster = createRaster();
-  drawPhoneCat(
+  drawPhoneCharacter(
     raster,
     {
-      coat,
+      character,
       side: -1,
       x: 40,
       y: 42 - 1.2 * kick + sigh,
@@ -921,8 +1035,8 @@ function drawDivider(image: RgbaImage, from: number, to: number): void {
 function drawTyping(
   image: RgbaImage,
   params: PhoneParams,
-  senderCoat: Coat,
-  receiverCoat: Coat,
+  senderCharacter: Character,
+  receiverCharacter: Character,
   beat: number,
   story: number,
 ): void {
@@ -930,10 +1044,17 @@ function drawTyping(
     easings.easeOutCubic(getSpan(story, ...SPLIT_OPEN)) *
     (1 - easings.easeInCubic(getSpan(story, ...SPLIT_CLOSE)));
   const typing = { story: 0, rate: 1, look: 0, recoil: 0 };
-  drawSender(image, params, senderCoat, beat, typing, getView(FULL_VIEW, SENDER_SPLIT_VIEW, open));
+  drawSender(
+    image,
+    params,
+    senderCharacter,
+    beat,
+    typing,
+    getView(FULL_VIEW, SENDER_SPLIT_VIEW, open),
+  );
   if (open > 0) {
     const receiver = createRgbaImage();
-    drawWaiting(receiver, params, receiverCoat, beat, RECEIVER_SPLIT_VIEW);
+    drawWaiting(receiver, params, receiverCharacter, beat, RECEIVER_SPLIT_VIEW);
     copyRows(image, receiver, SPLIT_ROW, WIDTH * (1 - open));
   }
   const drawn = easings.easeInOutCubic(getSpan(story, ...SPLIT_DRAW));
@@ -975,20 +1096,27 @@ export const catPhone = defineEffect({
   kind: "pixel",
   params: z.object(phoneParams),
   render(image, { params, beat, progress }) {
-    const senderCoat = getCoat({ ...params, cat: params.sender });
-    const receiverCoat = getPhoneCoat(params, params.sender === "tabby" ? "black" : "tabby");
+    const sender = getPhoneCharacter(params, params.sender);
+    const receiver = getPhoneCharacter(params, partners[params.sender]);
     if (params.scene === "typing") {
-      drawTyping(image, params, senderCoat, receiverCoat.coat, beat, progress * TYPING_BEATS);
+      drawTyping(
+        image,
+        params,
+        sender.character,
+        receiver.character,
+        beat,
+        progress * TYPING_BEATS,
+      );
     } else if (params.scene === "send") {
-      drawSend(image, params, senderCoat, beat, progress * SEND_BEATS);
+      drawSend(image, params, sender.character, beat, progress * SEND_BEATS);
     } else if (params.scene === "buzz") {
-      drawReceiver(image, params, receiverCoat, beat, progress * BUZZ_BEATS);
+      drawReceiver(image, params, receiver, beat, progress * BUZZ_BEATS);
     } else if (params.scene === "joy") {
-      drawJoy(image, params, receiverCoat, beat);
+      drawJoy(image, params, receiver, beat);
     } else if (params.scene === "arrive") {
-      drawArrive(image, params, getPhoneCoat(params, params.sender), receiverCoat, beat);
+      drawArrive(image, params, sender, receiver, beat);
     } else {
-      drawDuet(image, params, getPhoneCoat(params, params.sender), receiverCoat, beat);
+      drawDuet(image, params, sender, receiver, beat);
     }
   },
 });

@@ -41,6 +41,7 @@ const HELMET_CENTER: Vector = [0, 0.74, 0.72];
 const HELMET_RADIUS = 0.8;
 const CAMERA_DISTANCE = 6;
 const WHITE: Color = [255, 255, 255];
+const BLACK: Color = [0, 0, 0];
 const COLLAR: Color = [200, 204, 214];
 const STAR: Color = [210, 225, 255];
 
@@ -161,7 +162,6 @@ export const catSpace = defineEffect({
   params: z.object({
     ...furParams,
     glassColor: colorSchema.default("#a0dcff"),
-    spaceColor: colorSchema.default("#04030c"),
     every: z.number().min(0.25).max(4).default(1),
     size: z.number().min(5).max(12).default(7.5),
     bob: z.number().min(0).max(4).default(1.5),
@@ -170,7 +170,7 @@ export const catSpace = defineEffect({
   render(image, { params, beat }) {
     const [tabbyCoat, blackCoat] = getCoats(params);
     const glass = parseColor(params.glassColor);
-    fillRgbaImage(image, parseColor(params.spaceColor));
+    fillRgbaImage(image, BLACK);
     drawStars(image, beat, params.every, params.twinkle);
 
     const pulse = beat / params.every;

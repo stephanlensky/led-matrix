@@ -360,6 +360,19 @@ export function drawProp(
   });
 }
 
+export function getHeroPoint(
+  hero: HeroId,
+  placement: HeroPlacement,
+  point: Vector,
+  joint?: HeroJoint,
+): Vector {
+  const model = getHeroModel(hero, placement.eyesClosed ?? false);
+  const transforms = getJointTransforms(JOINT_PARENTS, model.pivots, placement.pose ?? {});
+  const position = (joint ? transforms.get(joint)?.position : undefined) ?? identity;
+  const project = getModelProjector(HERO_CENTER, placement);
+  return project(getSceneTransform(placement).position(position(point)));
+}
+
 export function drawHero(raster: Raster, hero: HeroId, placement: HeroPlacement): void {
   const model = getHeroModel(hero, placement.eyesClosed ?? false);
   const outfit = outfits[hero];

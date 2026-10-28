@@ -66,7 +66,13 @@ function getStandingPlacement(
   };
 }
 
-function drawBurst(image: RgbaImage, x: number, y: number, phase: number, color: Color): void {
+export function drawBurst(
+  image: RgbaImage,
+  x: number,
+  y: number,
+  phase: number,
+  color: Color,
+): void {
   const spread = easings.easeOutCubic(phase);
   for (let index = 0; index < BURST_COUNT; index++) {
     const angle = (index / BURST_COUNT) * TAU + 0.3;

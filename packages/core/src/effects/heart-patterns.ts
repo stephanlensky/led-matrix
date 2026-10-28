@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
-import { type Color, HEIGHT, type RgbaImage, WIDTH, setRgbaPixel } from "../frame.ts";
+import { type Color, HEIGHT, WIDTH, setRgbaPixel } from "../frame.ts";
 import { easings } from "../keyframes.ts";
 import { TAU, clamp } from "./cat-duo.ts";
 import { getCycle } from "./cat-dance.ts";
@@ -10,14 +10,7 @@ import { blendPixel, drawHeart, getHeartSize } from "./heart.ts";
 import { getBeatKick } from "./heart-pulse.ts";
 
 const WHITE: Color = [255, 255, 255];
-
-function fill(image: RgbaImage, color: Color): void {
-  for (let y = 0; y < HEIGHT; y++) {
-    for (let x = 0; x < WIDTH; x++) {
-      setRgbaPixel(image, x, y, color);
-    }
-  }
-}
+const BLACK: Color = [0, 0, 0];
 
 const motions = ["surge", "steady"] as const;
 
@@ -40,7 +33,6 @@ export const heartZoom = defineEffect({
   kind: "pixel",
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
-    backgroundColor: colorSchema.default("#2a0418"),
     outlineColor: colorSchema.default("#ffb6d5"),
     outline: z.number().min(0).max(3).default(0),
     every: z.number().min(0.25).max(4).default(1),
@@ -63,7 +55,7 @@ export const heartZoom = defineEffect({
     const light = params.brightness * (1 + params.flash * 0.6 * kick);
     const tones: readonly Color[] = [
       scale(mix(parseColor(params.color), WHITE, 0.3 * params.flash * kick), light),
-      scale(parseColor(params.backgroundColor), light),
+      BLACK,
     ];
     const outline = scale(parseColor(params.outlineColor), light);
     const glow = mix(tones[0] ?? WHITE, WHITE, 0.5);
@@ -110,7 +102,6 @@ export const heartGrid = defineEffect({
   kind: "pixel",
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
-    backgroundColor: colorSchema.default("#2a0418"),
     every: z.number().min(0.25).max(4).default(1),
     wave: z.enum(gridWaves).default("ripple"),
     spacing: z.number().min(8).max(32).default(16),
@@ -120,13 +111,11 @@ export const heartGrid = defineEffect({
   }),
   render(image, { params, beat }) {
     const color = parseColor(params.color);
-    const background = parseColor(params.backgroundColor);
     const pulse = beat / params.every;
     const spacing = params.spacing;
     const shift = getCycle((beat * params.scroll) / spacing) * spacing;
     const isChecker = params.wave === "checker";
     const period = isChecker ? 2 : 1;
-    fill(image, background);
     const count = Math.ceil(WIDTH / spacing) + 1;
     for (let row = -1; row < count; row++) {
       for (let column = -1; column < count; column++) {
@@ -140,7 +129,7 @@ export const heartGrid = defineEffect({
           x,
           y,
           size: spacing * params.size * (1 + params.pop * kick),
-          color: mix(mix(background, tone, 0.7), mix(tone, WHITE, 0.35), kick),
+          color: mix(scale(tone, 0.7), mix(tone, WHITE, 0.35), kick),
         });
       }
     }
@@ -174,26 +163,16 @@ export const heartEcg = defineEffect({
   kind: "pixel",
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
-    backgroundColor: colorSchema.default("#2a0418"),
     traceColor: colorSchema.default("#ffb6d5"),
     every: z.number().min(0.25).max(4).default(1),
     sweep: z.number().min(1).max(8).default(2),
     size: z.number().min(0).max(50).default(30),
-    grid: z.number().min(0).max(1).default(0.35),
   }),
   render(image, { params, beat }) {
     const color = parseColor(params.color);
-    const background = parseColor(params.backgroundColor);
     const trace = parseColor(params.traceColor);
     const pulse = beat / params.every;
     const thump = getLubDub(getCycle(pulse));
-    const gridColor = mix(background, color, params.grid * 0.5);
-    for (let y = 0; y < HEIGHT; y++) {
-      for (let x = 0; x < WIDTH; x++) {
-        const isLine = x % 8 === 4 || y % 8 === 4;
-        setRgbaPixel(image, x, y, isLine ? gridColor : background);
-      }
-    }
     if (params.size > 0) {
       const size = params.size * (1 + 0.16 * thump);
       drawHeart(image, {
@@ -237,7 +216,6 @@ export const heartTunnel = defineEffect({
   kind: "pixel",
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
-    backgroundColor: colorSchema.default("#2a0418"),
     every: z.number().min(0.25).max(4).default(1),
     count: z.number().int().min(3).max(12).default(7),
     growth: z.number().min(1.2).max(3).default(1.8),
@@ -247,12 +225,10 @@ export const heartTunnel = defineEffect({
   }),
   render(image, { params, beat }) {
     const color = parseColor(params.color);
-    const background = parseColor(params.backgroundColor);
     const pulse = beat / params.every;
     const newest = Math.floor(pulse);
     const kick = Math.exp(-getCycle(pulse) * 6);
     const isSteady = params.motion === "steady";
-    fill(image, background);
     const tones: readonly Color[] = [color, mix(color, WHITE, 0.45)];
     const slot = TAU / params.count;
     const steps = Math.ceil(Math.log(24) / Math.log(params.growth)) + 1;
@@ -274,7 +250,7 @@ export const heartTunnel = defineEffect({
           x: WIDTH / 2 + Math.cos(angle) * radius,
           y: HEIGHT / 2 + Math.sin(angle) * radius,
           size,
-          color: mix(background, tone, amount * clamp(0.35 + radius / 30)),
+          color: scale(tone, amount * clamp(0.35 + radius / 30)),
           angle: angle - Math.PI / 2,
         });
       }

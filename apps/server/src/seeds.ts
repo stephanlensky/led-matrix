@@ -601,11 +601,11 @@ const lovePulseParameter = getValueParameter(
 const loveColorParameter = getParameter(
   "Hearts",
   {
-    Pink: { heartColor: HEART_PINK, backgroundColor: "#2a0418" },
-    "Hot pink": { heartColor: PINK, backgroundColor: "#2a0014" },
-    "Light pink": { heartColor: LIGHT_PINK, backgroundColor: "#2a0a18" },
-    Red: { heartColor: "#ff1030", backgroundColor: "#240006" },
-    Purple: { heartColor: "#d040ff", backgroundColor: "#16052a" },
+    Pink: { heartColor: HEART_PINK },
+    "Hot pink": { heartColor: PINK },
+    "Light pink": { heartColor: LIGHT_PINK },
+    Red: { heartColor: "#ff1030" },
+    Purple: { heartColor: "#d040ff" },
   },
   "Pink",
 );
@@ -613,15 +613,13 @@ const loveColorParameter = getParameter(
 const bleedingColorParameter = getParameter(
   "Hearts",
   {
-    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
-    "Hot pink": { heartColor: PINK, bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#120002" },
-    "Light pink": { heartColor: LIGHT_PINK, bloodColor: "#a00010", backgroundColor: "#0e0204" },
-    Blood: { heartColor: FRESH_BLOOD_COLOR, bloodColor: BLOOD_COLOR, backgroundColor: BLACK },
+    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014" },
+    "Hot pink": { heartColor: PINK, bloodColor: FRESH_BLOOD_COLOR },
+    "Light pink": { heartColor: LIGHT_PINK, bloodColor: "#a00010" },
+    Blood: { heartColor: FRESH_BLOOD_COLOR, bloodColor: BLOOD_COLOR },
   },
   "Pink",
 );
-
-const bleedingKeys = ["heartColor", "bloodColor", "backgroundColor"] as const;
 
 function getBleedingLoop(
   name: string,
@@ -637,7 +635,7 @@ function getBleedingLoop(
       {
         effect,
         params: {
-          ...getReferences(bleedingKeys.slice(1)),
+          ...getReferences(["bloodColor"]),
           color: { param: "heartColor" },
           ...params,
         },
@@ -653,11 +651,10 @@ const bloodHeartColorParameter = getParameter(
     "Fresh blood": {
       heartColor: FRESH_BLOOD_COLOR,
       bloodColor: BLOOD_COLOR,
-      backgroundColor: "#120002",
     },
-    Blood: { heartColor: "#a00008", bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#0a0000" },
-    "Dried blood": { heartColor: "#6a0a06", bloodColor: "#a00010", backgroundColor: BLACK },
-    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
+    Blood: { heartColor: "#a00008", bloodColor: FRESH_BLOOD_COLOR },
+    "Dried blood": { heartColor: "#6a0a06", bloodColor: "#a00010" },
+    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014" },
   },
   "Fresh blood",
 );
@@ -870,24 +867,7 @@ const vocalPlanetDying: AnimationInput = {
     },
     getVocalSection("It's gonna take patience", 3, "patience"),
     getVocalSection("A lot a lot a lot a lot of work", 8, "stack"),
-    getVocalSection("But if we don't try", 3, "shrug"),
-    {
-      name: "What the fuck is stopping us",
-      mode: { type: "once", beats: 3 },
-      layers: [
-        {
-          effect: "big-text",
-          params: {
-            text: "WTF",
-            color: WHITE,
-            outlineColor: "#d00018",
-            outlineWidth: 2,
-            pulse: 0.4,
-            size: 34,
-          },
-        },
-      ],
-    },
+    getVocalSection("But if we don't try, what the fuck is stopping us", 6, "shrug"),
     getVocalSection("Throwing ourselves off a bridge", 4, "bridge"),
     getVocalSection("And giving up, and saying yeah", 4, "flag"),
     getVocalSection("The planet is dying", 4, "planet", { cancelAt: 2 }),
@@ -1453,7 +1433,6 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
         params: {
           ...getReferences(["every"]),
           color: { param: "heartColor" },
-          backgroundColor: "#000000",
           rings: 0,
         },
       },
@@ -1471,7 +1450,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-zoom",
         params: {
-          ...getReferences(["every", "speed", "backgroundColor"]),
+          ...getReferences(["every", "speed"]),
           color: { param: "heartColor" },
         },
       },
@@ -1485,7 +1464,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-zoom",
         params: {
-          ...getReferences(["every", "speed", "backgroundColor"]),
+          ...getReferences(["every", "speed"]),
           color: { param: "heartColor" },
           outline: 1.5,
         },
@@ -1500,7 +1479,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-zoom",
         params: {
-          ...getReferences(["every", "speed", "backgroundColor"]),
+          ...getReferences(["every", "speed"]),
           color: { param: "heartColor" },
           motion: "steady",
           flash: 0.35,
@@ -1517,7 +1496,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-zoom",
         params: {
-          ...getReferences(["every", "speed", "backgroundColor"]),
+          ...getReferences(["every", "speed"]),
           color: { param: "heartColor" },
           outline: 1.5,
           motion: "steady",
@@ -1534,7 +1513,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-grid",
         params: {
-          ...getReferences(["every", "wave", "scroll", "backgroundColor"]),
+          ...getReferences(["every", "wave", "scroll"]),
           color: { param: "heartColor" },
         },
       },
@@ -1558,7 +1537,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-ecg",
         params: {
-          ...getReferences(["every", "backgroundColor"]),
+          ...getReferences(["every"]),
           color: { param: "heartColor" },
         },
       },
@@ -1572,7 +1551,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-tunnel",
         params: {
-          ...getReferences(["every", "backgroundColor"]),
+          ...getReferences(["every"]),
           color: { param: "heartColor" },
         },
       },
@@ -1586,7 +1565,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "heart-tunnel",
         params: {
-          ...getReferences(["every", "backgroundColor"]),
+          ...getReferences(["every"]),
           color: { param: "heartColor" },
           motion: "steady",
           spin: 0.35,
@@ -1668,6 +1647,18 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
         params: getReferences(["every", "heartColor"]),
       },
     ],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "hero-heart-hands": getLoop(
+    "Frieren and Himmel heart hands",
+    8,
+    [{ effect: "hero-heart-hands", params: getReferences(["every", "heartColor"]) }],
+    [lovePulseParameter, loveColorParameter],
+  ),
+  "hero-kiss": getLoop(
+    "Frieren and Himmel smooch",
+    16,
+    [{ effect: "hero-kiss", params: getReferences(["every", "heartColor"]) }],
     [lovePulseParameter, loveColorParameter],
   ),
   "hero-love": getLoop(
@@ -2154,7 +2145,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         getValueParameter(
           "Cats",
           "sender",
-          { "Tabby → Black": "tabby", "Black → Tabby": "black" },
+          {
+            "Tabby → Black": "tabby",
+            "Black → Tabby": "black",
+            "Frieren → Himmel": "frieren",
+            "Himmel → Frieren": "himmel",
+          },
           "Tabby → Black",
         ),
       ],
