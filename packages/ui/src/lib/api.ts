@@ -94,6 +94,10 @@ export function createApiClient(baseUrl: string) {
       return request(playbackStateSchema, "POST", `${baseUrl}/api/outputs/${output}/bpm`, { bpm });
     },
 
+    getDevice(): Promise<DeviceState> {
+      return request(deviceStateSchema, "GET", `${baseUrl}/api/device`);
+    },
+
     setBrightness(brightness: number): Promise<DeviceState> {
       return request(deviceStateSchema, "PUT", `${baseUrl}/api/device/brightness`, { brightness });
     },

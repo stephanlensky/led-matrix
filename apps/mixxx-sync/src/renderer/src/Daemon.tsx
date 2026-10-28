@@ -1,5 +1,5 @@
 import { PlayIcon, SquareIcon } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { DaemonStatus } from "../../shared/api.ts";
 import { Badge } from "@led-matrix/ui/components/badge";
 import { Button } from "@led-matrix/ui/components/button";
@@ -10,8 +10,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@led-matrix/ui/components/card";
+import { Label } from "@led-matrix/ui/components/label";
+import { Slider } from "@led-matrix/ui/components/slider";
+import { type ApiClient, createApiClient } from "@led-matrix/ui/lib/api";
 import { getErrorMessage } from "./errors.ts";
 import { useDaemonStatus, useLog } from "./useDaemon.ts";
+import { useDevice } from "./useDevice.ts";
+import { useSettings } from "./useSettings.ts";
+
+const MAX_BRIGHTNESS = 255;
 
 const SCROLL_THRESHOLD = 16;
 
@@ -108,6 +115,62 @@ function StatusCard({
   );
 }
 
+function DeviceBadge({ isEnabled, isConnected }: { isEnabled: boolean; isConnected: boolean }) {
+  if (!isEnabled) {
+    return <Badge variant="outline">Disabled</Badge>;
+  }
+  return isConnected ? (
+    <Badge variant="default">Connected</Badge>
+  ) : (
+    <Badge variant="destructive">Disconnected</Badge>
+  );
+}
+
+function DeviceCard({ api }: { api: ApiClient }) {
+  const device = useDevice(api);
+  const [draftBrightness, setDraftBrightness] = useState<number>();
+  const { state } = device;
+  const brightness =
+    draftBrightness ?? state?.brightness ?? state?.status?.brightness ?? MAX_BRIGHTNESS;
+
+  function commitBrightness(value: number) {
+    void device.setBrightness(value).finally(() => setDraftBrightness(undefined));
+  }
+
+  return (
+    <Card className="shrink-0">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Device
+          {state ? (
+            <DeviceBadge isEnabled={state.enabled} isConnected={state.connected} />
+          ) : (
+            <Badge variant="destructive">Server offline</Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {device.error && <p className="text-destructive">{device.error}</p>}
+        <div className="flex items-center justify-between gap-4">
+          <Label>Brightness</Label>
+          <span className="text-muted-foreground tabular-nums">
+            {Math.round((brightness / MAX_BRIGHTNESS) * 100)}%
+          </span>
+        </div>
+        <Slider
+          aria-label="Brightness"
+          min={0}
+          max={MAX_BRIGHTNESS}
+          value={brightness}
+          disabled={!state?.enabled}
+          onValueChange={(value) => setDraftBrightness(Number(value))}
+          onValueCommitted={(value) => commitBrightness(Number(value))}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 function LogCard() {
   const entries = useLog();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -151,6 +214,12 @@ function LogCard() {
 
 export function Daemon() {
   const status = useDaemonStatus();
+  const settings = useSettings();
+  const serverUrl = settings?.serverUrl;
+  const api = useMemo(
+    () => (serverUrl === undefined ? undefined : createApiClient(serverUrl.replace(/\/+$/, ""))),
+    [serverUrl],
+  );
   const [error, setError] = useState<string>();
 
   async function start() {
@@ -174,6 +243,7 @@ export function Daemon() {
         onStart={() => void start()}
         onStop={() => void window.api.stop()}
       />
+      {api && <DeviceCard api={api} />}
       <LogCard />
     </div>
   );
