@@ -1,6 +1,6 @@
 import { type FSWatcher, watch } from "node:fs";
 import { basename, dirname } from "node:path";
-import type { DaemonStatus, Settings } from "../shared/api.ts";
+import type { DaemonStatus, LivePosition, Settings } from "../shared/api.ts";
 import { type Mapping, getResolvedMapping } from "../shared/mapping.ts";
 import { readMappingFile } from "./mapping-file.ts";
 import { connectToMixxx } from "./mixxx.ts";
@@ -12,6 +12,7 @@ const RETRY_DELAY = 5000;
 export type DaemonOptions = {
   log: (message: string) => void;
   onStatus: (status: DaemonStatus) => void;
+  onPosition: (position: LivePosition | undefined) => void;
 };
 
 type Session = {
@@ -26,13 +27,14 @@ const stoppedStatus: DaemonStatus = {
   liveDeck: undefined,
   trackLocation: undefined,
   cue: undefined,
+  isPlaying: false,
 };
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function createDaemon({ log, onStatus }: DaemonOptions) {
+export function createDaemon({ log, onStatus, onPosition }: DaemonOptions) {
   let session: Session | undefined;
   let status = stoppedStatus;
 
@@ -100,6 +102,11 @@ export function createDaemon({ log, onStatus }: DaemonOptions) {
           setStatus(syncStatus);
         }
       },
+      onPosition: (position) => {
+        if (!isStopped) {
+          onPosition(position);
+        }
+      },
     });
 
     log(`Waiting for Mixxx at ${socketPath}`);
@@ -146,6 +153,7 @@ export function createDaemon({ log, onStatus }: DaemonOptions) {
       session.stop();
       session = undefined;
       setStatus(stoppedStatus);
+      onPosition(undefined);
       log("Stopped");
     },
   };

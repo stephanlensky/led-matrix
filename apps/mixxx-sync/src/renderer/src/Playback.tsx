@@ -13,7 +13,8 @@ import { useStream } from "@led-matrix/ui/lib/stream";
 import { PauseIcon, PlayIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAnimationLane, getLanePosition } from "../../shared/animation-lane.ts";
-import { getBeat } from "../../shared/beats.ts";
+import type { LivePosition } from "../../shared/api.ts";
+import { type Beats, getBeat, getPosition } from "../../shared/beats.ts";
 import type { Track } from "../../shared/library.ts";
 import type { Cue, MappingFile } from "../../shared/mapping.ts";
 import { getFraction } from "../../shared/track-scale.ts";
@@ -68,6 +69,57 @@ export function Playhead({ player, duration }: { player: Player; duration: numbe
     <div
       ref={ref}
       className="pointer-events-none absolute inset-y-0 z-10 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_3px_black]"
+    />
+  );
+}
+
+function getLiveBeat(position: LivePosition, time: number): number {
+  return position.isPlaying
+    ? position.beat + ((time - position.time) * position.bpm) / 60_000
+    : position.beat;
+}
+
+export function LivePlayhead({
+  location,
+  beats,
+  duration,
+}: {
+  location: string;
+  beats: Beats;
+  duration: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let position: LivePosition | undefined;
+    const unsubscribe = window.api.onPosition((next) => {
+      position = next;
+    });
+    let request = 0;
+    const update = () => {
+      request = requestAnimationFrame(update);
+      const element = ref.current;
+      if (!element) {
+        return;
+      }
+      element.hidden = position?.location !== location;
+      if (position?.location === location) {
+        const seconds = getPosition(beats, getLiveBeat(position, Date.now()));
+        element.style.left = `${getFraction(seconds, duration) * 100}%`;
+      }
+    };
+    update();
+    return () => {
+      cancelAnimationFrame(request);
+      unsubscribe();
+    };
+  }, [location, beats, duration]);
+
+  return (
+    <div
+      ref={ref}
+      hidden
+      className="pointer-events-none absolute inset-y-0 z-10 w-0.5 -translate-x-1/2 bg-emerald-400 shadow-[0_0_3px_black]"
     />
   );
 }

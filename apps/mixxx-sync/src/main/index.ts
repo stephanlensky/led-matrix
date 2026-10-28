@@ -52,7 +52,11 @@ const mappingFile = createMappingFile({
   getPath: () => settings.mappingFile,
   onChange: (state) => send(channels.mapping, state),
 });
-const daemon = createDaemon({ log, onStatus: (status) => send(channels.status, status) });
+const daemon = createDaemon({
+  log,
+  onStatus: (status) => send(channels.status, status),
+  onPosition: (position) => send(channels.position, position),
+});
 
 ipcMain.handle(channels.getSettings, () => settings);
 const fileFilters: Record<FileSetting, Electron.FileFilter[]> = {
@@ -153,6 +157,9 @@ void app.whenReady().then(() => {
     createTrackAudioHandler((trackId) => library.getTrackLocation(trackId)),
   );
   createWindow();
+  if (settings.startDaemonOnLaunch) {
+    daemon.start(settings);
+  }
 });
 
 app.on("activate", () => {

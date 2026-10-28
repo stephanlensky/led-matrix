@@ -3,7 +3,7 @@ import { createApiClient } from "@led-matrix/ui/lib/api";
 import { browserCanvas } from "@led-matrix/ui/lib/browser-canvas";
 import { ClipsContext, createBrowserClips } from "@led-matrix/ui/lib/clips";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Settings } from "../../shared/api.ts";
+import type { DaemonStatus, Settings } from "../../shared/api.ts";
 import type { AnimationSource, CueSelection, LaneEditor } from "./AnimationLane.tsx";
 import { AnimationPanel, type CueParams, useAnimations } from "./AnimationPanel.tsx";
 import { LibraryNav } from "./LibraryNav.tsx";
@@ -145,7 +145,26 @@ function useLiveTrack(): LiveTrack | undefined {
   const status = useDaemonStatus();
   const location = status?.isRunning ? status.trackLocation : undefined;
   const cue = status?.cue;
-  return useMemo(() => (location === undefined ? undefined : { location, cue }), [location, cue]);
+  const isPlaying = status?.isPlaying ?? false;
+  return useMemo(
+    () => (location === undefined ? undefined : { location, cue, isPlaying }),
+    [location, cue, isPlaying],
+  );
+}
+
+function useLivePlaybackStart(onStart: () => void) {
+  useEffect(() => {
+    let isPlaying = false;
+    const update = (status: DaemonStatus) => {
+      if (status.isPlaying && !isPlaying) {
+        onStart();
+      }
+      isPlaying = status.isPlaying;
+    };
+    const unsubscribe = window.api.onStatus(update);
+    void window.api.getStatus().then(update);
+    return unsubscribe;
+  }, [onStart]);
 }
 
 function getStreamUrl({ serverUrl, output }: Settings): string {
@@ -226,8 +245,21 @@ function EditorContent({ settings }: { settings: Settings }) {
   const [preview, setPreview] = useState<AnimationPreview>();
   const [isLiveView, setIsLiveView] = useState(false);
   const endLiveView = useCallback(() => setIsLiveView(false), []);
+  const setLiveView = useCallback(
+    (isEnabled: boolean) => {
+      if (isEnabled) {
+        setPreview(undefined);
+        if (player.getState().isPlaying) {
+          player.toggle();
+        }
+      }
+      setIsLiveView(isEnabled);
+    },
+    [player],
+  );
   const cueParams = getCueParams(editor, mapping.mapping, source.animationsById);
   const live = useLiveTrack();
+  useLivePlaybackStart(useCallback(() => setLiveView(true), [setLiveView]));
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const navWidth = useStoredSize("editor.navWidth", 224, 160, 480);
@@ -298,15 +330,7 @@ function EditorContent({ settings }: { settings: Settings }) {
           editor={editor}
           live={live}
           isLiveView={isLiveView}
-          onLiveViewChange={(isEnabled) => {
-            if (isEnabled) {
-              setPreview(undefined);
-              if (player.getState().isPlaying) {
-                player.toggle();
-              }
-            }
-            setIsLiveView(isEnabled);
-          }}
+          onLiveViewChange={setLiveView}
           searchRef={searchRef}
         />
         <AnimationPanel

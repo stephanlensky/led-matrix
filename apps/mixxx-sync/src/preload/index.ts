@@ -2,6 +2,7 @@ import { type IpcRendererEvent, contextBridge, ipcRenderer } from "electron";
 import {
   type Api,
   type DaemonStatus,
+  type LivePosition,
   type LogEntry,
   type Settings,
   type UiState,
@@ -13,6 +14,7 @@ type Events = {
   [channels.settings]: Settings;
   [channels.status]: DaemonStatus;
   [channels.log]: LogEntry;
+  [channels.position]: LivePosition | undefined;
   [channels.mapping]: MappingState;
 };
 
@@ -49,6 +51,7 @@ const api: Api = {
   onSettings: (listener) => subscribe(channels.settings, listener),
   onStatus: (listener) => subscribe(channels.status, listener),
   onLog: (listener) => subscribe(channels.log, listener),
+  onPosition: (listener) => subscribe(channels.position, listener),
   onMapping: (listener) => subscribe(channels.mapping, listener),
 };
 

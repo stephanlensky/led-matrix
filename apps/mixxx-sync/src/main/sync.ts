@@ -1,4 +1,5 @@
 import type { PlaybackState } from "@led-matrix/core";
+import type { LivePosition } from "../shared/api.ts";
 import { getAudibleBeat, getBeatDelta, getLiveDeck } from "./decks.ts";
 import { type Mapping, type ResolvedCue, type SectionCue, getCue } from "../shared/mapping.ts";
 import type { MixxxState } from "./mixxx.ts";
@@ -16,18 +17,21 @@ export type SyncOptions = {
   getTime?: () => number;
   log?: (message: string) => void;
   onStatus?: (status: SyncStatus) => void;
+  onPosition?: (position: LivePosition | undefined) => void;
 };
 
 export type SyncStatus = {
   liveDeck: string | undefined;
   trackLocation: string | undefined;
   cue: ResolvedCue | undefined;
+  isPlaying: boolean;
 };
 
 type Target = {
   location: string | undefined;
   cue: ResolvedCue | undefined;
   bpm: number;
+  isPlaying: boolean;
   getBeat: (time: number) => number;
 };
 
@@ -60,17 +64,26 @@ export function createSync({
   getTime = () => Date.now(),
   log = console.log,
   onStatus,
+  onPosition,
 }: SyncOptions) {
   let busy = false;
   let liveGroup: string | undefined;
+  let followedGroup: string | undefined;
+  let isPauseNeeded = false;
+  let isPausedBySync = false;
   let playedKey: string | undefined;
   let model: ServerModel | undefined;
   let lastNudgeAt = -Infinity;
   let lastError: string | undefined;
-  let status: SyncStatus = { liveDeck: undefined, trackLocation: undefined, cue: undefined };
+  let status: SyncStatus = {
+    liveDeck: undefined,
+    trackLocation: undefined,
+    cue: undefined,
+    isPlaying: false,
+  };
 
   function getTarget({ tracks, decks }: MixxxState, time: number): Target | undefined {
-    const deck = decks.decks.find(({ group }) => group === liveGroup);
+    const deck = decks.decks.find(({ group }) => group === followedGroup);
     if (!deck || deck.bpm <= 0) {
       return undefined;
     }
@@ -84,7 +97,8 @@ export function createSync({
       location,
       cue: cues && getCue(cues, audibleBeat),
       bpm: deck.bpm,
-      getBeat: (at) => audibleBeat + getBeatDelta(at - time, deck.bpm),
+      isPlaying: deck.play,
+      getBeat: (at) => audibleBeat + (deck.play ? getBeatDelta(at - time, deck.bpm) : 0),
     };
   }
 
@@ -121,9 +135,22 @@ export function createSync({
     log(`Playing ${cue.animationId} section ${cue.section} from cue beat ${cue.beat}`);
   }
 
+  async function pause(): Promise<void> {
+    const { state } = await getModel();
+    if (state.animationId !== null && !state.paused) {
+      setModel(await server.pause());
+      isPausedBySync = true;
+      log("Paused");
+    }
+    isPauseNeeded = false;
+  }
+
   async function apply(target: Target): Promise<void> {
     let current = await getModel();
     const { cue } = target;
+    const isResumeNeeded = isPausedBySync;
+    isPauseNeeded = false;
+    isPausedBySync = false;
     if (cue?.animationId === null) {
       const key = getCueKey(target.location, cue);
       if (key !== playedKey || current.state.animationId !== null) {
@@ -142,6 +169,11 @@ export function createSync({
       }
     } else {
       playedKey = undefined;
+    }
+    if (isResumeNeeded && current.state.paused && current.state.animationId !== null) {
+      current = setModel(await server.resume());
+      lastNudgeAt = -Infinity;
+      log("Resumed");
     }
     if (Math.abs(current.state.bpm - target.bpm) > BPM_TOLERANCE) {
       current = setModel(await server.setBpm(target.bpm));
@@ -168,7 +200,9 @@ export function createSync({
     const group = getLiveDeck(state.decks, liveGroup, hysteresis);
     if (group !== liveGroup) {
       log(`Live deck: ${group ?? "none"}`);
+      isPauseNeeded = group === undefined;
       liveGroup = group;
+      followedGroup = group ?? followedGroup;
     }
   }
 
@@ -176,7 +210,8 @@ export function createSync({
     if (
       next.liveDeck === status.liveDeck &&
       next.trackLocation === status.trackLocation &&
-      next.cue === status.cue
+      next.cue === status.cue &&
+      next.isPlaying === status.isPlaying
     ) {
       return;
     }
@@ -190,18 +225,34 @@ export function createSync({
         return;
       }
       setLiveGroup(state);
-      const target = getTarget(state, getTime());
+      const time = getTime();
+      const target = getTarget(state, time);
+      const isLive = liveGroup !== undefined;
+      const location = target?.location;
       setStatus({
         liveDeck: liveGroup,
-        trackLocation: liveGroup === undefined ? undefined : state.tracks.get(liveGroup)?.location,
+        trackLocation:
+          followedGroup === undefined ? undefined : state.tracks.get(followedGroup)?.location,
         cue: target?.cue,
+        isPlaying: isLive,
       });
-      if (!target) {
+      onPosition?.(
+        target && location !== undefined
+          ? {
+              location,
+              beat: target.getBeat(time),
+              bpm: target.bpm,
+              isPlaying: target.isPlaying,
+              time,
+            }
+          : undefined,
+      );
+      if (!target || (!isLive && !isPauseNeeded)) {
         return;
       }
       busy = true;
       try {
-        await apply(target);
+        await (isLive ? apply(target) : pause());
         lastError = undefined;
       } catch (error) {
         model = undefined;

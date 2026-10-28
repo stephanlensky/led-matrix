@@ -2,6 +2,7 @@ import type { PlaybackState } from "@led-matrix/core";
 import { describe, expect, it } from "vitest";
 import type { Mapping } from "../shared/mapping.ts";
 import type { Deck, MixxxState, Track } from "./mixxx.ts";
+import type { LivePosition } from "../shared/api.ts";
 import type { PlayRequest, ServerClient } from "./server.ts";
 import { type SyncStatus, createSync, getPhaseDrift } from "./sync.ts";
 
@@ -13,6 +14,7 @@ function createFakeServer(clock: { time: number }) {
   let params: Record<string, string> = {};
   let bpm = 120;
   let startedAt = 0;
+  let pausedAt: number | undefined;
 
   function getState(): PlaybackState {
     return {
@@ -20,15 +22,15 @@ function createFakeServer(clock: { time: number }) {
       params,
       bpm,
       fps: 30,
-      beat: animationId === null ? null : ((clock.time - startedAt) * bpm) / 60_000,
+      beat: animationId === null ? null : (((pausedAt ?? clock.time) - startedAt) * bpm) / 60_000,
       section: null,
       fit: null,
-      paused: false,
+      paused: pausedAt !== undefined,
     };
   }
 
   function setBeat(beat: number): void {
-    startedAt = clock.time - (beat * 60_000) / bpm;
+    startedAt = (pausedAt ?? clock.time) - (beat * 60_000) / bpm;
   }
 
   const server: ServerClient = {
@@ -38,6 +40,20 @@ function createFakeServer(clock: { time: number }) {
       calls.push({ type: "stop" });
       animationId = null;
       params = {};
+      pausedAt = undefined;
+      return getState();
+    },
+    pause: async () => {
+      calls.push({ type: "pause" });
+      pausedAt ??= clock.time;
+      return getState();
+    },
+    resume: async () => {
+      calls.push({ type: "resume" });
+      if (pausedAt !== undefined) {
+        startedAt += clock.time - pausedAt;
+        pausedAt = undefined;
+      }
       return getState();
     },
     play: async (body: PlayRequest) => {
@@ -45,6 +61,7 @@ function createFakeServer(clock: { time: number }) {
       animationId = body.id;
       params = { ...body.params };
       bpm = body.bpm;
+      pausedAt = undefined;
       setBeat(body.beat);
       return getState();
     },
@@ -78,12 +95,14 @@ function createHarness(mapping: Mapping) {
   const fake = createFakeServer(clock);
   const log: string[] = [];
   const statuses: SyncStatus[] = [];
+  const positions: (LivePosition | undefined)[] = [];
   const sync = createSync({
     server: fake.server,
     getMapping: () => mapping,
     getTime: () => clock.time,
     log: (message) => log.push(message),
     onStatus: (status) => statuses.push(status),
+    onPosition: (position) => positions.push(position),
   });
   const tracks = new Map<string, Track | null>([
     ["[Channel1]", { location }],
@@ -112,7 +131,7 @@ function createHarness(mapping: Mapping) {
     await sync.update(state);
   }
 
-  return { clock, fake, update, log, statuses };
+  return { clock, fake, update, log, statuses, positions };
 }
 
 const mapping: Mapping = new Map([
@@ -149,9 +168,19 @@ describe("sync", () => {
     await update([{ beat: 20 }]);
     await update([{ beat: 0, volume: 0.5 }, { beat: 0 }]);
     expect(statuses).toEqual([
-      { liveDeck: "[Channel1]", trackLocation: location, cue: undefined },
-      { liveDeck: "[Channel1]", trackLocation: location, cue: mapping.get(location)?.[0] },
-      { liveDeck: "[Channel2]", trackLocation: "/music/unmapped.flac", cue: undefined },
+      { liveDeck: "[Channel1]", trackLocation: location, cue: undefined, isPlaying: true },
+      {
+        liveDeck: "[Channel1]",
+        trackLocation: location,
+        cue: mapping.get(location)?.[0],
+        isPlaying: true,
+      },
+      {
+        liveDeck: "[Channel2]",
+        trackLocation: "/music/unmapped.flac",
+        cue: undefined,
+        isPlaying: true,
+      },
     ]);
   });
 
@@ -286,5 +315,51 @@ describe("sync", () => {
       type: "play",
       body: { id: "cat", section: 1, beat: expect.closeTo(6.4), bpm: 120, beats: 32 },
     });
+  });
+
+  it("pauses when playback stops and resumes in phase when it starts again", async () => {
+    const { clock, fake, update, statuses } = createHarness(mapping);
+    await update([{ beat: 20 }]);
+    clock.time = 1000;
+    await update([{ beat: 22, play: false }]);
+    clock.time = 5000;
+    await update([{ beat: 22, play: false }]);
+    expect(statuses.at(-1)).toEqual({
+      liveDeck: undefined,
+      trackLocation: location,
+      cue: mapping.get(location)?.[0],
+      isPlaying: false,
+    });
+    await update([{ beat: 22 }]);
+    expect(fake.calls.map(({ type }) => type)).toEqual(["play", "pause", "resume"]);
+    await expect(fake.server.getState()).resolves.toMatchObject({ paused: false, beat: 6 });
+  });
+
+  it("does not pause animations it did not start", async () => {
+    const { fake, update } = createHarness(mapping);
+    fake.play("plasma");
+    fake.calls.length = 0;
+    await update([{ play: false }]);
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("does not resume an animation paused by someone else", async () => {
+    const { clock, fake, update } = createHarness(mapping);
+    await update([{ beat: 20 }]);
+    await fake.server.pause();
+    clock.time = 3000;
+    await update([{ beat: 26 }]);
+    expect(fake.calls.map(({ type }) => type)).toEqual(["play", "pause"]);
+  });
+
+  it("reports the followed deck position while stopped", async () => {
+    const { clock, update, positions } = createHarness(mapping);
+    clock.time = 100;
+    await update([{ beat: 20 }]);
+    await update([{ beat: 21, play: false }]);
+    expect(positions).toEqual([
+      { location, beat: 20, bpm: 120, isPlaying: true, time: 100 },
+      { location, beat: 21, bpm: 120, isPlaying: false, time: 100 },
+    ]);
   });
 });

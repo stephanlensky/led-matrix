@@ -11,6 +11,7 @@ export const settingsSchema = z.object({
   socketPath: z.string().min(1),
   mappingFile: z.string().min(1),
   mixxxDatabasePath: z.string().min(1),
+  startDaemonOnLaunch: z.boolean(),
 });
 
 export function getDefaultSettings(appPath: string): Settings {
@@ -22,6 +23,7 @@ export function getDefaultSettings(appPath: string): Settings {
       join(process.env["XDG_RUNTIME_DIR"] ?? "/tmp", "mixxx-deck-state.sock"),
     mappingFile: join(appPath, "mapping.json"),
     mixxxDatabasePath: process.env["MIXXX_DATABASE"] ?? join(homedir(), ".mixxx", "mixxxdb.sqlite"),
+    startDaemonOnLaunch: true,
   };
 }
 

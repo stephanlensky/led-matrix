@@ -13,6 +13,7 @@ import {
   type ReactNode,
   type RefObject,
   memo,
+  useCallback,
   useDeferredValue,
   useEffect,
   useId,
@@ -35,7 +36,7 @@ import {
 import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
 import { type AnimationSource, type LaneEditor, AnimationLane } from "./AnimationLane.tsx";
 import { getTrackProps } from "./cue-copy.ts";
-import { PlayButton, Playhead } from "./Playback.tsx";
+import { LivePlayhead, PlayButton, Playhead } from "./Playback.tsx";
 import { TrackScrollbar } from "./TrackScrollbar.tsx";
 import { type Player, usePlayerState } from "./player.ts";
 import { type LoadState, type TrackDataCache, useTrackData } from "./useLibrary.ts";
@@ -68,7 +69,7 @@ const SHORTCUTS = [
   ["Shift + scroll", "Scroll the zoomed track"],
 ] as const;
 
-export type LiveTrack = { location: string; cue: CueStatus | undefined };
+export type LiveTrack = { location: string; cue: CueStatus | undefined; isPlaying: boolean };
 
 function Lane({ className, children }: { className: string; children?: ReactNode }) {
   return (
@@ -92,7 +93,9 @@ type RowProps = LaneProps & {
   track: Track;
   player: Player;
   isLive: boolean;
+  isLivePositionShown: boolean;
   views: TrackViews;
+  onSeek: () => void;
 };
 
 function TrackLanes({
@@ -105,11 +108,15 @@ function TrackLanes({
   source,
   editor,
   liveCue,
+  isLivePositionShown,
+  onSeek,
 }: LaneProps & {
   track: Track;
   range: TrackRange;
   player: Player;
   selection: BeatSelection | undefined;
+  isLivePositionShown: boolean;
+  onSeek: () => void;
 }) {
   const data = useTrackData(cache, track.id);
 
@@ -126,6 +133,7 @@ function TrackLanes({
 
   function setSelection(next: BeatSelection | undefined) {
     if (next && beats) {
+      onSeek();
       const loop = { start: getPosition(beats, next.start), end: getPosition(beats, next.end) };
       player.setLoop(track, loop, next);
     } else {
@@ -165,11 +173,22 @@ function TrackLanes({
       ) : (
         <Lane className="h-8" />
       )}
+      {isLivePositionShown && beats && (
+        <LivePlayhead location={track.location} beats={beats} duration={track.duration} />
+      )}
     </>
   );
 }
 
-const TrackRow = memo(function TrackRow({ track, player, isLive, views, ...props }: RowProps) {
+const TrackRow = memo(function TrackRow({
+  track,
+  player,
+  isLive,
+  isLivePositionShown,
+  views,
+  onSeek,
+  ...props
+}: RowProps) {
   const { track: current, loop } = usePlayerState(player);
   const isCurrent = current?.id === track.id;
   const selection = loop?.trackId === track.id ? loop.beats : undefined;
@@ -181,6 +200,7 @@ const TrackRow = memo(function TrackRow({ track, player, isLive, views, ...props
   function seek(event: MouseEvent<HTMLDivElement>) {
     const { left, width } = event.currentTarget.getBoundingClientRect();
     if (width > 0) {
+      onSeek();
       player.seek(track, getFraction((event.clientX - left) / width, 1) * track.duration);
     }
   }
@@ -249,9 +269,13 @@ const TrackRow = memo(function TrackRow({ track, player, isLive, views, ...props
               range={range}
               player={player}
               selection={selection}
+              isLivePositionShown={isLivePositionShown}
+              onSeek={onSeek}
               {...props}
             />
-            {isCurrent && <Playhead player={player} duration={track.duration} />}
+            {isCurrent && !isLivePositionShown && (
+              <Playhead player={player} duration={track.duration} />
+            )}
           </div>
         </div>
         <div className="mt-1 h-2.5">
@@ -308,7 +332,9 @@ function VirtualTrackList({
   player,
   editor,
   live,
+  isLiveView,
   views,
+  onSeek,
 }: {
   scrollRef: RefObject<HTMLDivElement | null>;
   tracks: readonly Track[];
@@ -318,7 +344,9 @@ function VirtualTrackList({
   player: Player;
   editor: LaneEditor;
   live: LiveTrack | undefined;
+  isLiveView: boolean;
   views: TrackViews;
+  onSeek: () => void;
 }) {
   const { start, end } = useRowRange(scrollRef, tracks.length);
 
@@ -344,7 +372,9 @@ function VirtualTrackList({
                 player={player}
                 editor={editor}
                 isLive={isLive}
+                isLivePositionShown={isLive && isLiveView}
                 views={views}
+                onSeek={onSeek}
                 liveCue={isLive ? live?.cue : undefined}
               />
             </div>
@@ -410,6 +440,7 @@ export function TrackList({
   const [search, setSearch] = useState("");
   const [isMappedOnly, setIsMappedOnly] = useState(false);
   const deferredSearch = useDeferredValue(search);
+  const endLiveView = useCallback(() => onLiveViewChange(false), [onLiveViewChange]);
   const allTracks = tracks.status === "loaded" ? tracks.value : undefined;
   const filteredTracks = useMemo(
     () =>
@@ -453,6 +484,8 @@ export function TrackList({
         key={title}
         scrollRef={scrollRef}
         live={live}
+        isLiveView={isLiveView}
+        onSeek={endLiveView}
         tracks={filteredTracks}
         mapping={mapping}
         cache={cache}

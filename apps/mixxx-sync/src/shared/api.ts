@@ -8,6 +8,7 @@ export type Settings = {
   socketPath: string;
   mappingFile: string;
   mixxxDatabasePath: string;
+  startDaemonOnLaunch: boolean;
 };
 
 export const daemonSettingKeys = [
@@ -33,6 +34,15 @@ export type DaemonStatus = {
   liveDeck: string | undefined;
   trackLocation: string | undefined;
   cue: CueStatus | undefined;
+  isPlaying: boolean;
+};
+
+export type LivePosition = {
+  location: string;
+  beat: number;
+  bpm: number;
+  isPlaying: boolean;
+  time: number;
 };
 
 export const LOG_LIMIT = 500;
@@ -62,6 +72,7 @@ export type Api = {
   onSettings(listener: (settings: Settings) => void): () => void;
   onStatus(listener: (status: DaemonStatus) => void): () => void;
   onLog(listener: (entry: LogEntry) => void): () => void;
+  onPosition(listener: (position: LivePosition | undefined) => void): () => void;
   onMapping(listener: (state: MappingState) => void): () => void;
 };
 
@@ -76,6 +87,7 @@ export const channels = {
   stop: "daemon:stop",
   status: "daemon:status",
   log: "daemon:log",
+  position: "daemon:position",
   getPlaylists: "library:get-playlists",
   getTracks: "library:get-tracks",
   getTrackDetails: "library:get-track-details",

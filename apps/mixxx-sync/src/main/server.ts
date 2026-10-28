@@ -45,6 +45,8 @@ export type ServerClient = {
   getAnimations(): Promise<StoredAnimation[]>;
   play(request: PlayRequest): Promise<PlaybackState>;
   stop(): Promise<PlaybackState>;
+  pause(): Promise<PlaybackState>;
+  resume(): Promise<PlaybackState>;
   setBeat(beat: number): Promise<PlaybackState>;
   setBpm(bpm: number): Promise<PlaybackState>;
 };
@@ -78,6 +80,8 @@ export function createServerClient(baseUrl: string, output: Output): ServerClien
     getAnimations: () => request(storedAnimationSchema.array(), "/api/animations"),
     play: (body) => request(playbackStateSchema, `${outputPath}/play`, body),
     stop: () => request(playbackStateSchema, `${outputPath}/stop`, {}),
+    pause: () => request(playbackStateSchema, `${outputPath}/pause`, {}),
+    resume: () => request(playbackStateSchema, `${outputPath}/resume`, {}),
     setBeat: (beat) => request(playbackStateSchema, `${outputPath}/beat`, { beat }),
     setBpm: (bpm) => request(playbackStateSchema, `${outputPath}/bpm`, { bpm }),
   };

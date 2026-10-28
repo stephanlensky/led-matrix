@@ -12,6 +12,7 @@ import {
 } from "@led-matrix/ui/components/card";
 import { Input } from "@led-matrix/ui/components/input";
 import { Label } from "@led-matrix/ui/components/label";
+import { Switch } from "@led-matrix/ui/components/switch";
 import {
   Select,
   SelectContent,
@@ -157,6 +158,19 @@ function SettingsForm({
             isDisabled={isDaemonRunning}
             onChange={(mappingFile) => update({ mappingFile })}
             onShowDialog={() => void showFileDialog("mappingFile")}
+          />
+        </CardContent>
+      </Card>
+      <Card className="shrink-0">
+        <CardHeader>
+          <CardTitle>Daemon</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-[8rem_1fr] items-center gap-x-4 gap-y-3">
+          <Label htmlFor={`${id}-start`}>Start on launch</Label>
+          <Switch
+            id={`${id}-start`}
+            checked={settings.startDaemonOnLaunch}
+            onCheckedChange={(startDaemonOnLaunch) => update({ startDaemonOnLaunch })}
           />
         </CardContent>
       </Card>
