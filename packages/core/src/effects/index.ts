@@ -103,6 +103,8 @@ import { solid } from "./solid.ts";
 import { squares } from "./squares.ts";
 import { strobe } from "./strobe.ts";
 import { text } from "./text.ts";
+import { tamagotchi, tamagotchiBurst, tamagotchiTwinkle } from "./tamagotchi.ts";
+import { wordSlam } from "./word-slam.ts";
 
 export const effects: readonly Effect[] = [
   solid,
@@ -191,6 +193,10 @@ export const effects: readonly Effect[] = [
   heartRain,
   heartBurst,
   heartCorrupt,
+  tamagotchi,
+  tamagotchiTwinkle,
+  tamagotchiBurst,
+  wordSlam,
   bloodDrips,
   equalizer,
   catBench,

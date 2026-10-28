@@ -679,6 +679,86 @@ function getVocalSection(
   };
 }
 
+const tamagotchiShellParameter = getValueParameter(
+  "Shell",
+  "shellColor",
+  { Pink: "#ff4fa8", Cyan: "#20c8ff", Purple: "#9a4dff", White: "#e8e8f0" },
+  "Pink",
+);
+
+const tamagotchiPulseParameter = getValueParameter(
+  "Pulse",
+  "every",
+  { Beat: 1, "Half beat": 0.5, "2 beats": 2 },
+  "Beat",
+);
+
+const tamagotchiTwinkleLayer: LayerInput = { effect: "tamagotchi-twinkle" };
+
+const tamagotchiCalmLayer: LayerInput = {
+  effect: "tamagotchi",
+  params: getReferences(["shellColor"]),
+};
+
+const tamagotchiRageLayers: LayerInput[] = [
+  { effect: "tamagotchi-burst", params: getReferences(["every"]) },
+  { effect: "tamagotchi", params: { ...getReferences(["shellColor", "every"]), anger: 1 } },
+  { effect: "chromatic", params: { offset: 0.5, pulse: 2 } },
+];
+
+const tamagotchiLyricsLayers: LayerInput[] = [
+  { effect: "tamagotchi-burst", params: { every: 1, y: 32, radius: 14, veins: 4 } },
+  { effect: "word-slam" },
+];
+
+const tamagotchiSong: AnimationInput = {
+  name: "Fuck tamagotchis",
+  parameters: [tamagotchiShellParameter, tamagotchiPulseParameter],
+  sections: [
+    {
+      name: "Calm",
+      mode: { type: "loop", beats: 16 },
+      layers: [tamagotchiTwinkleLayer, tamagotchiCalmLayer],
+    },
+    {
+      name: "Build",
+      mode: { type: "once", beats: 16 },
+      layers: [
+        { effect: "tamagotchi-twinkle", params: { amount: getRamp(1, 0) } },
+        {
+          effect: "tamagotchi-burst",
+          params: { rays: 0, sparks: 0, veins: 0, every: 2, rings: getRamp(0, 1, "easeInQuad") },
+        },
+        {
+          effect: "tamagotchi",
+          params: { ...getReferences(["shellColor"]), anger: getRamp(0, 1, "easeInQuad") },
+        },
+      ],
+    },
+    { name: "Rage", mode: { type: "loop", beats: 8 }, layers: tamagotchiRageLayers },
+    {
+      name: "Fuck tamagotchis, bitch",
+      mode: { type: "loop", beats: 4 },
+      layers: tamagotchiLyricsLayers,
+    },
+  ],
+};
+
+const tamagotchiAnimations: Record<string, AnimationInput> = {
+  "tamagotchi-calm": getLoop(
+    "Tamagotchi calm",
+    16,
+    [tamagotchiTwinkleLayer, tamagotchiCalmLayer],
+    [tamagotchiShellParameter],
+  ),
+  "tamagotchi-rage": getLoop("Tamagotchi rage", 8, tamagotchiRageLayers, [
+    tamagotchiShellParameter,
+    tamagotchiPulseParameter,
+  ]),
+  "tamagotchi-lyrics": getLoop("Fuck tamagotchis, bitch", 4, tamagotchiLyricsLayers),
+  "tamagotchi-song": tamagotchiSong,
+};
+
 const vocalPlanetDying: AnimationInput = {
   name: "The planet is dying",
   sections: [
@@ -2382,5 +2462,6 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   }),
   ...getFolder("Halloween/Blood", bloodAnimations),
   ...getFolder("Halloween/Blood/Bass", bassBloodAnimations),
+  ...getFolder("Tamagotchi", tamagotchiAnimations),
   ...getFolder("One-offs", { rumble, "vocal-planet-dying": vocalPlanetDying }),
 };
