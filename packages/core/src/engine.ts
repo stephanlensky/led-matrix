@@ -1,28 +1,29 @@
+import type { Animation } from "./animation.ts";
+import { type Frame, createFrame } from "./frame.ts";
 import {
-  type AdvanceTiming,
-  type Animation,
-  type Frame,
-  type PlaybackState,
-  type Renderer,
-  type SectionFit,
-  type SectionPlayback,
-  type SectionState,
-  type TimelineCue,
-  type TimelineState,
-  createFrame,
-  getCurrentPlayback,
-  getFittedAnimation,
   type ParameterSelection,
   getParameterAnimation,
   getParameterSelection,
+} from "./parameters.ts";
+import type { PlaybackState, SectionState, TimelineState } from "./playback.ts";
+import type { Renderer } from "./renderer.ts";
+import {
+  type AdvanceTiming,
+  type SectionFit,
+  type SectionPlayback,
+  getCurrentPlayback,
+  getFittedAnimation,
   getNextSection,
   getRenderPosition,
   getSectionCursor,
   getSectionPosition,
+} from "./sections.ts";
+import {
+  type TimelineCue,
   getCuePosition,
   getCueSectionPosition,
   getTimelineCueIndex,
-} from "@led-matrix/core";
+} from "./timeline.ts";
 
 export type PlaybackListener = {
   setFrame?(frame: Frame): void;

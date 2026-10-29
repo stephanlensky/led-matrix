@@ -12,10 +12,10 @@ import {
   decodeMessage,
   encodeStatus,
   getPixel,
+  createPlaybackEngine,
 } from "@led-matrix/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type DeviceLink, createDeviceLink } from "./device.ts";
-import { createPlaybackEngine } from "./engine.ts";
 
 const status: DeviceStatus = {
   width: 64,

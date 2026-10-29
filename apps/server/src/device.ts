@@ -12,8 +12,8 @@ import {
   encodeCompressedFrame,
   encodeFrame,
   encodeSetBrightness,
+  type PlaybackEngine,
 } from "@led-matrix/core";
-import type { PlaybackEngine } from "./engine.ts";
 
 const CONNECTION_TIMEOUT_MS = STATUS_INTERVAL_MS * 3;
 const SENT_FRAME_HISTORY = 256;

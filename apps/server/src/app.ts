@@ -28,6 +28,8 @@ import {
   outputSchema,
   timelineCueSchema,
   timelineIdSchema,
+  type PlaybackEngine,
+  createPlaybackEngine,
 } from "@led-matrix/core";
 import { nodeCanvas } from "@led-matrix/core/node-canvas";
 import Fastify from "fastify";
@@ -42,7 +44,6 @@ import {
   createDeviceLink,
   disabledDeviceState,
 } from "./device.ts";
-import { type PlaybackEngine, createPlaybackEngine } from "./engine.ts";
 import { seedAnimations } from "./seeds.ts";
 
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;

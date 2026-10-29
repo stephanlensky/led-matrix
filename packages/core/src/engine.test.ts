@@ -1,13 +1,8 @@
-import {
-  type Frame,
-  createFrame,
-  type PlaybackState,
-  type Renderer,
-  animationSchema,
-  createRenderer,
-  getPixel,
-} from "@led-matrix/core";
 import { describe, expect, it, vi } from "vitest";
+import { animationSchema } from "./animation.ts";
+import { type Frame, createFrame, getPixel } from "./frame.ts";
+import type { PlaybackState } from "./playback.ts";
+import { type Renderer, createRenderer } from "./renderer.ts";
 import { createPlaybackEngine } from "./engine.ts";
 
 function createEngine(onError?: (error: unknown) => void, latency = 0) {

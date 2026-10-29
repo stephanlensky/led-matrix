@@ -7,6 +7,7 @@ export * from "./collisions.ts";
 export * from "./color.ts";
 export * from "./device-protocol.ts";
 export * from "./effect.ts";
+export * from "./engine.ts";
 export * from "./effects/big-text.ts";
 export * from "./effects/index.ts";
 export * from "./folders.ts";
