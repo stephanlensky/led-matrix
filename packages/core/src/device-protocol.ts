@@ -22,6 +22,7 @@ export const MessageType = {
   setBrightness: 0x02,
   compressedFrame: 0x03,
   status: 0x81,
+  log: 0x82,
 } as const;
 
 export const DeviceMode = {
@@ -66,7 +67,8 @@ export type FrameChunk = {
 export type DeviceMessage =
   | ({ type: "frame" } & FrameChunk)
   | { type: "setBrightness"; brightness: number }
-  | { type: "status"; status: DeviceStatus };
+  | { type: "status"; status: DeviceStatus }
+  | { type: "log"; text: string };
 
 function createMessage(type: number, size: number): { bytes: Uint8Array; view: DataView } {
   const bytes = new Uint8Array(size);
@@ -215,6 +217,16 @@ export function encodeStatus(status: DeviceStatus): Uint8Array {
   return bytes;
 }
 
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+export function encodeLog(text: string): Uint8Array {
+  const encoded = textEncoder.encode(text).subarray(0, MAX_SERIAL_PACKET_SIZE - HEADER_SIZE);
+  const { bytes } = createMessage(MessageType.log, HEADER_SIZE + encoded.length);
+  bytes.set(encoded, HEADER_SIZE);
+  return bytes;
+}
+
 function isDeviceMode(value: number): value is DeviceMode {
   return Object.values<number>(DeviceMode).includes(value);
 }
@@ -294,6 +306,8 @@ export function decodeMessage(bytes: Uint8Array): DeviceMessage | undefined {
         },
       };
     }
+    case MessageType.log:
+      return { type: "log", text: textDecoder.decode(bytes.subarray(HEADER_SIZE)) };
     default:
       return undefined;
   }

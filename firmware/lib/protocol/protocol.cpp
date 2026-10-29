@@ -1,5 +1,6 @@
 #include "protocol.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace protocol {
@@ -31,7 +32,8 @@ bool isKnownType(uint8_t type) {
   return type == static_cast<uint8_t>(MessageType::frame) ||
          type == static_cast<uint8_t>(MessageType::setBrightness) ||
          type == static_cast<uint8_t>(MessageType::compressedFrame) ||
-         type == static_cast<uint8_t>(MessageType::status);
+         type == static_cast<uint8_t>(MessageType::status) ||
+         type == static_cast<uint8_t>(MessageType::log);
 }
 
 int32_t getSequenceDistance(uint32_t from, uint32_t to) { return static_cast<int32_t>(to - from); }
@@ -136,6 +138,16 @@ std::array<uint8_t, statusSize> encodeStatus(const Status& status) {
   return bytes;
 }
 
+size_t encodeLog(const char* text, size_t size, uint8_t* packet) {
+  const size_t textSize = std::min(size, maxPacketSize - headerSize);
+  packet[0] = magic[0];
+  packet[1] = magic[1];
+  packet[2] = version;
+  packet[3] = static_cast<uint8_t>(MessageType::log);
+  std::memcpy(packet + headerSize, text, textSize);
+  return headerSize + textSize;
+}
+
 size_t encodeSerialPacket(const uint8_t* data, size_t size, uint8_t* encoded) {
   size_t codeIndex = 0;
   size_t position = 1;
@@ -222,6 +234,15 @@ bool FrameAssembler::start(uint32_t sequence, uint8_t chunkIndex, uint8_t chunkC
     received.reset();
   }
   return true;
+}
+
+void FrameAssembler::reset() {
+  if (pendingSequence) {
+    framesDropped++;
+  }
+  pendingSequence.reset();
+  latestSequence.reset();
+  received.reset();
 }
 
 bool FrameAssembler::finish(uint8_t chunkIndex, uint8_t chunkCount) {

@@ -12,5 +12,6 @@ size_t getQueuedFrames();
 std::optional<uint8_t> takeBrightness();
 uint32_t getFramesDropped();
 uint32_t getPacketsReceived();
+bool isSerialActive();
 
 }  // namespace receiver

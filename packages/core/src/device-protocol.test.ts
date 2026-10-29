@@ -12,6 +12,7 @@ import {
   decodeRunLength,
   encodeCompressedFrame,
   encodeFrame,
+  encodeLog,
   encodeSerialPacket,
   encodeSetBrightness,
   encodeStatus,
@@ -100,6 +101,15 @@ describe("device protocol", () => {
       type: "setBrightness",
       brightness: 42,
     });
+  });
+
+  it("round trips log messages", () => {
+    expect(decodeMessage(encodeLog("serial host active"))).toEqual({
+      type: "log",
+      text: "serial host active",
+    });
+    expect(decodeMessage(Uint8Array.of(0x4c, 0x4d, 1, 0x82))).toEqual({ type: "log", text: "" });
+    expect(encodeLog("x".repeat(2000))).toHaveLength(MAX_SERIAL_PACKET_SIZE);
   });
 
   it("ignores packets with the wrong magic, version or size", () => {

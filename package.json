@@ -9,6 +9,7 @@
     "typecheck": "pnpm --recursive typecheck",
     "fake-device": "pnpm --filter @led-matrix/server fake-device",
     "bench": "pnpm --filter @led-matrix/server bench",
+    "serial-stream": "pnpm --filter @led-matrix/server serial-stream",
     "firmware:build": "pio run -d firmware",
     "firmware:upload": "pio run -d firmware -t upload",
     "firmware:monitor": "pio device monitor -d firmware",

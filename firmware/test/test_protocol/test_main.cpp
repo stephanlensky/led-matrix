@@ -126,6 +126,23 @@ void test_encodes_status_in_little_endian() {
   TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, bytes.data(), statusSize);
 }
 
+void test_encodes_log_with_header() {
+  const std::string text = "serial host active";
+  Packet packet(maxPacketSize);
+  const size_t size = encodeLog(text.data(), text.size(), packet.data());
+  TEST_ASSERT_EQUAL(headerSize + text.size(), size);
+  const uint8_t header[] = {0x4c, 0x4d, 1, 0x82};
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(header, packet.data(), headerSize);
+  TEST_ASSERT_EQUAL_MEMORY(text.data(), packet.data() + headerSize, text.size());
+  TEST_ASSERT_TRUE(getMessageType(packet.data(), size) == MessageType::log);
+}
+
+void test_truncates_long_log() {
+  const std::string text(maxPacketSize, 'x');
+  Packet packet(maxPacketSize);
+  TEST_ASSERT_EQUAL(maxPacketSize, encodeLog(text.data(), text.size(), packet.data()));
+}
+
 void test_reassembles_frame_in_any_order() {
   const Frame frame = createGradient();
   Frame assembled(frameSize);
@@ -166,6 +183,16 @@ void test_accepts_restarted_sequence_far_behind() {
   addAll(assembler, encodeFrame(createGradient(), 5000));
   TEST_ASSERT_TRUE(addAll(assembler, encodeFrame(createGradient(), 0)));
   TEST_ASSERT_FALSE(addAll(assembler, encodeFrame(createGradient(), 1 - staleFrameWindow)));
+}
+
+void test_accepts_any_sequence_after_reset() {
+  Frame assembled(frameSize);
+  FrameAssembler assembler(assembled.data());
+  addAll(assembler, encodeFrame(createGradient(), 5));
+  addAll(assembler, slice(encodeFrame(createGradient(), 6), 0, 1));
+  assembler.reset();
+  TEST_ASSERT_EQUAL(1, assembler.getFramesDropped());
+  TEST_ASSERT_TRUE(addAll(assembler, encodeFrame(createGradient(), 2)));
 }
 
 void test_follows_sequence_across_wraparound() {
@@ -369,10 +396,13 @@ int main() {
   RUN_TEST(test_ignores_chunks_past_the_end_of_the_frame);
   RUN_TEST(test_decodes_set_brightness);
   RUN_TEST(test_encodes_status_in_little_endian);
+  RUN_TEST(test_encodes_log_with_header);
+  RUN_TEST(test_truncates_long_log);
   RUN_TEST(test_reassembles_frame_in_any_order);
   RUN_TEST(test_drops_incomplete_frame_when_newer_one_starts);
   RUN_TEST(test_ignores_late_chunks_from_older_frames);
   RUN_TEST(test_accepts_restarted_sequence_far_behind);
+  RUN_TEST(test_accepts_any_sequence_after_reset);
   RUN_TEST(test_follows_sequence_across_wraparound);
   RUN_TEST(test_reassembles_compressed_frame);
   RUN_TEST(test_rejects_malformed_runs);

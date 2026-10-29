@@ -33,7 +33,8 @@ enum class MessageType : uint8_t {
   frame = 0x01,
   setBrightness = 0x02,
   compressedFrame = 0x03,
-  status = 0x81
+  status = 0x81,
+  log = 0x82
 };
 
 enum class Mode : uint8_t { idle = 0, streaming = 1, fallback = 2 };
@@ -74,6 +75,7 @@ std::optional<CompressedFrameChunk> decodeCompressedFrameChunk(const uint8_t* da
 bool decodeRunLength(const uint8_t* data, size_t size, uint8_t* pixels, size_t pixelCount);
 std::optional<uint8_t> decodeSetBrightness(const uint8_t* data, size_t size);
 std::array<uint8_t, statusSize> encodeStatus(const Status& status);
+size_t encodeLog(const char* text, size_t size, uint8_t* packet);
 size_t encodeSerialPacket(const uint8_t* data, size_t size, uint8_t* encoded);
 
 class SerialDecoder {
@@ -109,6 +111,7 @@ class FrameAssembler {
   explicit FrameAssembler(uint8_t* frame);
   bool add(const FrameChunk& chunk);
   bool add(const CompressedFrameChunk& chunk);
+  void reset();
   uint32_t getFramesDropped() const { return framesDropped; }
 
  private:

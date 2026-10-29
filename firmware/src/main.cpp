@@ -3,6 +3,7 @@
 #include <protocol.h>
 
 #include <algorithm>
+#include <cstdarg>
 #include <optional>
 
 #include "display.h"
@@ -10,6 +11,7 @@
 #include "receiver.h"
 #include "settings.h"
 #include "udp.h"
+#include "usb.h"
 
 namespace {
 
@@ -25,6 +27,7 @@ std::optional<uint32_t> lastFrameAt;
 uint32_t shownSequence = 0;
 uint32_t shownAtUs = 0;
 bool wasStreaming = false;
+bool wasSerialActive = false;
 std::optional<String> shownAddress;
 
 uint16_t getShownAgeMs() {
@@ -37,9 +40,26 @@ bool isStreaming(uint32_t now) {
   return lastFrameAt && now - *lastFrameAt < protocol::frameTimeoutMs;
 }
 
+void log(const char* format, ...) {
+  char text[256];
+  va_list arguments;
+  va_start(arguments, format);
+  const int written = vsnprintf(text, sizeof(text), format, arguments);
+  va_end(arguments);
+  const size_t size = std::clamp<int>(written, 0, sizeof(text) - 1);
+  if (receiver::isSerialActive()) {
+    uint8_t packet[protocol::maxPacketSize];
+    usb::send(packet, protocol::encodeLog(text, size, packet));
+  } else {
+    usb::sendText(text, size);
+    usb::sendText("\n", 1);
+  }
+}
+
 void sendStatus(uint32_t now) {
   lastStatusAt = now;
-  if (!network::isConnected()) {
+  const bool isSerialActive = receiver::isSerialActive();
+  if (!isSerialActive && !network::isConnected()) {
     return;
   }
   const auto status = protocol::encodeStatus({
@@ -52,14 +72,17 @@ void sendStatus(uint32_t now) {
       .shownSequence = shownSequence,
       .shownAgeMs = getShownAgeMs(),
   });
-  udp::send(network::getStatusAddress(), protocol::serverPort, status.data(), status.size());
+  if (isSerialActive) {
+    usb::send(status.data(), status.size());
+  } else {
+    udp::send(network::getStatusAddress(), protocol::serverPort, status.data(), status.size());
+  }
 }
 
 void logStatus(uint32_t now) {
-  Serial.printf(
-      "%s  %u packets/s  %u fps  queued %u  refresh %u Hz  shown %u  dropped %u  brightness %u  "
-      "rssi %d\n",
-      isStreaming(now) ? "streaming" : "idle",
+  log("%s %s  %u packets/s  %u fps  queued %u  refresh %u Hz  shown %u  dropped %u  "
+      "brightness %u  rssi %d",
+      receiver::isSerialActive() ? "serial" : "udp", isStreaming(now) ? "streaming" : "idle",
       static_cast<unsigned>(receiver::getPacketsReceived() - packetsAtLastStatus),
       static_cast<unsigned>(framesShown - framesShownAtLastStatus),
       static_cast<unsigned>(receiver::getQueuedFrames()),
@@ -100,13 +123,22 @@ void updateBrightness(uint32_t now) {
   }
 }
 
+void updateSerialHost(uint32_t now) {
+  const bool isSerialActive = receiver::isSerialActive();
+  if (isSerialActive != wasSerialActive) {
+    wasSerialActive = isSerialActive;
+    log("serial host %s", isSerialActive ? "active" : "inactive");
+    sendStatus(now);
+  }
+}
+
 void showNetwork() {
   const String address = network::isConnected() ? network::getLocalAddress().toString() : "";
   if (address == shownAddress) {
     return;
   }
   shownAddress = address;
-  Serial.printf("network %s address %s\n", network::getName().c_str(), address.c_str());
+  log("network %s address %s", network::getName().c_str(), address.c_str());
   display::showLines({"LED MATRIX", network::getName(),
                       address.isEmpty() ? String("CONNECTING") : address,
                       "UDP " + String(protocol::devicePort)});
@@ -115,23 +147,23 @@ void showNetwork() {
 }  // namespace
 
 void setup() {
-  Serial.begin(115200);
-  Serial.setTxTimeoutMs(0);
+  usb::begin();
   settings::begin();
   brightness = settings::getBrightness();
   if (!display::begin(brightness)) {
-    Serial.println("display failed to start");
+    log("display failed to start");
   }
   display::showTestPattern();
   network::begin();
   if (!receiver::begin()) {
-    Serial.println("receiver failed to start");
+    log("receiver failed to start");
   }
   delay(testPatternMs);
 }
 
 void loop() {
   const uint32_t now = millis();
+  updateSerialHost(now);
   updateBrightness(now);
   updateFrame(now);
   const bool streaming = isStreaming(now);
@@ -143,7 +175,8 @@ void loop() {
     showNetwork();
   }
   if (now - lastStatusAt >= protocol::statusIntervalMs) {
-    logStatus(now);
     sendStatus(now);
+    logStatus(now);
   }
+  usb::update();
 }

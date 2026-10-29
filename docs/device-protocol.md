@@ -25,6 +25,13 @@ Over USB serial (the board's native USB CDC port) the same packets are sent in b
 - A host should send a lone `00` after opening the port, so any partial frame left in the device's buffer ends there.
 - `firmware/test/serial_vectors.txt` holds shared test vectors (packet and encoded frame in hex) that both implementations test against.
 
+A serial host is active while the device has decoded a valid packet from it in the last 2000 ms. A host that wants status before it has frames to send can send `0x02` set brightness. While a serial host is active:
+
+- The serial host wins: the device ignores frames and control messages arriving over UDP, and it stops sending status over UDP, so the server sees the device as disconnected. The device returns to UDP 2000 ms after the last serial packet. Switching source restarts frame assembly, so the new source's sequence numbers are accepted whatever they are.
+- Status messages (`0x81`) are sent over serial on the usual schedule, plus once when the host becomes active. The latency is computed as over UDP.
+- Logs are sent as `0x82` log messages. While no serial host is active, the device writes plain text lines to the port instead, for `pnpm firmware:monitor`. Plain text never contains `00`, and the device sends a `00` before its first framed message after text, so a host decoder resyncs.
+- The device only queues whole framed messages and drops a message when its transmit buffer is full, so frames are never cut short.
+
 ## Packet header
 
 All integers are little endian.
@@ -109,6 +116,14 @@ The age counts from when the frame became visible: the device adds half a panel 
 
 The server considers the device disconnected after 3000 ms without a status.
 
+### `0x82` log
+
+Sent only over serial, while a serial host is active (see Serial transport). The rest of the packet is one log line in UTF-8, without a trailing newline.
+
+| Offset | Size | Field |
+| ------ | ---- | ----- |
+| 4      | n    | text  |
+
 ## Device modes
 
 - **idle**: no frame shown for 2000 ms. The display is blanked (firmware may draw an idle pattern instead).
@@ -117,4 +132,4 @@ The server considers the device disconnected after 3000 ms without a status.
 
 ## Reserved message types
 
-`0x03`–`0x7F` server to device and `0x82`–`0xFF` device to server are free for later messages such as clip upload.
+`0x04`–`0x7F` server to device and `0x83`–`0xFF` device to server are free for later messages such as clip upload.

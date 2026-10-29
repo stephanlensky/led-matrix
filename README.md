@@ -32,7 +32,10 @@ pnpm firmware:build     # compile for the Matrix Portal S3
 pnpm firmware:upload    # flash over USB
 pnpm firmware:monitor   # serial log
 pnpm firmware:test      # protocol tests on the host
+pnpm serial-stream      # stream test frames to the board over USB and print its status and logs
 ```
+
+`pnpm serial-stream` accepts `--device` (defaults to the MatrixPortal under `/dev/serial/by-id`), `--fps`, `--seconds`, `--raw` (uncompressed frames), `--pattern` (`shape`, `gradient` or `noise`) and `--brightness` (sent after `--brightness-at` seconds). Once the board receives packets over USB it ignores UDP, sends its status and logs over USB, and returns to UDP 2 s after the last USB packet.
 
 Without configuration the board runs its own access point `led-matrix` (password `led-matrix`, board at `192.168.4.1`). To join a laptop hotspot instead, copy `firmware/config.example.ini` to `firmware/config.ini` and set `station_ssid` and `station_password`. `server_host` is optional; without it the board broadcasts its status and the server finds it.
 
