@@ -28,20 +28,30 @@ const CYAN = "#00c8ff";
 const HEART_PINK = "#ff2a6d";
 const LIGHT_PINK = "#ffb6d5";
 const PASTEL_PINK = "#ff9ec8";
+const PASTEL_BLUE = "#8fd8ff";
+const PASTEL_PURPLE = "#c39bff";
+const PASTEL_GREEN = "#9cffb0";
 
 type Palette = readonly [string, ...string[]];
 
 type Options = Readonly<Record<string, Record<string, unknown>>>;
 
 const SINGLE_PALETTES: Readonly<Record<string, Palette>> = {
+  Red: [RED],
   Orange: [ORANGE],
+  Pumpkin: [PUMPKIN],
   Purple: [PURPLE],
   Green: [GREEN],
+  Cyan: [CYAN],
+  "Ice blue": [ICE],
   White: [WHITE],
   "Hot pink": [PINK],
   Pink: [HEART_PINK],
   "Light pink": [LIGHT_PINK],
   "Pastel pink": [PASTEL_PINK],
+  "Pastel blue": [PASTEL_BLUE],
+  "Pastel purple": [PASTEL_PURPLE],
+  "Pastel green": [PASTEL_GREEN],
   Blood: [BLOOD_COLOR],
   "Dried blood": [DRIED_BLOOD_COLOR],
   "Fresh blood": [FRESH_BLOOD_COLOR],
@@ -54,7 +64,7 @@ const MULTI_PALETTES: Readonly<Record<string, Palette>> = {
   "Pink/purple": [PINK, PURPLE],
   "Pink/cyan": [PINK, CYAN],
   Ice: [WHITE, ICE],
-  Pastel: [PASTEL_PINK, "#8fd8ff", "#c39bff", "#9cffb0"],
+  Pastel: [PASTEL_PINK, PASTEL_BLUE, PASTEL_PURPLE, PASTEL_GREEN],
   Pinks: [PINK, HEART_PINK, LIGHT_PINK],
   Halloween: [ORANGE, PURPLE, GREEN],
   Bloodbath: BLOOD_PALETTE,
@@ -115,8 +125,6 @@ const MIXED_PINK_STROBE_PALETTES: Readonly<Record<string, Palette>> = {
 };
 
 const STROBE_PALETTES: Readonly<Record<string, Palette>> = {
-  Red: [RED],
-  Cyan: [CYAN],
   ...SINGLE_PALETTES,
   ...MULTI_PALETTES,
   ...getShadeStrobePalettes(RED_SHADES),
@@ -465,7 +473,7 @@ const rumble: AnimationInput = {
 const loadingParameter = getParameter(
   "Color",
   Object.fromEntries(
-    Object.entries({ Red: RED, ...SINGLE_COLORS }).map(([name, color]) => [
+    Object.entries(SINGLE_COLORS).map(([name, color]) => [
       name,
       { color, textColor: getDimColor(color, 0.48) },
     ]),
@@ -1922,7 +1930,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       "Solid",
       1,
       [{ effect: "solid", params: { color: { param: "color" } } }],
-      [getColorParameter("White", { Red: RED, ...SINGLE_COLORS })],
+      [getColorParameter("White", SINGLE_COLORS)],
     ),
     strobe: getLoop(
       "Strobe",
@@ -1960,11 +1968,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
       [
-        getLightColorParameter("Orange", {
-          ...SINGLE_PALETTES,
-          Cyan: [CYAN],
-          ...MULTI_PALETTES,
-        }),
+        getLightColorParameter("Orange"),
         getValueParameter("Speed", "flashesPerBeat", flashSpeeds, "Beat"),
         getParameter(
           "Style",
