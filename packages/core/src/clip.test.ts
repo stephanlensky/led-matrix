@@ -8,6 +8,7 @@ import {
   fitImage,
   getClipFrameIndex,
   getEncodedFrameCount,
+  isEncodedClipFrames,
 } from "./clip.ts";
 import { getParamFields } from "./params.ts";
 import { clip } from "./effects/clip.ts";
@@ -67,6 +68,21 @@ describe("encodeClipFrames", () => {
     expect(decoded.getFrame(10)?.[0]).toBe(200);
     expect(decoded.getFrame(3)?.[CLIP_FRAME_BYTES - 1]).toBe(60);
     expect(decoded.getFrame(frameCount)).toBeUndefined();
+  });
+});
+
+describe("isEncodedClipFrames", () => {
+  it("accepts encoded frames with the expected frame count", () => {
+    const encoded = encodeClipFrames(new Uint8Array(11 * CLIP_FRAME_BYTES));
+    expect(isEncodedClipFrames(encoded, 11)).toBe(true);
+    expect(isEncodedClipFrames(encoded, 10)).toBe(false);
+  });
+
+  it("rejects truncated or malformed data", () => {
+    const encoded = encodeClipFrames(new Uint8Array(11 * CLIP_FRAME_BYTES));
+    expect(isEncodedClipFrames(encoded.subarray(0, encoded.length - 1), 11)).toBe(false);
+    expect(isEncodedClipFrames(encoded.subarray(0, 6), 11)).toBe(false);
+    expect(isEncodedClipFrames(new TextEncoder().encode("not a clip at all"), 11)).toBe(false);
   });
 });
 

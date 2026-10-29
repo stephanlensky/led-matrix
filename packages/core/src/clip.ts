@@ -101,6 +101,31 @@ export function getEncodedFrameCount(data: Uint8Array): number {
   return new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(0, true);
 }
 
+export function isEncodedClipFrames(data: Uint8Array, frameCount: number): boolean {
+  if (data.length < CLIP_HEADER_BYTES) {
+    return false;
+  }
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const groupFrames = view.getUint32(UINT32_BYTES, true);
+  if (view.getUint32(0, true) !== frameCount || groupFrames === 0) {
+    return false;
+  }
+  const groupCount = Math.ceil(frameCount / groupFrames);
+  const dataStart = CLIP_HEADER_BYTES + (groupCount + 1) * UINT32_BYTES;
+  if (data.length < dataStart) {
+    return false;
+  }
+  let previous = dataStart;
+  for (let group = 0; group <= groupCount; group++) {
+    const offset = view.getUint32(CLIP_HEADER_BYTES + group * UINT32_BYTES, true);
+    if (offset < previous || offset > data.length) {
+      return false;
+    }
+    previous = offset;
+  }
+  return previous === data.length;
+}
+
 export function createClip(data: Uint8Array, durations: readonly number[]): Clip {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const frameCount = view.getUint32(0, true);
