@@ -2629,6 +2629,35 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
     },
+    "hero-band": getLoop(
+      "Frieren and Himmel band",
+      16,
+      [
+        {
+          effect: "hero-band",
+          params: getReferences(["singer", "background", "lightColor", "noteColor"]),
+        },
+      ],
+      [
+        getValueParameter(
+          "Characters",
+          "singer",
+          { "Himmel sings, Frieren guitar": "himmel", "Frieren sings, Himmel guitar": "frieren" },
+          "Himmel sings, Frieren guitar",
+        ),
+        getParameter(
+          "Lights",
+          {
+            "Pink and cyan": { lightColor: "#ff3cb4", noteColor: "#3cdcff" },
+            "Gold and violet": { lightColor: "#ffc030", noteColor: "#a050ff" },
+            "Red and white": { lightColor: "#ff2a3c", noteColor: "#ffffff" },
+            "Green and blue": { lightColor: "#40ff80", noteColor: "#3c8cff" },
+          },
+          "Pink and cyan",
+        ),
+        backgroundParameter,
+      ],
+    ),
     "frieren-himmel-dance": getLoop(
       "Frieren and Himmel dance",
       16,

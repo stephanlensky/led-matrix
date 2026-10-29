@@ -127,7 +127,7 @@ function getArmsAttachment(hero: HeroId): HeroAttachment {
   };
 }
 
-function getTorsoPoint(lean: number, [x, y, depth]: Vector): Vector {
+export function getTorsoPoint(lean: number, [x, y, depth]: Vector): Vector {
   const undo = getRotation(-lean, 0, 0);
   const [px, py, pz] = undo([x - TORSO_PIVOT[0], y - TORSO_PIVOT[1], depth - TORSO_PIVOT[2]]);
   return [px + TORSO_PIVOT[0], py + TORSO_PIVOT[1], pz + TORSO_PIVOT[2]];
