@@ -31,6 +31,14 @@ const PASTEL_PINK = "#ff9ec8";
 const PASTEL_BLUE = "#8fd8ff";
 const PASTEL_PURPLE = "#c39bff";
 const PASTEL_GREEN = "#9cffb0";
+const MINT = "#40ffa8";
+const GOLD = "#ffc828";
+const BLUE = "#3c70ff";
+const ORCHID = "#d040ff";
+const AQUA = "#20e8ff";
+const TANGERINE = "#ff7a1a";
+const YELLOW = "#ffe600";
+const MAGENTA = "#ff00ff";
 
 type Palette = readonly [string, ...string[]];
 
@@ -39,10 +47,18 @@ type Options = Readonly<Record<string, Record<string, unknown>>>;
 const SINGLE_PALETTES: Readonly<Record<string, Palette>> = {
   Red: [RED],
   Orange: [ORANGE],
+  Tangerine: [TANGERINE],
   Pumpkin: [PUMPKIN],
+  Gold: [GOLD],
+  Yellow: [YELLOW],
   Purple: [PURPLE],
+  Orchid: [ORCHID],
+  Magenta: [MAGENTA],
   Green: [GREEN],
+  Mint: [MINT],
   Cyan: [CYAN],
+  Aqua: [AQUA],
+  Blue: [BLUE],
   "Ice blue": [ICE],
   White: [WHITE],
   "Hot pink": [PINK],
@@ -64,6 +80,7 @@ const MULTI_PALETTES: Readonly<Record<string, Palette>> = {
   "Pink/purple": [PINK, PURPLE],
   "Pink/cyan": [PINK, CYAN],
   Ice: [WHITE, ICE],
+  "Mint/gold": [MINT, GOLD],
   Pastel: [PASTEL_PINK, PASTEL_BLUE, PASTEL_PURPLE, PASTEL_GREEN],
   Pinks: [PINK, HEART_PINK, LIGHT_PINK],
   Halloween: [ORANGE, PURPLE, GREEN],
@@ -661,12 +678,12 @@ const loveColorParameter = getParameter(
     "Hot pink": { heartColor: PINK, backgroundColor: "#2a0014" },
     "Light pink": { heartColor: LIGHT_PINK, backgroundColor: "#2a0a18" },
     Red: { heartColor: "#ff1030", backgroundColor: "#240006" },
-    Purple: { heartColor: "#d040ff", backgroundColor: "#16052a" },
-    Cyan: { heartColor: "#20e8ff", backgroundColor: "#021a20" },
-    Blue: { heartColor: "#3c70ff", backgroundColor: "#040a2a" },
-    Mint: { heartColor: "#40ffa8", backgroundColor: "#021a10" },
-    Gold: { heartColor: "#ffc828", backgroundColor: "#201402" },
-    Orange: { heartColor: "#ff7a1a", backgroundColor: "#200a02" },
+    Purple: { heartColor: ORCHID, backgroundColor: "#16052a" },
+    Cyan: { heartColor: AQUA, backgroundColor: "#021a20" },
+    Blue: { heartColor: BLUE, backgroundColor: "#040a2a" },
+    Mint: { heartColor: MINT, backgroundColor: "#021a10" },
+    Gold: { heartColor: GOLD, backgroundColor: "#201402" },
+    Orange: { heartColor: TANGERINE, backgroundColor: "#200a02" },
     White: { heartColor: "#f0f0ff", backgroundColor: "#141420" },
   },
   "Pink",
