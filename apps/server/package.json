@@ -6,6 +6,7 @@
     "dev": "node --watch-path=src --watch-path=../../packages/core/src src/index.ts",
     "start": "node src/index.ts",
     "fake-device": "node src/fake-device.ts",
+    "bench": "node src/bench.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {
