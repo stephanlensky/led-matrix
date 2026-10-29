@@ -1,6 +1,6 @@
-import type { EditorOutput, PreviewOutput, Settings } from "../shared/api.ts";
+import type { EditorOutput, PreviewOutput } from "../shared/api.ts";
 import type { Mapping } from "../shared/mapping.ts";
-import { type ServerClient, createServerClient } from "./server.ts";
+import type { ServerClient } from "./server.ts";
 import { createSync } from "./sync.ts";
 
 const NUDGE_INTERVAL = 250;
@@ -12,10 +12,9 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function createEditorOutput(log: (message: string) => void) {
+export function createEditorOutput(getClient: () => ServerClient, log: (message: string) => void) {
   const logOutput = (message: string) => log(`Editor output: ${message}`);
   let server: ServerClient | undefined;
-  let serverKey: string | undefined;
   let sync: Sync | undefined;
   let mapping: Mapping = new Map();
   let lastSetAt = -Infinity;
@@ -23,15 +22,14 @@ export function createEditorOutput(log: (message: string) => void) {
   let isPreviewBusy = false;
   let lastPreviewError: string | undefined;
 
-  function getServer({ serverUrl, output }: Settings): ServerClient {
-    const key = `${serverUrl}\n${output}`;
-    if (!server || key !== serverKey) {
-      server = createServerClient(serverUrl, output);
-      serverKey = key;
+  function getServer(): ServerClient {
+    const client = getClient();
+    if (client !== server) {
+      server = client;
       sync = undefined;
       previewKey = undefined;
     }
-    return server;
+    return client;
   }
 
   async function setPreview(current: ServerClient, preview: PreviewOutput): Promise<void> {
@@ -58,8 +56,8 @@ export function createEditorOutput(log: (message: string) => void) {
   }
 
   return {
-    set(settings: Settings, output: EditorOutput): void {
-      const current = getServer(settings);
+    set(output: EditorOutput): void {
+      const current = getServer();
       const now = Date.now();
       if (now - lastSetAt > SYNC_TIMEOUT) {
         sync = undefined;

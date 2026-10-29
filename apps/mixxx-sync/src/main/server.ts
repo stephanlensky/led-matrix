@@ -111,13 +111,13 @@ function getAnimations(baseUrl: string): Promise<StoredAnimation[]> {
   return request(baseUrl, storedAnimationSchema.array(), "/api/animations");
 }
 
-export function createServerContent(baseUrl: string): ContentSource {
+export function createServerContent(getBaseUrl: () => string): ContentSource {
   return {
-    getAnimations: () => getAnimations(baseUrl),
-    getClips: () => request(baseUrl, clipInfoSchema.array(), "/api/clips"),
+    getAnimations: () => getAnimations(getBaseUrl()),
+    getClips: () => request(getBaseUrl(), clipInfoSchema.array(), "/api/clips"),
     async getClipFrames(id) {
       const response = await send(
-        baseUrl,
+        getBaseUrl(),
         `/api/clips/${encodeURIComponent(id)}/frames`,
         undefined,
         CLIP_FRAMES_TIMEOUT,

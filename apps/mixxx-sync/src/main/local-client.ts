@@ -36,6 +36,7 @@ export type LocalClientOptions = {
   log?: (message: string) => void;
   onState?: (state: PlaybackState) => void;
   onDevice?: (state: RenderDeviceState) => void;
+  onDeviceLog?: (text: string) => void;
 };
 
 export type LocalClient = ServerClient & {
@@ -80,6 +81,7 @@ export function createLocalClient({
   log = console.log,
   onState,
   onDevice,
+  onDeviceLog,
 }: LocalClientOptions): LocalClient {
   const clips = new Map<string, RenderClip>();
   let animations: StoredAnimation[] | undefined;
@@ -108,6 +110,7 @@ export function createLocalClient({
       latencyOffset,
       onState,
       onDevice,
+      onDeviceLog,
       onLog: log,
       onExit: setExited,
     });

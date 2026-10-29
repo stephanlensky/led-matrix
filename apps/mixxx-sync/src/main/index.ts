@@ -1,10 +1,13 @@
 import { join } from "node:path";
+import { getSerialDevices } from "@led-matrix/core/node-device";
 import { BrowserWindow, app, dialog, ipcMain, protocol } from "electron";
 import { z } from "zod";
 import {
   type EditorOutput,
   type FileSetting,
+  BOARD_LOG_LIMIT,
   LOG_LIMIT,
+  type LocalDevice,
   type LogEntry,
   type Settings,
   channels,
@@ -12,10 +15,14 @@ import {
 } from "../shared/api.ts";
 import { TRACK_AUDIO_SCHEME, type WaveformType } from "../shared/library.ts";
 import type { MappingFile } from "../shared/mapping.ts";
+import { createCachedContent } from "./content-cache.ts";
 import { createDaemon } from "./daemon.ts";
 import { createEditorOutput } from "./editor-output.ts";
+import { createLocalClient } from "./local-client.ts";
 import { createMappingFile } from "./mapping-file.ts";
 import { createMixxxLibrary } from "./mixxx-library.ts";
+import { createOutput, getOutputKey } from "./output.ts";
+import { createServerContent } from "./server.ts";
 import { getDefaultSettings, getStoredSettings, setStoredSettings } from "./settings.ts";
 import { createTrackAudioHandler } from "./track-audio.ts";
 import { createUiStateFile } from "./ui-state.ts";
@@ -27,6 +34,11 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
+const userDataPath = process.env["MIXXX_SYNC_USER_DATA"];
+if (userDataPath) {
+  app.setPath("userData", userDataPath);
+}
+
 const settingsPath = join(app.getPath("userData"), "settings.json");
 let settings: Settings = await getStoredSettings(
   settingsPath,
@@ -34,6 +46,7 @@ let settings: Settings = await getStoredSettings(
 );
 const uiState = await createUiStateFile(join(app.getPath("userData"), "ui-state.json"));
 const logEntries: LogEntry[] = [];
+const boardLogEntries: LogEntry[] = [];
 
 function send(channel: string, value: unknown): void {
   for (const window of BrowserWindow.getAllWindows()) {
@@ -41,12 +54,39 @@ function send(channel: string, value: unknown): void {
   }
 }
 
+function addLogEntry(entries: LogEntry[], message: string, limit: number): LogEntry {
+  const entry = { id: (entries.at(-1)?.id ?? 0) + 1, time: Date.now(), message };
+  entries.push(entry);
+  entries.splice(0, entries.length - limit);
+  return entry;
+}
+
 function log(message: string): void {
-  const entry = { id: (logEntries.at(-1)?.id ?? 0) + 1, time: Date.now(), message };
   console.log(message);
-  logEntries.push(entry);
-  logEntries.splice(0, logEntries.length - LOG_LIMIT);
-  send(channels.log, entry);
+  send(channels.log, addLogEntry(logEntries, message, LOG_LIMIT));
+}
+
+const content = createCachedContent({
+  source: createServerContent(() => settings.serverUrl),
+  directory: join(app.getPath("userData"), "content"),
+  log,
+});
+const output = createOutput(settings, {
+  createLocal: (serialPort) =>
+    createLocalClient({
+      content,
+      devicePath: serialPort ?? undefined,
+      log,
+      onDeviceLog: (text) => addLogEntry(boardLogEntries, text, BOARD_LOG_LIMIT),
+    }),
+  log,
+});
+
+function getLocalDevice(): LocalDevice | undefined {
+  const local = output.getLocal();
+  return (
+    local && { device: local.getDeviceState(), content: content.getState(), log: boardLogEntries }
+  );
 }
 
 const library = createMixxxLibrary(() => settings.mixxxDatabasePath);
@@ -55,11 +95,12 @@ const mappingFile = createMappingFile({
   onChange: (state) => send(channels.mapping, state),
 });
 const daemon = createDaemon({
+  getClient: () => output.getClient(),
   log,
   onStatus: (status) => send(channels.status, status),
   onPosition: (position) => send(channels.position, position),
 });
-const editorOutput = createEditorOutput(log);
+const editorOutput = createEditorOutput(() => output.getClient(), log);
 
 ipcMain.handle(channels.getSettings, () => settings);
 const fileFilters: Record<FileSetting, Electron.FileFilter[]> = {
@@ -74,7 +115,17 @@ ipcMain.handle(channels.setSettings, async (_event, value: Settings) => {
   ) {
     throw new Error("Stop the daemon to change the daemon settings");
   }
+  const previous = settings;
   settings = await setStoredSettings(settingsPath, value);
+  const isRestarting =
+    daemon.getStatus().isRunning && getOutputKey(settings) !== getOutputKey(previous);
+  if (isRestarting) {
+    daemon.stop();
+  }
+  output.set(settings);
+  if (isRestarting) {
+    daemon.start(settings);
+  }
   send(channels.settings, settings);
   void mappingFile.updatePath();
   return settings;
@@ -91,6 +142,14 @@ ipcMain.handle(channels.showFileDialog, async (event, setting: FileSetting) => {
     : await dialog.showOpenDialog(options);
   return result.filePaths[0];
 });
+ipcMain.handle(channels.getSerialPorts, () => getSerialDevices());
+ipcMain.handle(channels.getLocalDevice, () => getLocalDevice());
+ipcMain.handle(channels.setLocalBrightness, (_event, brightness: number) => {
+  const local = output.getLocal();
+  local?.setBrightness(brightness);
+  const device = getLocalDevice();
+  return device && { ...device, device: { ...device.device, brightness } };
+});
 ipcMain.handle(channels.getStatus, () => daemon.getStatus());
 ipcMain.handle(channels.getLog, () => logEntries);
 ipcMain.handle(channels.start, () => daemon.start(settings));
@@ -103,9 +162,7 @@ ipcMain.handle(channels.getTrackDetails, (_event, trackId: number) =>
 ipcMain.handle(channels.getWaveform, (_event, trackId: number, type: WaveformType) =>
   library.getTrackWaveform(trackId, type),
 );
-ipcMain.on(channels.setEditorOutput, (_event, output: EditorOutput) =>
-  editorOutput.set(settings, output),
-);
+ipcMain.on(channels.setEditorOutput, (_event, value: EditorOutput) => editorOutput.set(value));
 ipcMain.on(channels.stopEditorOutput, () => void editorOutput.stop());
 ipcMain.on(channels.getUiState, (event) => {
   event.returnValue = uiState.getState();
@@ -180,5 +237,8 @@ app.on("window-all-closed", () => {
   library.close();
   mappingFile.close();
   uiState.flush();
-  void editorOutput.stop().finally(() => app.quit());
+  void editorOutput.stop().finally(() => {
+    output.close();
+    app.quit();
+  });
 });

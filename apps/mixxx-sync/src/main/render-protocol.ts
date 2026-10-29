@@ -1,5 +1,6 @@
-import type { DeviceState, PlaybackState, StoredAnimation } from "@led-matrix/core";
+import { type PlaybackState, type StoredAnimation, disabledDeviceState } from "@led-matrix/core";
 import { z } from "zod";
+import type { LocalDeviceState } from "../shared/api.ts";
 import type { ClockRequest, PlayRequest, TimelineRequest } from "./server.ts";
 
 export const renderOptionsSchema = z.object({
@@ -32,11 +33,19 @@ export type RenderMessage =
   | { type: "removeClip"; id: string }
   | { type: "setBrightness"; brightness: number };
 
-export type RenderDeviceState = DeviceState & { path: string | null };
+export type RenderDeviceState = LocalDeviceState;
+
+export const disabledRenderDeviceState: RenderDeviceState = {
+  ...disabledDeviceState,
+  path: null,
+  bytesPerSecond: 0,
+  droppedFrames: 0,
+};
 
 export type RenderEvent =
   | { type: "response"; id: number; state: PlaybackState }
   | { type: "response"; id: number; error: string }
   | { type: "state"; state: PlaybackState }
   | { type: "device"; state: RenderDeviceState }
-  | { type: "log"; message: string };
+  | { type: "log"; message: string }
+  | { type: "deviceLog"; text: string };

@@ -1,13 +1,14 @@
 import { fork } from "node:child_process";
 import { join } from "node:path";
-import { type PlaybackState, type StoredAnimation, disabledDeviceState } from "@led-matrix/core";
-import type {
-  RenderClip,
-  RenderDeviceState,
-  RenderEvent,
-  RenderMessage,
-  RenderOptions,
-  RenderRequest,
+import type { PlaybackState, StoredAnimation } from "@led-matrix/core";
+import {
+  type RenderClip,
+  type RenderDeviceState,
+  type RenderEvent,
+  type RenderMessage,
+  type RenderOptions,
+  type RenderRequest,
+  disabledRenderDeviceState,
 } from "./render-protocol.ts";
 import type { ServerClient } from "./server.ts";
 
@@ -25,6 +26,7 @@ export type RenderProcessOptions = Partial<RenderOptions> & {
   onState?: (state: PlaybackState) => void;
   onDevice?: (state: RenderDeviceState) => void;
   onLog?: (message: string) => void;
+  onDeviceLog?: (text: string) => void;
   onExit?: (code: number | string) => void;
 };
 
@@ -35,6 +37,7 @@ export function createRenderProcess({
   onState,
   onDevice,
   onLog,
+  onDeviceLog,
   onExit,
   ...options
 }: RenderProcessOptions = {}) {
@@ -46,7 +49,7 @@ export function createRenderProcess({
   const pending = new Map<number, PendingRequest>();
   let nextId = 0;
   let exitCode: number | string | undefined;
-  let deviceState: RenderDeviceState = { ...disabledDeviceState, path: null };
+  let deviceState: RenderDeviceState = disabledRenderDeviceState;
 
   function post(message: RenderMessage): void {
     if (child.connected) {
@@ -98,6 +101,9 @@ export function createRenderProcess({
       case "log":
         onLog?.(event.message);
         break;
+      case "deviceLog":
+        onDeviceLog?.(event.text);
+        break;
     }
   });
   function setExited(code: number | string): void {
@@ -105,7 +111,7 @@ export function createRenderProcess({
       return;
     }
     exitCode = code;
-    deviceState = { ...disabledDeviceState, path: null };
+    deviceState = disabledRenderDeviceState;
     for (const entry of pending.values()) {
       clearTimeout(entry.timer);
       entry.reject(new Error(`Render process exited with ${exitCode}`));

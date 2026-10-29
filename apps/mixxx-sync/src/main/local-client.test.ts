@@ -13,7 +13,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedCue } from "../shared/mapping.ts";
 import { type LocalRenderProcess, createLocalClient, getUsedClips } from "./local-client.ts";
 import type { RenderProcessOptions } from "./render-process.ts";
-import type { RenderEvent, RenderRequest } from "./render-protocol.ts";
+import {
+  type RenderEvent,
+  type RenderRequest,
+  disabledRenderDeviceState,
+} from "./render-protocol.ts";
 import { createClipStore, createRenderService } from "./render-service.ts";
 import type { ContentSource } from "./server.ts";
 import { createSync } from "./sync.ts";
@@ -113,7 +117,7 @@ function createFakeProcess(options: RenderProcessOptions) {
       service.handle({ type: "removeClip", id }),
     ),
     setBrightness: (value) => service.handle({ type: "setBrightness", brightness: value }),
-    getDeviceState: () => ({ ...createDisabledDevice() }),
+    getDeviceState: () => disabledRenderDeviceState,
     close: vi.fn<LocalRenderProcess["close"]>(() => exit("SIGTERM")),
   };
 
@@ -123,18 +127,6 @@ function createFakeProcess(options: RenderProcessOptions) {
   }
 
   return { render, options, clips, brightness, exit };
-}
-
-function createDisabledDevice() {
-  return {
-    enabled: false,
-    connected: false,
-    address: null,
-    status: null,
-    brightness: null,
-    latencyMs: null,
-    path: null,
-  };
 }
 
 function setup(animations: StoredAnimation[], clips: ClipInfo[] = []) {

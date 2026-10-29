@@ -1,7 +1,7 @@
 import type { Output } from "@led-matrix/core";
 import { FolderOpenIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import type { FileSetting, Settings as SettingsValue } from "../../shared/api.ts";
+import type { FileSetting, OutputMode, Settings as SettingsValue } from "../../shared/api.ts";
 import { Button } from "@led-matrix/ui/components/button";
 import {
   Card,
@@ -32,6 +32,29 @@ const outputLabels: Record<Output, string> = {
   device: "Device",
   simulator: "Simulator",
 };
+
+const outputModes: readonly OutputMode[] = ["server", "local"];
+
+const outputModeLabels: Record<OutputMode, string> = {
+  server: "Server (WiFi)",
+  local: "Local (USB)",
+};
+
+const AUTO_DETECT = "auto";
+
+function useSerialPorts(isEnabled: boolean): string[] {
+  const [ports, setPorts] = useState<string[]>([]);
+  useEffect(() => {
+    if (isEnabled) {
+      void window.api.getSerialPorts().then(setPorts);
+    }
+  }, [isEnabled]);
+  return ports;
+}
+
+function getSerialPortLabel(port: string): string {
+  return port === AUTO_DETECT ? "Auto-detect" : port;
+}
 
 function FileInput({
   id,
@@ -80,6 +103,12 @@ function SettingsForm({
   const [settings, setSettings] = useState(initialSettings);
   const [error, setError] = useState<string>();
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isLocal = settings.outputMode === "local";
+  const serialPorts = useSerialPorts(isLocal);
+  const serialPortOptions = [
+    AUTO_DETECT,
+    ...new Set([...serialPorts, ...(settings.serialPort ? [settings.serialPort] : [])]),
+  ];
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
@@ -122,27 +151,6 @@ function SettingsForm({
             disabled={isDaemonRunning}
             onChange={(event) => update({ serverUrl: event.target.value })}
           />
-          <Label htmlFor={`${id}-output`}>Output</Label>
-          <Select
-            value={settings.output}
-            disabled={isDaemonRunning}
-            onValueChange={(output: Output | null) => {
-              if (output) {
-                update({ output });
-              }
-            }}
-          >
-            <SelectTrigger id={`${id}-output`} className="w-full">
-              <SelectValue>{(output: Output) => outputLabels[output]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {outputs.map((output) => (
-                <SelectItem key={output} value={output}>
-                  {outputLabels[output]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Label htmlFor={`${id}-socket`}>Mixxx socket</Label>
           <Input
             id={`${id}-socket`}
@@ -159,6 +167,84 @@ function SettingsForm({
             onChange={(mappingFile) => update({ mappingFile })}
             onShowDialog={() => void showFileDialog("mappingFile")}
           />
+        </CardContent>
+      </Card>
+      <Card className="shrink-0">
+        <CardHeader>
+          <CardTitle>Output</CardTitle>
+          <CardDescription>
+            Where the daemon and the editor play. Local renders on this computer and streams to the
+            board over USB.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-[8rem_1fr] items-center gap-x-4 gap-y-3">
+          <Label htmlFor={`${id}-output-mode`}>Output</Label>
+          <Select
+            value={settings.outputMode}
+            onValueChange={(outputMode: OutputMode | null) => {
+              if (outputMode) {
+                update({ outputMode });
+              }
+            }}
+          >
+            <SelectTrigger id={`${id}-output-mode`} className="w-full">
+              <SelectValue>{(outputMode: OutputMode) => outputModeLabels[outputMode]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {outputModes.map((outputMode) => (
+                <SelectItem key={outputMode} value={outputMode}>
+                  {outputModeLabels[outputMode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {isLocal ? (
+            <>
+              <Label htmlFor={`${id}-serial-port`}>Serial port</Label>
+              <Select
+                value={settings.serialPort ?? AUTO_DETECT}
+                onValueChange={(port: string | null) => {
+                  if (port) {
+                    update({ serialPort: port === AUTO_DETECT ? null : port });
+                  }
+                }}
+              >
+                <SelectTrigger id={`${id}-serial-port`} className="w-full">
+                  <SelectValue>{getSerialPortLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {serialPortOptions.map((port) => (
+                    <SelectItem key={port} value={port}>
+                      {getSerialPortLabel(port)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          ) : (
+            <>
+              <Label htmlFor={`${id}-output`}>Server output</Label>
+              <Select
+                value={settings.output}
+                onValueChange={(output: Output | null) => {
+                  if (output) {
+                    update({ output });
+                  }
+                }}
+              >
+                <SelectTrigger id={`${id}-output`} className="w-full">
+                  <SelectValue>{(output: Output) => outputLabels[output]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {outputs.map((output) => (
+                    <SelectItem key={output} value={output}>
+                      {outputLabels[output]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
         </CardContent>
       </Card>
       <Card className="shrink-0">

@@ -9,15 +9,8 @@ import {
   storedAnimationSchema,
 } from "@led-matrix/core";
 import { z } from "zod";
+import type { ContentOrigin, ContentState as ContentCacheState } from "../shared/api.ts";
 import type { ContentSource } from "./server.ts";
-
-export type ContentOrigin = "server" | "cache";
-
-export type ContentCacheState = {
-  origin: ContentOrigin | null;
-  savedAt: number | null;
-  error: string | null;
-};
 
 export type CachedContentOptions = {
   source: ContentSource;

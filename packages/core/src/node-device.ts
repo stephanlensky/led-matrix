@@ -140,6 +140,19 @@ export function findSerialDevice({
   return tty === undefined ? undefined : join(deviceDirectory, tty);
 }
 
+export function getSerialDevices({
+  byIdDirectory = "/dev/serial/by-id",
+  ttyDirectory = "/sys/class/tty",
+  deviceDirectory = "/dev",
+}: SerialDeviceDirectories = {}): string[] {
+  return [
+    ...readDirectory(byIdDirectory).map((name) => join(byIdDirectory, name)),
+    ...readDirectory(ttyDirectory)
+      .filter((name) => name.startsWith("ttyACM"))
+      .map((name) => join(deviceDirectory, name)),
+  ];
+}
+
 export type SerialPort = { input: Readable; output: Writable };
 
 export async function openSerialPort(path: string): Promise<SerialPort> {

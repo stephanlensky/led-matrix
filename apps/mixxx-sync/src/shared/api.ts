@@ -1,10 +1,14 @@
-import type { Output, ParameterSelection } from "@led-matrix/core";
+import type { DeviceState, Output, ParameterSelection } from "@led-matrix/core";
 import type { Playlist, Track, TrackDetails, Waveform, WaveformType } from "./library.ts";
 import type { MappingFile, MappingState, ResolvedCue } from "./mapping.ts";
 
+export type OutputMode = "server" | "local";
+
 export type Settings = {
   serverUrl: string;
+  outputMode: OutputMode;
   output: Output;
+  serialPort: string | null;
   socketPath: string;
   mappingFile: string;
   mixxxDatabasePath: string;
@@ -13,7 +17,6 @@ export type Settings = {
 
 export const daemonSettingKeys = [
   "serverUrl",
-  "output",
   "socketPath",
   "mappingFile",
 ] as const satisfies readonly (keyof Settings)[];
@@ -61,7 +64,29 @@ export type PreviewOutput = {
 
 export type EditorOutput = TrackOutput | PreviewOutput;
 
+export type ContentOrigin = "server" | "cache";
+
+export type ContentState = {
+  origin: ContentOrigin | null;
+  savedAt: number | null;
+  error: string | null;
+};
+
+export type LocalDeviceState = DeviceState & {
+  path: string | null;
+  bytesPerSecond: number;
+  droppedFrames: number;
+};
+
+export type LocalDevice = {
+  device: LocalDeviceState;
+  content: ContentState;
+  log: LogEntry[];
+};
+
 export const LOG_LIMIT = 500;
+
+export const BOARD_LOG_LIMIT = 50;
 
 export type LogEntry = {
   id: number;
@@ -73,6 +98,9 @@ export type Api = {
   getSettings(): Promise<Settings>;
   setSettings(settings: Settings): Promise<Settings>;
   showFileDialog(setting: FileSetting): Promise<string | undefined>;
+  getSerialPorts(): Promise<string[]>;
+  getLocalDevice(): Promise<LocalDevice | undefined>;
+  setLocalBrightness(brightness: number): Promise<LocalDevice | undefined>;
   getStatus(): Promise<DaemonStatus>;
   getLog(): Promise<LogEntry[]>;
   start(): Promise<void>;
@@ -99,6 +127,9 @@ export const channels = {
   setSettings: "settings:set",
   settings: "settings:changed",
   showFileDialog: "file:show-dialog",
+  getSerialPorts: "local:get-serial-ports",
+  getLocalDevice: "local:get-device",
+  setLocalBrightness: "local:set-brightness",
   getStatus: "daemon:get-status",
   getLog: "daemon:get-log",
   start: "daemon:start",

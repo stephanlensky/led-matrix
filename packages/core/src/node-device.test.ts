@@ -21,6 +21,7 @@ import {
   createSerialTransport,
   encodeSerialFrame,
   findSerialDevice,
+  getSerialDevices,
 } from "./node-device.ts";
 
 const status: DeviceStatus = {
@@ -125,6 +126,19 @@ describe("findSerialDevice", () => {
     const { addTty, ...options } = createDirectories();
     addTty("ttyACM0", "2341");
     expect(findSerialDevice(options)).toBeUndefined();
+  });
+
+  it("lists by-id links and ACM ttys of any vendor", () => {
+    const { addTty, ...options } = createDirectories();
+    addTty("ttyACM1", "239a");
+    addTty("ttyACM0", "2341");
+    mkdirSync(join(options.ttyDirectory, "ttyS0"));
+    writeFileSync(join(options.byIdDirectory, "usb-Other_Device-if00"), "");
+    expect(getSerialDevices(options)).toEqual([
+      join(options.byIdDirectory, "usb-Other_Device-if00"),
+      "/dev/ttyACM0",
+      "/dev/ttyACM1",
+    ]);
   });
 });
 

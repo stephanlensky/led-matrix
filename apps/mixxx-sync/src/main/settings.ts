@@ -5,19 +5,27 @@ import { outputSchema } from "@led-matrix/core";
 import { z } from "zod";
 import type { Settings } from "../shared/api.ts";
 
+export const outputModeSchema = z.enum(["server", "local"]);
+
 export const settingsSchema = z.object({
   serverUrl: z.url(),
+  outputMode: outputModeSchema,
   output: outputSchema,
+  serialPort: z.string().min(1).nullable(),
   socketPath: z.string().min(1),
   mappingFile: z.string().min(1),
   mixxxDatabasePath: z.string().min(1),
   startDaemonOnLaunch: z.boolean(),
 });
 
+const storedSettingsSchema = z.record(z.string(), z.unknown());
+
 export function getDefaultSettings(appPath: string): Settings {
   return {
     serverUrl: process.env["LED_MATRIX_URL"] ?? "https://led-matrix.cardinal.slensky.com",
+    outputMode: "server",
     output: outputSchema.catch("device").parse(process.env["LED_MATRIX_OUTPUT"]),
+    serialPort: null,
     socketPath:
       process.env["MIXXX_SOCKET"] ??
       join(process.env["XDG_RUNTIME_DIR"] ?? "/tmp", "mixxx-control.sock"),
@@ -34,8 +42,15 @@ export async function getStoredSettings(path: string, defaults: Settings): Promi
   } catch {
     return defaults;
   }
-  const result = settingsSchema.partial().safeParse(stored);
-  return result.success ? { ...defaults, ...result.data } : defaults;
+  const result = storedSettingsSchema.safeParse(stored);
+  if (!result.success) {
+    return defaults;
+  }
+  const entries = Object.entries(settingsSchema.shape).flatMap(([key, schema]) => {
+    const value = schema.safeParse(result.data[key]);
+    return value.success ? [[key, value.data]] : [];
+  });
+  return { ...defaults, ...Object.fromEntries(entries) };
 }
 
 export async function setStoredSettings(path: string, settings: Settings): Promise<Settings> {

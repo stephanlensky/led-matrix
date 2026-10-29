@@ -14,12 +14,16 @@ import {
 } from "./render-protocol.ts";
 import { createClipStore, createRenderService, getErrorMessage } from "./render-service.ts";
 
+const EXIT_DELAY = 100;
+
 const { fps, bpm, devicePath, latencyOffset }: RenderOptions = renderOptionsSchema.parse(
   JSON.parse(process.argv[2] ?? "{}"),
 );
 
 function send(event: RenderEvent): void {
-  process.send?.(event);
+  if (process.connected) {
+    process.send?.(event);
+  }
 }
 
 function log(message: string): void {
@@ -47,10 +51,18 @@ const device = createDeviceLink({
   engine,
   transport,
   latencyOffset,
-  onLog: (text) => log(`Device: ${text}`),
+  onLog: (text) => send({ type: "deviceLog", text }),
 });
 device.subscribe((state) =>
-  send({ type: "device", state: { ...state, path: transport.getPath() } }),
+  send({
+    type: "device",
+    state: {
+      ...state,
+      path: transport.getPath(),
+      bytesPerSecond: transport.getBytesPerSecond(),
+      droppedFrames: transport.getDroppedFrames(),
+    },
+  }),
 );
 const service = createRenderService({
   engine,
@@ -58,6 +70,13 @@ const service = createRenderService({
   setBrightness: (brightness) => device.setBrightness(brightness),
   send,
 });
+function exit(): void {
+  engine.stop();
+  engine.tick();
+  setTimeout(() => process.exit(), EXIT_DELAY);
+}
+
 process.on("message", (message: RenderMessage) => service.handle(message));
-process.on("disconnect", () => process.exit());
+process.once("disconnect", exit);
+process.once("SIGTERM", exit);
 engine.start();
