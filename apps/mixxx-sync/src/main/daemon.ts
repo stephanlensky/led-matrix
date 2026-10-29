@@ -1,11 +1,15 @@
 import { type FSWatcher, watch } from "node:fs";
+import type { Server } from "node:http";
 import { basename, dirname } from "node:path";
 import type { DaemonStatus, LivePosition, Settings } from "../shared/api.ts";
 import { type Mapping, getResolvedMapping } from "../shared/mapping.ts";
 import { readMappingFile } from "./mapping-file.ts";
+import { listen } from "./listen.ts";
 import { connectToMixxx } from "./mixxx.ts";
 import type { ServerClient } from "./server.ts";
+import { type SocketForward, createSocketForward } from "./socket-forward.ts";
 import { createSync } from "./sync.ts";
+import { createVolumeServer } from "./volume-server.ts";
 
 const RETRY_DELAY = 5000;
 
@@ -45,12 +49,14 @@ export function createDaemon({ getClient, log, onStatus, onPosition }: DaemonOpt
   }
 
   function start(settings: Settings): Session {
-    const { socketPath, mappingFile } = settings;
+    const { socketPath, mappingFile, forwardPort, volumePort, bindHost } = settings;
     const server = getClient();
     let isStopped = false;
     let mapping: Mapping = new Map();
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let reloadTimer: ReturnType<typeof setTimeout> | undefined;
+    let isMixxxConnected = false;
+    let mainGain: number | undefined;
 
     async function loadMapping(): Promise<void> {
       const file = await readMappingFile(mappingFile);
@@ -113,12 +119,17 @@ export function createDaemon({ getClient, log, onStatus, onPosition }: DaemonOpt
     log(`Waiting for Mixxx at ${socketPath}`);
     const connection = connectToMixxx({
       path: socketPath,
-      onState: (state) => void sync.update(state),
+      onState: (state) => {
+        mainGain = state.decks.mainGain;
+        void sync.update(state);
+      },
       onConnect: () => {
+        isMixxxConnected = true;
         setStatus({ isMixxxConnected: true });
         log(`Connected to Mixxx at ${socketPath}`);
       },
       onDisconnect: (error) => {
+        isMixxxConnected = false;
         setStatus({ isMixxxConnected: false });
         log(`Disconnected from Mixxx${error ? `: ${error.message}` : ""}`);
       },
@@ -126,9 +137,40 @@ export function createDaemon({ getClient, log, onStatus, onPosition }: DaemonOpt
         log(`Invalid message from Mixxx: ${line} (${getErrorMessage(error)})`),
     });
 
+    let forward: SocketForward | undefined;
+    if (forwardPort !== null) {
+      forward = createSocketForward(socketPath, log);
+      listen(forward.server, {
+        name: "Socket forward",
+        host: bindHost,
+        port: forwardPort,
+        protocol: "tcp",
+        log,
+      });
+    }
+
+    let volumeServer: Server | undefined;
+    if (volumePort !== null) {
+      volumeServer = createVolumeServer({
+        getMainGain: () => mainGain,
+        isConnected: () => isMixxxConnected,
+        setMainGain: (parameter) => connection.send({ type: "setMainGain", parameter }),
+      });
+      listen(volumeServer, {
+        name: "Volume page",
+        host: bindHost,
+        port: volumePort,
+        protocol: "http",
+        log,
+      });
+    }
+
     return {
       stop(): void {
         isStopped = true;
+        forward?.close();
+        volumeServer?.close();
+        volumeServer?.closeAllConnections();
         clearTimeout(retryTimer);
         clearTimeout(reloadTimer);
         watcher?.close();

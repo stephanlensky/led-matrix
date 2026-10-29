@@ -7,7 +7,7 @@ function getDeck(group: string, deck: Partial<Deck> = {}): Deck {
 }
 
 function getDecks(decks: Deck[], crossfader = 0): DecksMessage {
-  return { type: "decks", time: 1000, outputLatency: 0, crossfader, decks };
+  return { type: "decks", time: 1000, outputLatency: 0, crossfader, mainGain: 1, decks };
 }
 
 describe("getAudibleBeat", () => {

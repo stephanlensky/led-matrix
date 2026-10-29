@@ -107,6 +107,7 @@ function createHarness(mapping: Mapping | (() => Mapping), keepCurrent?: boolean
         time: clock.time,
         outputLatency: 0,
         crossfader: 0,
+        mainGain: 1,
         decks: decks.map((deck, index) => ({
           group: `[Channel${index + 1}]`,
           play: true,

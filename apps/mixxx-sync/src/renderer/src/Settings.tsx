@@ -92,6 +92,31 @@ function FileInput({
   );
 }
 
+function PortInput({
+  id,
+  value,
+  isDisabled,
+  onChange,
+}: {
+  id: string;
+  value: number | null;
+  isDisabled: boolean;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <Input
+      id={id}
+      type="number"
+      min={1}
+      max={65535}
+      placeholder="Off"
+      value={value ?? ""}
+      disabled={isDisabled}
+      onChange={(event) => onChange(event.target.value === "" ? null : event.target.valueAsNumber)}
+    />
+  );
+}
+
 function SettingsForm({
   initialSettings,
   isDaemonRunning,
@@ -245,6 +270,38 @@ function SettingsForm({
               </Select>
             </>
           )}
+        </CardContent>
+      </Card>
+      <Card className="shrink-0">
+        <CardHeader>
+          <CardTitle>Network</CardTitle>
+          <CardDescription>
+            Started with the daemon. Leave a port empty to turn it off. There is no authentication,
+            so only use these on a trusted network.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-[8rem_1fr] items-center gap-x-4 gap-y-3">
+          <Label htmlFor={`${id}-forward-port`}>Socket forward</Label>
+          <PortInput
+            id={`${id}-forward-port`}
+            value={settings.forwardPort}
+            isDisabled={isDaemonRunning}
+            onChange={(forwardPort) => update({ forwardPort })}
+          />
+          <Label htmlFor={`${id}-volume-port`}>Volume page</Label>
+          <PortInput
+            id={`${id}-volume-port`}
+            value={settings.volumePort}
+            isDisabled={isDaemonRunning}
+            onChange={(volumePort) => update({ volumePort })}
+          />
+          <Label htmlFor={`${id}-bind-host`}>Bind address</Label>
+          <Input
+            id={`${id}-bind-host`}
+            value={settings.bindHost}
+            disabled={isDaemonRunning}
+            onChange={(event) => update({ bindHost: event.target.value })}
+          />
         </CardContent>
       </Card>
       <Card className="shrink-0">

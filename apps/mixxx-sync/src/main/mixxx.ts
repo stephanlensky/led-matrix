@@ -21,6 +21,7 @@ export const decksMessageSchema = z.object({
   time: z.number(),
   outputLatency: z.number(),
   crossfader: z.number(),
+  mainGain: z.number(),
   decks: z.array(deckSchema),
 });
 
@@ -39,6 +40,10 @@ export type Deck = z.infer<typeof deckSchema>;
 export type DecksMessage = z.infer<typeof decksMessageSchema>;
 
 export type Message = z.infer<typeof messageSchema>;
+
+export type MixxxCommand =
+  | { type: "setMainGain"; value: number }
+  | { type: "setMainGain"; parameter: number };
 
 export type MixxxState = {
   tracks: ReadonlyMap<string, Track | null>;
@@ -65,16 +70,16 @@ export function connectToMixxx({
   let closed = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let socket: ReturnType<typeof createConnection> | undefined;
+  let isConnected = false;
 
   function connect(): void {
     const tracks = new Map<string, Track | null>();
     let buffer = "";
     let error: Error | undefined;
-    let connected = false;
     socket = createConnection(path);
     socket.setEncoding("utf8");
     socket.on("connect", () => {
-      connected = true;
+      isConnected = true;
       onConnect?.();
     });
     socket.on("data", (chunk: string) => {
@@ -104,10 +109,12 @@ export function connectToMixxx({
     });
     socket.on("close", () => {
       socket = undefined;
+      const wasConnected = isConnected;
+      isConnected = false;
       if (closed) {
         return;
       }
-      if (connected) {
+      if (wasConnected) {
         onDisconnect?.(error);
       }
       timer = setTimeout(connect, reconnectDelay);
@@ -117,6 +124,13 @@ export function connectToMixxx({
   connect();
 
   return {
+    send(command: MixxxCommand): boolean {
+      if (!socket || !isConnected) {
+        return false;
+      }
+      socket.write(`${JSON.stringify(command)}\n`);
+      return true;
+    },
     close(): void {
       closed = true;
       clearTimeout(timer);

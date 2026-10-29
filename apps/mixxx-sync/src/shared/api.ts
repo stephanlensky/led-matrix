@@ -10,6 +10,9 @@ export type Settings = {
   output: Output;
   serialPort: string | null;
   socketPath: string;
+  forwardPort: number | null;
+  volumePort: number | null;
+  bindHost: string;
   mappingFile: string;
   mixxxDatabasePath: string;
   startDaemonOnLaunch: boolean;
@@ -18,6 +21,9 @@ export type Settings = {
 export const daemonSettingKeys = [
   "serverUrl",
   "socketPath",
+  "forwardPort",
+  "volumePort",
+  "bindHost",
   "mappingFile",
 ] as const satisfies readonly (keyof Settings)[];
 

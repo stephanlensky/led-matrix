@@ -7,12 +7,24 @@ import type { Settings } from "../shared/api.ts";
 
 export const outputModeSchema = z.enum(["server", "local"]);
 
+const portSchema = z.int().min(1).max(65535);
+
+function getEnvPort(name: string): number | null {
+  return portSchema
+    .nullable()
+    .catch(null)
+    .parse(Number(process.env[name] ?? Number.NaN));
+}
+
 export const settingsSchema = z.object({
   serverUrl: z.url(),
   outputMode: outputModeSchema,
   output: outputSchema,
   serialPort: z.string().min(1).nullable(),
   socketPath: z.string().min(1),
+  forwardPort: portSchema.nullable(),
+  volumePort: portSchema.nullable(),
+  bindHost: z.string().min(1),
   mappingFile: z.string().min(1),
   mixxxDatabasePath: z.string().min(1),
   startDaemonOnLaunch: z.boolean(),
@@ -29,6 +41,9 @@ export function getDefaultSettings(appPath: string): Settings {
     socketPath:
       process.env["MIXXX_SOCKET"] ??
       join(process.env["XDG_RUNTIME_DIR"] ?? "/tmp", "mixxx-control.sock"),
+    forwardPort: getEnvPort("MIXXX_FORWARD_PORT"),
+    volumePort: getEnvPort("MIXXX_VOLUME_PORT"),
+    bindHost: process.env["MIXXX_BIND_HOST"] || "0.0.0.0",
     mappingFile: join(appPath, "mapping.json"),
     mixxxDatabasePath: process.env["MIXXX_DATABASE"] ?? join(homedir(), ".mixxx", "mixxxdb.sqlite"),
     startDaemonOnLaunch: true,
