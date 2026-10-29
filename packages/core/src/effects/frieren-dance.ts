@@ -19,6 +19,7 @@ export const heroDance = defineEffect({
   kind: "pixel",
   params: z.object({
     move: z.enum(hunterMoves).default("headbang"),
+    speed: z.number().min(0.25).max(4).default(1),
     sync: z.enum(heroSyncs).default("together"),
     size: z.number().min(4).max(20).default(15),
     spacing: z.number().min(0).max(30).default(15),
@@ -32,7 +33,7 @@ export const heroDance = defineEffect({
         phase: syncPhases[params.sync][index] ?? 0,
         side,
       };
-      const frame = hunterMoveFrames[params.move](beat, dancer, params.size);
+      const frame = hunterMoveFrames[params.move](beat * params.speed, dancer, params.size);
       drawHero(raster, hero, {
         ...frame,
         pose: { ...frame.pose, cape: frame.pose.hair, skirt: frame.pose.hips },

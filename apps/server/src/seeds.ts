@@ -215,6 +215,13 @@ const SINGLE_COLORS = Object.fromEntries(
   Object.entries(SINGLE_PALETTES).map(([name, [color]]) => [name, color]),
 );
 
+const danceSpeedParameter = getValueParameter(
+  "Speed",
+  "speed",
+  { "Half time": 0.5, Normal: 1, "Double time": 2 },
+  "Normal",
+);
+
 function getFolder(
   folder: string,
   animations: Readonly<Record<string, AnimationInput>>,
@@ -1617,7 +1624,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       {
         effect: "cat-dance",
         params: {
-          ...getReferences(["move", "offbeat", "eyes", "heartColor"]),
+          ...getReferences(["move", "speed", "offbeat", "eyes", "heartColor"]),
           size: 12,
           spacing: 30,
         },
@@ -1636,6 +1643,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
         },
         "Sway",
       ),
+      danceSpeedParameter,
       getValueParameter(
         "Eyes",
         "eyes",
@@ -1684,7 +1692,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
   "hero-love": getLoop(
     "Frieren and Himmel love",
     16,
-    [loveFloatLayer, { effect: "hero-dance", params: getReferences(["move", "sync"]) }],
+    [loveFloatLayer, { effect: "hero-dance", params: getReferences(["move", "speed", "sync"]) }],
     [
       getValueParameter(
         "Move",
@@ -1692,6 +1700,7 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
         { Sway: "sway", Twist: "twist", Headbang: "headbang" },
         "Sway",
       ),
+      danceSpeedParameter,
       heroSyncParameter,
       lovePulseParameter,
       loveColorParameter,
@@ -2025,7 +2034,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "cat-dance": getLoop(
       "Cat dance",
       16,
-      [{ effect: "cat-dance", params: getReferences(["move", "offbeat"]) }],
+      [{ effect: "cat-dance", params: getReferences(["move", "speed", "offbeat"]) }],
       [
         getValueParameter(
           "Move",
@@ -2044,6 +2053,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           },
           "Sway",
         ),
+        danceSpeedParameter,
         getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
       ],
     ),
@@ -2314,7 +2324,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "huntrix-dance": getLoop(
       "Huntrix dance",
       16,
-      [{ effect: "hunter-dance", params: getReferences(["move", "sync"]) }],
+      [{ effect: "hunter-dance", params: getReferences(["move", "speed", "sync"]) }],
       [
         getValueParameter(
           "Move",
@@ -2332,6 +2342,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           },
           "Sway",
         ),
+        danceSpeedParameter,
         hunterSyncParameter,
       ],
     ),
@@ -2368,7 +2379,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "frieren-himmel-dance": getLoop(
       "Frieren and Himmel dance",
       16,
-      [{ effect: "hero-dance", params: getReferences(["move", "sync"]) }],
+      [{ effect: "hero-dance", params: getReferences(["move", "speed", "sync"]) }],
       [
         getValueParameter(
           "Move",
@@ -2386,6 +2397,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           },
           "Sway",
         ),
+        danceSpeedParameter,
         heroSyncParameter,
       ],
     ),
@@ -2466,7 +2478,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "pumpkin-dance": getLoop(
       "Pumpkin dance",
       16,
-      [{ effect: "pumpkin-dance", params: getReferences(["move", "count", "size", "sync"]) }],
+      [
+        {
+          effect: "pumpkin-dance",
+          params: getReferences(["move", "speed", "count", "size", "sync"]),
+        },
+      ],
       [
         getValueParameter(
           "Move",
@@ -2474,6 +2491,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           { Kick: "kick", Spin: "spin", Jig: "jig", Headbang: "headbang" },
           "Kick",
         ),
+        danceSpeedParameter,
         getParameter(
           "Lineup",
           {
@@ -2493,7 +2511,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "skeleton-dance": getLoop(
       "Skeleton dance",
       16,
-      [{ effect: "skeleton-dance", params: getReferences(["move", "count", "size", "sync"]) }],
+      [
+        {
+          effect: "skeleton-dance",
+          params: getReferences(["move", "speed", "count", "size", "sync"]),
+        },
+      ],
       [
         getValueParameter(
           "Move",
@@ -2501,6 +2524,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           { Jig: "jig", Rattle: "rattle", Charleston: "charleston", "Head toss": "toss" },
           "Jig",
         ),
+        danceSpeedParameter,
         getParameter(
           "Lineup",
           {

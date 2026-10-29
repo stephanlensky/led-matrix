@@ -305,6 +305,7 @@ export const catDance = defineEffect({
   params: z.object({
     ...coatParams,
     move: z.enum(danceMoves).default("headbang"),
+    speed: z.number().min(0.25).max(4).default(1),
     size: z.number().min(4).max(16).default(10),
     offbeat: z.boolean().default(false),
     spacing: z.number().min(0).max(40).default(28),
@@ -321,7 +322,7 @@ export const catDance = defineEffect({
     const raster = createRaster();
     const faces: CatFace[] = [];
     for (const [dancer, coat] of dancers) {
-      const frame = moveFrames[params.move](beat, dancer, params.size, progress);
+      const frame = moveFrames[params.move](beat * params.speed, dancer, params.size, progress);
       drawCat(raster, frame, params.eyes === "open" ? coat : getEyelessCoat(coat));
       faces.push(getCatFace(frame));
     }

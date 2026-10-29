@@ -156,6 +156,7 @@ export const pumpkinDance = defineEffect({
   kind: "pixel",
   params: z.object({
     move: z.enum(pumpkinMoves).default("kick"),
+    speed: z.number().min(0.25).max(4).default(1),
     sync: z.enum(pumpkinSyncs).default("together"),
     count: z.number().int().min(1).max(5).default(1),
     size: z.number().min(4).max(24).default(18),
@@ -185,7 +186,11 @@ export const pumpkinDance = defineEffect({
       };
       const candle = (hashSeed(0x9a3b, index, Math.floor(beat * 8)) % 100) / 100;
       const glow = 1 - params.flicker * (0.6 * candle + 0.4 * (1 - pulse));
-      drawPumpkin(raster, { ...moveFrames[params.move](beat, dancer, params.size), glow }, colors);
+      drawPumpkin(
+        raster,
+        { ...moveFrames[params.move](beat * params.speed, dancer, params.size), glow },
+        colors,
+      );
     }
     resolveRaster(raster, image);
   },

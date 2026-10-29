@@ -359,6 +359,7 @@ export const hunterDance = defineEffect({
   kind: "pixel",
   params: z.object({
     move: z.enum(hunterMoves).default("headbang"),
+    speed: z.number().min(0.25).max(4).default(1),
     sync: z.enum(hunterSyncs).default("together"),
     size: z.number().min(4).max(20).default(14),
     spacing: z.number().min(0).max(30).default(20),
@@ -372,7 +373,11 @@ export const hunterDance = defineEffect({
         phase: syncPhases[params.sync][index] ?? 0,
         side,
       };
-      drawHunter(raster, hunter, hunterMoveFrames[params.move](beat, dancer, params.size));
+      drawHunter(
+        raster,
+        hunter,
+        hunterMoveFrames[params.move](beat * params.speed, dancer, params.size),
+      );
     }
     resolveRaster(raster, image);
   },

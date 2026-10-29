@@ -227,6 +227,7 @@ export const skeletonDance = defineEffect({
   kind: "pixel",
   params: z.object({
     move: z.enum(skeletonMoves).default("jig"),
+    speed: z.number().min(0.25).max(4).default(1),
     sync: z.enum(skeletonSyncs).default("together"),
     count: z.number().int().min(1).max(5).default(1),
     size: z.number().min(4).max(24).default(20),
@@ -246,7 +247,11 @@ export const skeletonDance = defineEffect({
         side: offset === 0 ? 0.6 : -Math.sign(offset),
         index,
       };
-      drawSkeleton(raster, moveFrames[params.move](beat, dancer, params.size), colors);
+      drawSkeleton(
+        raster,
+        moveFrames[params.move](beat * params.speed, dancer, params.size),
+        colors,
+      );
     }
     resolveRaster(raster, image);
   },
