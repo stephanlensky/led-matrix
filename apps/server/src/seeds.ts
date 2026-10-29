@@ -689,6 +689,11 @@ const loveColorParameter = getParameter(
   "Pink",
 );
 
+const slowDanceLayer: LayerInput = {
+  effect: "hero-slow-dance",
+  params: getReferences(["turn", "every", "heartColor"]),
+};
+
 const catLoveMoveParameter = getValueParameter(
   "Move",
   "move",
@@ -1890,16 +1895,38 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       loveColorParameter,
     ],
   ),
-  "hero-slow-dance": getLoop(
-    "Frieren and Himmel slow dance",
-    16,
-    [{ effect: "hero-slow-dance", params: getReferences(["turn", "every", "heartColor"]) }],
-    [
+  "hero-slow-dance": {
+    name: "Frieren and Himmel slow dance",
+    parameters: [
       getValueParameter("Turn", "turn", { "2 bars": 8, "4 bars": 16 }, "2 bars"),
       lovePulseParameter,
       loveColorParameter,
     ],
-  ),
+    sections: [
+      {
+        name: "Wipe",
+        mode: { type: "once", beats: 2 },
+        layers: [
+          {
+            effect: "heart-wipe",
+            params: { color: { param: "heartColor" }, coverAt: 0, revealAt: 2, endAt: 3 },
+          },
+        ],
+      },
+      {
+        name: "Reveal",
+        mode: { type: "once", beats: 16 },
+        layers: [
+          slowDanceLayer,
+          {
+            effect: "heart-wipe",
+            params: { color: { param: "heartColor" }, coverAt: 0, revealAt: 0, endAt: 1.2 },
+          },
+        ],
+      },
+      { name: "Dance", mode: { type: "loop", beats: 16 }, layers: [slowDanceLayer] },
+    ],
+  },
   "frieren-heart-magic": getLoop(
     "Frieren heart magic",
     16,

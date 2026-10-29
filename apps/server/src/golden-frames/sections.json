@@ -194,14 +194,24 @@
       "section": 0
     },
     {
+      "name": "love-cat-laptop-duo#0",
+      "id": "love-cat-laptop-duo",
+      "section": 0
+    },
+    {
       "name": "hero-laptop#0",
       "id": "hero-laptop",
       "section": 0
     },
     {
-      "name": "hero-slow-dance#0",
+      "name": "hero-slow-dance#1",
       "id": "hero-slow-dance",
-      "section": 0
+      "section": 1
+    },
+    {
+      "name": "hero-slow-dance#2",
+      "id": "hero-slow-dance",
+      "section": 2
     },
     {
       "name": "frieren-heart-magic#0",
