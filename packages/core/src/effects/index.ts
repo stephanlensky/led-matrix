@@ -86,6 +86,7 @@ import {
 } from "./heart-blood.ts";
 import { equalizer } from "./equalizer.ts";
 import { catHeartHands, catKiss } from "./cat-love.ts";
+import { catGasp } from "./cat-gasp.ts";
 import { heartEcg, heartGrid, heartTunnel, heartZoom } from "./heart-patterns.ts";
 import { catBench, catMimic, catSquat } from "./cat-gym.ts";
 import { catJam } from "./cat-jam.ts";
@@ -191,6 +192,7 @@ export const effects: readonly Effect[] = [
   heartPulse,
   catHeartHands,
   catKiss,
+  catGasp,
   heartFloat,
   heartZoom,
   heartGrid,

@@ -1766,6 +1766,15 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
     ],
     [lovePulseParameter, loveColorParameter],
   ),
+  "cat-gasp": getLoop(
+    "Cat gasp",
+    10,
+    [{ effect: "cat-gasp", params: getReferences(["cat", "every"]) }],
+    [
+      getValueParameter("Cat", "cat", { Tabby: "tabby", Black: "black" }, "Tabby"),
+      lovePulseParameter,
+    ],
+  ),
   "hero-heart-hands": getLoop(
     "Frieren and Himmel heart hands",
     8,
