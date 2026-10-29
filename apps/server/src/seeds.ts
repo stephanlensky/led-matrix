@@ -196,6 +196,25 @@ const SINGLE_COLORS = Object.fromEntries(
   Object.entries(SINGLE_PALETTES).map(([name, [color]]) => [name, color]),
 );
 
+const PAIR_PALETTES = Object.fromEntries(
+  Object.entries(MULTI_PALETTES).filter(([, palette]) => palette.length === 2),
+);
+
+function getWithMissingOptions<T>(
+  options: Readonly<Record<string, T>>,
+  palettes: Readonly<Record<string, Palette>>,
+  getOption: (palette: Palette) => T,
+): Record<string, T> {
+  return {
+    ...options,
+    ...Object.fromEntries(
+      Object.entries(palettes)
+        .filter(([name]) => !(name in options))
+        .map(([name, palette]) => [name, getOption(palette)]),
+    ),
+  };
+}
+
 const FLASH_COLORS: Readonly<Record<string, string>> = { ...SINGLE_COLORS, Black: BLACK };
 
 const FLASH_COLOR_KEYS = ["A", "B", "C", "D"] as const;
@@ -210,12 +229,11 @@ function getFlashColorParameters(defaultColor: string): Parameter[] {
 
 const flashColorParams = getReferences(FLASH_COLOR_KEYS.map((key) => `color${key}`));
 
-const VEIN_COLORS: Readonly<Record<string, string>> = {
-  Blood: "#7a0614",
-  Cyan: "#0080b4",
-  Blue: "#2646b4",
-  Green: "#269800",
-};
+const VEIN_COLORS = getWithMissingOptions(
+  { Blood: "#7a0614", Cyan: "#0080b4", Blue: "#2646b4", Green: "#269800" },
+  SINGLE_PALETTES,
+  ([color]) => getDimColor(color, 0.7),
+);
 
 const danceSpeedParameter = getValueParameter(
   "Speed",
@@ -472,16 +490,20 @@ const loadingParameter = getParameter(
   "Red",
 );
 
-const squarePairs: Readonly<Record<string, Palette>> = {
-  "Pink/cyan": [PINK, CYAN],
-  "Pink/purple": [PINK, PURPLE],
-  Pinks: [PINK, LIGHT_PINK],
-  "Orange/purple": [ORANGE, PURPLE],
-  "Green/purple": [GREEN, PURPLE],
-  "White/orange": [WHITE, ORANGE],
-  Ice: [WHITE, ICE],
-  Blood: [FRESH_BLOOD_COLOR, DRIED_BLOOD_COLOR],
-};
+const squarePairs = getWithMissingOptions<Palette>(
+  {
+    "Pink/cyan": [PINK, CYAN],
+    "Pink/purple": [PINK, PURPLE],
+    Pinks: [PINK, LIGHT_PINK],
+    "Orange/purple": [ORANGE, PURPLE],
+    "Green/purple": [GREEN, PURPLE],
+    "White/orange": [WHITE, ORANGE],
+    Ice: [WHITE, ICE],
+    Blood: [FRESH_BLOOD_COLOR, DRIED_BLOOD_COLOR],
+  },
+  { ...PAIR_PALETTES, ...SINGLE_PALETTES },
+  (palette) => palette,
+);
 
 const flashSpeeds = {
   "Eighth time": 0.125,
@@ -647,19 +669,23 @@ const lovePulseParameter = getValueParameter(
 
 const loveColorParameter = getParameter(
   "Hearts",
-  {
-    Pink: { heartColor: HEART_PINK, backgroundColor: "#2a0418" },
-    "Hot pink": { heartColor: PINK, backgroundColor: "#2a0014" },
-    "Light pink": { heartColor: LIGHT_PINK, backgroundColor: "#2a0a18" },
-    Red: { heartColor: "#ff1030", backgroundColor: "#240006" },
-    Purple: { heartColor: ORCHID, backgroundColor: "#16052a" },
-    Cyan: { heartColor: AQUA, backgroundColor: "#021a20" },
-    Blue: { heartColor: BLUE, backgroundColor: "#040a2a" },
-    Mint: { heartColor: MINT, backgroundColor: "#021a10" },
-    Gold: { heartColor: GOLD, backgroundColor: "#201402" },
-    Orange: { heartColor: TANGERINE, backgroundColor: "#200a02" },
-    White: { heartColor: "#f0f0ff", backgroundColor: "#141420" },
-  },
+  getWithMissingOptions(
+    {
+      Pink: { heartColor: HEART_PINK, backgroundColor: "#2a0418" },
+      "Hot pink": { heartColor: PINK, backgroundColor: "#2a0014" },
+      "Light pink": { heartColor: LIGHT_PINK, backgroundColor: "#2a0a18" },
+      Red: { heartColor: "#ff1030", backgroundColor: "#240006" },
+      Purple: { heartColor: ORCHID, backgroundColor: "#16052a" },
+      Cyan: { heartColor: AQUA, backgroundColor: "#021a20" },
+      Blue: { heartColor: BLUE, backgroundColor: "#040a2a" },
+      Mint: { heartColor: MINT, backgroundColor: "#021a10" },
+      Gold: { heartColor: GOLD, backgroundColor: "#201402" },
+      Orange: { heartColor: TANGERINE, backgroundColor: "#200a02" },
+      White: { heartColor: "#f0f0ff", backgroundColor: "#141420" },
+    },
+    SINGLE_PALETTES,
+    ([heartColor]) => ({ heartColor, backgroundColor: getDimColor(heartColor, 0.14) }),
+  ),
   "Pink",
 );
 
@@ -705,14 +731,22 @@ const loveEyesParameter = getValueParameter(
   "Hearts",
 );
 
+function getBloodHeartOption([heartColor]: Palette): Record<string, string> {
+  return { heartColor, bloodColor: "#c00014", backgroundColor: getDimColor(heartColor, 0.06) };
+}
+
 const bleedingColorParameter = getParameter(
   "Hearts",
-  {
-    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
-    "Hot pink": { heartColor: PINK, bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#120002" },
-    "Light pink": { heartColor: LIGHT_PINK, bloodColor: "#a00010", backgroundColor: "#0e0204" },
-    Blood: { heartColor: FRESH_BLOOD_COLOR, bloodColor: BLOOD_COLOR, backgroundColor: BLACK },
-  },
+  getWithMissingOptions(
+    {
+      Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
+      "Hot pink": { heartColor: PINK, bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#120002" },
+      "Light pink": { heartColor: LIGHT_PINK, bloodColor: "#a00010", backgroundColor: "#0e0204" },
+      Blood: { heartColor: FRESH_BLOOD_COLOR, bloodColor: BLOOD_COLOR, backgroundColor: BLACK },
+    },
+    SINGLE_PALETTES,
+    getBloodHeartOption,
+  ),
   "Pink",
 );
 
@@ -742,16 +776,20 @@ function getBleedingLoop(
 
 const bloodHeartColorParameter = getParameter(
   "Hearts",
-  {
-    "Fresh blood": {
-      heartColor: FRESH_BLOOD_COLOR,
-      bloodColor: BLOOD_COLOR,
-      backgroundColor: "#120002",
+  getWithMissingOptions(
+    {
+      "Fresh blood": {
+        heartColor: FRESH_BLOOD_COLOR,
+        bloodColor: BLOOD_COLOR,
+        backgroundColor: "#120002",
+      },
+      Blood: { heartColor: "#a00008", bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#0a0000" },
+      "Dried blood": { heartColor: "#6a0a06", bloodColor: "#a00010", backgroundColor: BLACK },
+      Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
     },
-    Blood: { heartColor: "#a00008", bloodColor: FRESH_BLOOD_COLOR, backgroundColor: "#0a0000" },
-    "Dried blood": { heartColor: "#6a0a06", bloodColor: "#a00010", backgroundColor: BLACK },
-    Pink: { heartColor: HEART_PINK, bloodColor: "#c00014", backgroundColor: "#100003" },
-  },
+    SINGLE_PALETTES,
+    getBloodHeartOption,
+  ),
   "Fresh blood",
 );
 
@@ -822,7 +860,11 @@ function getVocalSection(
 const tamagotchiShellParameter = getValueParameter(
   "Shell",
   "shellColor",
-  { Pink: "#ff4fa8", Cyan: "#20c8ff", Purple: "#9a4dff", White: "#e8e8f0" },
+  getWithMissingOptions(
+    { Pink: "#ff4fa8", Cyan: "#20c8ff", Purple: "#9a4dff", White: "#e8e8f0" },
+    SINGLE_PALETTES,
+    ([color]) => color,
+  ),
   "Pink",
 );
 
@@ -1047,10 +1089,14 @@ function getHeartbeatSections(extraLayers: (pulse: number) => LayerInput[]): Sec
   ];
 }
 
-const heartbeatColorParameter = getColorParameter("Fresh blood", {
-  "Fresh blood": FRESH_BLOOD_COLOR,
-  Green: GREEN,
-});
+const heartbeatColorParameter = getColorParameter(
+  "Fresh blood",
+  getWithMissingOptions(
+    { "Fresh blood": FRESH_BLOOD_COLOR, Green: GREEN },
+    SINGLE_PALETTES,
+    ([color]) => color,
+  ),
+);
 
 const screamParameter = getValueParameter(
   "Scream",
@@ -1889,13 +1935,10 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
     [
       getParameter(
         "Hearts",
-        Object.fromEntries(
-          Object.entries(MULTI_PALETTES)
-            .filter(([, palette]) => palette.length === 2)
-            .map(([name, [heartColor, secondHeartColor]]) => [
-              name,
-              { heartColor, secondHeartColor },
-            ]),
+        getWithMissingOptions(
+          {},
+          { ...PAIR_PALETTES, ...SINGLE_PALETTES },
+          ([heartColor, secondHeartColor = heartColor]) => ({ heartColor, secondHeartColor }),
         ),
         "Pink/cyan",
       ),
@@ -2446,12 +2489,16 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         getValueParameter("Clash", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat"),
         getParameter(
           "Magic",
-          {
-            "Fire vs poison": { tabbyMagicColor: "#ff5a1e", magicColor: "#3cff50" },
-            "Ice vs pink": { tabbyMagicColor: CYAN, magicColor: PINK },
-            "Gold vs purple": { tabbyMagicColor: "#ffd030", magicColor: PURPLE },
-            "Pink vs purple": { tabbyMagicColor: PINK, magicColor: PURPLE },
-          },
+          getWithMissingOptions(
+            {
+              "Fire vs poison": { tabbyMagicColor: "#ff5a1e", magicColor: "#3cff50" },
+              "Ice vs pink": { tabbyMagicColor: CYAN, magicColor: PINK },
+              "Gold vs purple": { tabbyMagicColor: "#ffd030", magicColor: PURPLE },
+              "Pink vs purple": { tabbyMagicColor: PINK, magicColor: PURPLE },
+            },
+            PAIR_PALETTES,
+            ([tabbyMagicColor, magicColor]) => ({ tabbyMagicColor, magicColor }),
+          ),
           "Fire vs poison",
         ),
       ],
@@ -2786,11 +2833,15 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         ),
         getParameter(
           "Colors",
-          {
-            "Gold and cyan": { arrowColor: "#ffd030", sparkColor: "#3cdcff" },
-            "Pink and cyan": { arrowColor: "#ff3cb4", sparkColor: "#3cdcff" },
-            "Green and violet": { arrowColor: "#40ff80", sparkColor: "#a050ff" },
-          },
+          getWithMissingOptions(
+            {
+              "Gold and cyan": { arrowColor: "#ffd030", sparkColor: "#3cdcff" },
+              "Pink and cyan": { arrowColor: "#ff3cb4", sparkColor: "#3cdcff" },
+              "Green and violet": { arrowColor: "#40ff80", sparkColor: "#a050ff" },
+            },
+            PAIR_PALETTES,
+            ([arrowColor, sparkColor]) => ({ arrowColor, sparkColor }),
+          ),
           "Gold and cyan",
         ),
       ],
@@ -2871,12 +2922,16 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         ),
         getParameter(
           "Lights",
-          {
-            "Pink and cyan": { lightColor: "#ff3cb4", noteColor: "#3cdcff" },
-            "Gold and violet": { lightColor: "#ffc030", noteColor: "#a050ff" },
-            "Red and white": { lightColor: "#ff2a3c", noteColor: "#ffffff" },
-            "Green and blue": { lightColor: "#40ff80", noteColor: "#3c8cff" },
-          },
+          getWithMissingOptions(
+            {
+              "Pink and cyan": { lightColor: "#ff3cb4", noteColor: "#3cdcff" },
+              "Gold and violet": { lightColor: "#ffc030", noteColor: "#a050ff" },
+              "Red and white": { lightColor: "#ff2a3c", noteColor: "#ffffff" },
+              "Green and blue": { lightColor: "#40ff80", noteColor: "#3c8cff" },
+            },
+            PAIR_PALETTES,
+            ([lightColor, noteColor]) => ({ lightColor, noteColor }),
+          ),
           "Pink and cyan",
         ),
         backgroundParameter,
@@ -3109,15 +3164,22 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       32,
       [{ effect: "pumpkin", params: { cyclesX: 3, cyclesY: 4, color: { param: "color" } } }],
       [
-        getColorParameter("Pumpkin", {
-          Pumpkin: PUMPKIN,
-          Purple: PURPLE,
-          Green: GREEN,
-          White: WHITE,
-          Pink: PINK,
-          Blood: BLOOD_COLOR,
-          "Fresh blood": FRESH_BLOOD_COLOR,
-        }),
+        getColorParameter(
+          "Pumpkin",
+          getWithMissingOptions(
+            {
+              Pumpkin: PUMPKIN,
+              Purple: PURPLE,
+              Green: GREEN,
+              White: WHITE,
+              Pink: PINK,
+              Blood: BLOOD_COLOR,
+              "Fresh blood": FRESH_BLOOD_COLOR,
+            },
+            SINGLE_PALETTES,
+            ([color]) => color,
+          ),
+        ),
       ],
     ),
     "pumpkin-dance": getLoop(
