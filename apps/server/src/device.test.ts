@@ -125,6 +125,23 @@ describe("device link", () => {
     expect(frame && getPixel(frame, 63, 63)).toEqual([255, 0, 0]);
   });
 
+  it("sends deflate frames to devices that support them", async () => {
+    const { engine, link, device } = await setup();
+    await sendStatus(device.socket, link.getPort(), {
+      ...status,
+      features: DeviceFeature.compressedFrames | DeviceFeature.deflateFrames,
+    });
+    await vi.waitFor(() => expect(link.getState().connected).toBe(true));
+    engine.play("red", red);
+    engine.tick();
+    await vi.waitFor(() => expect(device.messages).toHaveLength(1));
+    const [message] = device.messages;
+    expect(message?.type).toBe("deflateFrame");
+    const frame =
+      message?.type === "deflateFrame" ? createFrameAssembler().add(message) : undefined;
+    expect(frame && getPixel(frame, 63, 63)).toEqual([255, 0, 0]);
+  });
+
   it("disconnects after missing status messages", async () => {
     const { clock, link, device } = await setup();
     await sendStatus(device.socket, link.getPort(), status);

@@ -83,6 +83,28 @@ Sent instead of `0x01` to devices whose status sets the compressed frames featur
 
 Each run starts with a byte `t`. Below `0x80` it is followed by `t + 1` pixels as `R G B`; from `0x80` up it is followed by one `R G B` pixel repeated `(t & 0x7f) + 1` times. A chunk whose runs don't cover exactly its pixel count, or run past the end of the packet, is dropped. Chunks are assembled into frames exactly like `0x01` chunks.
 
+### `0x04` deflate frame chunk
+
+Sent instead of `0x01` and `0x03` to devices whose status sets the deflate frames feature. The whole frame is compressed as one raw deflate stream (RFC 1951, no zlib or gzip header), optionally after a filter, and the stream is split into chunks of at most 1340 bytes so each packet stays within 1356 bytes. Each frame is self-contained, so a lost frame doesn't affect later ones.
+
+| Offset | Size | Field                                        |
+| ------ | ---- | -------------------------------------------- |
+| 4      | 4    | frame sequence number (u32, wraps)           |
+| 8      | 1    | chunk index                                  |
+| 9      | 1    | chunk count                                  |
+| 10     | 2    | offset of the chunk's data in the stream     |
+| 12     | 2    | size of the whole stream in bytes, max 12288 |
+| 14     | 1    | filter: 0 none, 1 sub                        |
+| 15     | 1    | reserved, 0                                  |
+| 16     | n    | stream bytes                                 |
+
+- The stream inflates to exactly one 12288-byte frame. A frame that inflates to more or fewer bytes, or whose stream is invalid, is dropped and counted as dropped.
+- With the sub filter, each byte is stored minus the same channel of the pixel to its left, modulo 256. The first pixel of each row is stored as is. The receiver adds the left neighbour back, left to right, after inflating.
+- A chunk is dropped if its data runs past the stream size, the stream size is above 12288, or the filter is unknown. All chunks of a frame must agree on the stream size and filter, and a frame can't mix deflate chunks with `0x01` or `0x03` chunks.
+- Chunks are assembled into frames like `0x01` chunks, and the stream is inflated once every chunk has arrived.
+
+The host compresses each frame with deflate level 1. It tries the sub filter too when the unfiltered stream is 3000 bytes or more, since smooth gradients (plasma) compress much better with it and flat scenes slightly worse, and sends a raw frame instead when the packets would be larger. It skips `0x03`, which was never smaller than deflate on any seed animation frame. `firmware/test/deflate_vectors.txt` holds shared test vectors (expected frame, filter and stream in hex) that both implementations test against. The firmware inflates with the ESP32-S3 ROM `tinfl` into a fixed frame buffer.
+
 ### `0x02` set brightness
 
 | Offset | Size | Field                |
@@ -103,7 +125,7 @@ Sent once at startup, every 1000 ms, and right after the brightness changes. The
 | 6      | 2    | height in pixels                      |
 | 8      | 1    | brightness                            |
 | 9      | 1    | mode: 0 idle, 1 streaming, 2 fallback |
-| 10     | 1    | features: bit 0 compressed frames     |
+| 10     | 1    | features, see below                   |
 | 11     | 1    | reserved, 0                           |
 | 12     | 4    | uptime in ms (u32, wraps)             |
 | 16     | 4    | frames shown since boot               |
@@ -111,6 +133,8 @@ Sent once at startup, every 1000 ms, and right after the brightness changes. The
 | 24     | 4    | sequence of the frame being shown     |
 | 28     | 2    | age of that frame in ms, 0 to 65535   |
 | 30     | 2    | reserved, 0                           |
+
+Features: bit 0 compressed frames (`0x03`), bit 1 deflate frames (`0x04`).
 
 The age counts from when the frame became visible: the device adds half a panel refresh period to the time it flipped buffers, since the hardware switches buffers at the end of the current refresh pass. The server keeps the send time of recent frames and computes the latency as `status received - age - frame sent`. It uses the lowest of the last 8 samples, since delays on the status packet itself only make a sample larger.
 
@@ -132,4 +156,4 @@ Sent only over serial, while a serial host is active (see Serial transport). The
 
 ## Reserved message types
 
-`0x04`–`0x7F` server to device and `0x83`–`0xFF` device to server are free for later messages such as clip upload.
+`0x05`–`0x7F` server to device and `0x83`–`0xFF` device to server are free for later messages such as clip upload.

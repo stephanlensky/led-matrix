@@ -1,3 +1,4 @@
+import { deflateRawSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 import { animationSchema } from "./animation.ts";
 import {
@@ -13,11 +14,12 @@ import {
   type DeviceMessage,
   type DeviceStatus,
   MessageType,
+  createFrameAssembler,
   decodeMessage,
 } from "./device-protocol.ts";
 import { createPlaybackEngine } from "./engine.ts";
 import type { DeviceState } from "./playback.ts";
-import { createFrame, setPixel } from "./frame.ts";
+import { type Frame, createFrame, setPixel } from "./frame.ts";
 import { createRenderer } from "./renderer.ts";
 
 const status: DeviceStatus = {
@@ -103,6 +105,42 @@ function setup(options: Partial<DeviceLinkOptions> = {}) {
   return { clock, engine, link, ...fake };
 }
 
+const deflate = (data: Uint8Array) => deflateRawSync(data, { level: 1 });
+const deflateFeatures = DeviceFeature.compressedFrames | DeviceFeature.deflateFrames;
+
+function createNoise(): Frame {
+  const frame = createFrame();
+  let seed = 1;
+  for (let index = 0; index < frame.length; index++) {
+    seed = (seed * 1_103_515_245 + 12_345) >>> 0;
+    frame[index] = seed >>> 24;
+  }
+  return frame;
+}
+
+function createPlasma(): Frame {
+  const frame = createFrame();
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      const value = Math.sin(x / 5) + Math.sin(y / 7) + Math.sin((x + y) / 9);
+      setPixel(frame, x, y, [128 + value * 40, 128 - value * 40, 64 + x + y]);
+    }
+  }
+  return frame;
+}
+
+function assemble(packets: Uint8Array[]): Frame | undefined {
+  const assembler = createFrameAssembler();
+  return packets
+    .map((packet) => {
+      const message = decodeMessage(packet);
+      return message?.type === "frame" || message?.type === "deflateFrame"
+        ? assembler.add(message)
+        : undefined;
+    })
+    .find((frame) => frame !== undefined);
+}
+
 describe("encodeSmallestFrame", () => {
   it("uses raw frames when the device does not support compression", () => {
     const packets = encodeSmallestFrame(createFrame(), 1, 0);
@@ -116,15 +154,28 @@ describe("encodeSmallestFrame", () => {
   });
 
   it("falls back to raw frames when compression would grow them", () => {
-    const frame = createFrame();
-    for (let y = 0; y < 64; y++) {
-      for (let x = 0; x < 64; x++) {
-        const value = Math.imul(x * 73856093 + y * 19349663, 2654435761) >>> 0;
-        setPixel(frame, x, y, [value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff]);
-      }
-    }
-    const packets = encodeSmallestFrame(frame, 1, DeviceFeature.compressedFrames);
+    const packets = encodeSmallestFrame(createNoise(), 1, DeviceFeature.compressedFrames);
     expect(packets.every((packet) => packet[3] === MessageType.frame)).toBe(true);
+    const deflated = encodeSmallestFrame(createNoise(), 1, deflateFeatures, deflate);
+    expect(deflated.every((packet) => packet[3] === MessageType.frame)).toBe(true);
+  });
+
+  it("uses deflate frames only when the device supports them", () => {
+    const frame = createPlasma();
+    const compressed = encodeSmallestFrame(frame, 1, DeviceFeature.compressedFrames, deflate);
+    expect(compressed.every((packet) => packet[3] !== MessageType.deflateFrame)).toBe(true);
+    const packets = encodeSmallestFrame(frame, 1, deflateFeatures, deflate);
+    expect(packets.every((packet) => packet[3] === MessageType.deflateFrame)).toBe(true);
+    expect(assemble(packets)).toEqual(frame);
+  });
+
+  it("applies the sub filter to a smooth frame and not to a black one", () => {
+    const [smooth] = encodeSmallestFrame(createPlasma(), 1, deflateFeatures, deflate);
+    expect(smooth?.[14]).toBe(1);
+    const [black, ...rest] = encodeSmallestFrame(createFrame(), 1, deflateFeatures, deflate);
+    expect(rest).toHaveLength(0);
+    expect(black?.[14]).toBe(0);
+    expect(assemble([black ?? new Uint8Array()])).toEqual(createFrame());
   });
 });
 

@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
+import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
+  type DeflateFrameChunk,
+  DeflateFilter,
   DeviceMode,
   type DeviceStatus,
   type FrameChunk,
@@ -11,12 +14,16 @@ import {
   decodeMessage,
   decodeRunLength,
   encodeCompressedFrame,
+  encodeDeflateFrame,
   encodeFrame,
   encodeLog,
   encodeSerialPacket,
   encodeSetBrightness,
   encodeStatus,
   getMaxEncodedSerialSize,
+  getSubFiltered,
+  inflateFrame,
+  removeSubFilter,
 } from "./device-protocol.ts";
 import { type Frame, createFrame, getPixel, setPixel } from "./frame.ts";
 
@@ -64,7 +71,10 @@ function getChunks(
   });
 }
 
-function addAll(assembler: ReturnType<typeof createFrameAssembler>, chunks: FrameChunk[]) {
+function addAll(
+  assembler: ReturnType<typeof createFrameAssembler>,
+  chunks: Array<FrameChunk | DeflateFrameChunk>,
+) {
   return chunks.map((chunk) => assembler.add(chunk)).find((frame) => frame !== undefined);
 }
 
@@ -150,6 +160,93 @@ describe("compressed frames", () => {
     expect(decodeRunLength(Uint8Array.of(0x82, 1, 2, 3), 2)).toBeUndefined();
     expect(decodeRunLength(Uint8Array.of(0x80, 1, 2, 3), 2)).toBeUndefined();
     expect(decodeRunLength(Uint8Array.of(0x01, 1, 2, 3), 2)).toBeUndefined();
+  });
+});
+
+function getDeflateChunks(packets: Uint8Array[]): DeflateFrameChunk[] {
+  return packets.map((packet) => {
+    const message = decodeMessage(packet);
+    if (message?.type !== "deflateFrame") {
+      throw new Error("Expected a deflate frame chunk");
+    }
+    return message;
+  });
+}
+
+function getDeflateVectors(): Array<{ frame: string; filter: number; data: Uint8Array }> {
+  const text = readFileSync(
+    new URL("../../../firmware/test/deflate_vectors.txt", import.meta.url),
+    "utf8",
+  );
+  return text
+    .split("\n")
+    .filter((line) => line !== "" && !line.startsWith("#"))
+    .map((line) => {
+      const [frame = "", filter = "", data = ""] = line.split(" ");
+      return { frame, filter: Number(filter), data: Buffer.from(data, "hex") };
+    });
+}
+
+describe("deflate frames", () => {
+  it("round trips the sub filter and keeps the first pixel of each row", () => {
+    const frame = createGradient();
+    const filtered = getSubFiltered(frame);
+    expect([...filtered.subarray(192, 198)]).toEqual([0, 4, 1, 4, 0, 1]);
+    removeSubFilter(filtered);
+    expect(filtered).toEqual(new Uint8Array(frame));
+  });
+
+  it.each([
+    ["black", createFrame(), DeflateFilter.none, 1],
+    ["filtered gradient", createGradient(), DeflateFilter.sub, 1],
+    ["unfiltered gradient", createGradient(), DeflateFilter.none, 9],
+  ])("round trips a %s frame", (_name, frame, filter, packetCount) => {
+    const input = filter === DeflateFilter.sub ? getSubFiltered(frame) : new Uint8Array(frame);
+    const packets = encodeDeflateFrame(deflateRawSync(input, { level: 1 }), filter, 9);
+    expect(packets).toHaveLength(packetCount);
+    expect(Math.max(...packets.map((packet) => packet.length))).toBeLessThanOrEqual(1356);
+    const chunks = getDeflateChunks(packets);
+    expect(addAll(createFrameAssembler(), chunks.toReversed())).toEqual(frame);
+  });
+
+  it("encodes the header with the data range and filter of each chunk", () => {
+    const data = new Uint8Array(1500).fill(7);
+    const packets = encodeDeflateFrame(data, DeflateFilter.sub, 0x01020304);
+    expect(packets.map((packet) => packet.length)).toEqual([1356, 16 + 160]);
+    expect([...(packets[1] ?? new Uint8Array()).subarray(0, 16)]).toEqual([
+      0x4c, 0x4d, 1, 0x04, 0x04, 0x03, 0x02, 0x01, 1, 2, 0x3c, 0x05, 0xdc, 0x05, 1, 0,
+    ]);
+  });
+
+  it("ignores chunks past the end of the data or with an unknown filter", () => {
+    const [packet = new Uint8Array()] = encodeDeflateFrame(new Uint8Array(100), 0, 1);
+    expect(decodeMessage(packet)?.type).toBe("deflateFrame");
+    expect(decodeMessage(packet.slice(0, 16))).toBeUndefined();
+    expect(decodeMessage(Uint8Array.from(packet).fill(99, 12, 13))).toBeUndefined();
+    expect(decodeMessage(Uint8Array.from(packet).fill(2, 14, 15))).toBeUndefined();
+    expect(decodeMessage(Uint8Array.from(packet).fill(0x31, 13, 14))).toBeUndefined();
+  });
+
+  it("drops a frame that does not inflate to exactly one frame", () => {
+    const assembler = createFrameAssembler();
+    const short = deflateRawSync(new Uint8Array(64 * 64 * 3 - 3));
+    expect(addAll(assembler, getDeflateChunks(encodeDeflateFrame(short, 0, 1)))).toBeUndefined();
+    expect(assembler.getFramesDropped()).toBe(1);
+  });
+
+  it("matches the shared test vectors", () => {
+    const frames: Record<string, Frame | undefined> = {
+      black: createFrame(),
+      gradient: createGradient(),
+      invalid: undefined,
+    };
+    const vectors = getDeflateVectors();
+    expect(vectors).toHaveLength(10);
+    for (const { frame, filter, data } of vectors) {
+      expect(inflateFrame(data, filter === 1 ? DeflateFilter.sub : DeflateFilter.none)).toEqual(
+        frames[frame],
+      );
+    }
   });
 });
 

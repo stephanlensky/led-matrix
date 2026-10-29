@@ -32,6 +32,7 @@ bool isKnownType(uint8_t type) {
   return type == static_cast<uint8_t>(MessageType::frame) ||
          type == static_cast<uint8_t>(MessageType::setBrightness) ||
          type == static_cast<uint8_t>(MessageType::compressedFrame) ||
+         type == static_cast<uint8_t>(MessageType::deflateFrame) ||
          type == static_cast<uint8_t>(MessageType::status) ||
          type == static_cast<uint8_t>(MessageType::log);
 }
@@ -86,6 +87,49 @@ std::optional<CompressedFrameChunk> decodeCompressedFrameChunk(const uint8_t* da
       .data = data + compressedFrameHeaderSize,
       .dataSize = size - compressedFrameHeaderSize,
   };
+}
+
+std::optional<DeflateFrameChunk> decodeDeflateFrameChunk(const uint8_t* data, size_t size) {
+  if (getMessageType(data, size) != MessageType::deflateFrame || size <= deflateFrameHeaderSize) {
+    return std::nullopt;
+  }
+  const uint16_t offset = readUint16(data + 10);
+  const uint16_t deflatedSize = readUint16(data + 12);
+  const uint8_t filter = data[14];
+  const size_t dataSize = size - deflateFrameHeaderSize;
+  if (deflatedSize > frameSize || offset + dataSize > deflatedSize ||
+      filter > static_cast<uint8_t>(DeflateFilter::sub)) {
+    return std::nullopt;
+  }
+  return DeflateFrameChunk{
+      .sequence = readUint32(data + 4),
+      .chunkIndex = data[8],
+      .chunkCount = data[9],
+      .offset = offset,
+      .size = deflatedSize,
+      .filter = static_cast<DeflateFilter>(filter),
+      .data = data + deflateFrameHeaderSize,
+      .dataSize = dataSize,
+  };
+}
+
+void removeSubFilter(uint8_t* frame) {
+  constexpr size_t rowSize = width * channels;
+  for (size_t row = 0; row < frameSize; row += rowSize) {
+    for (size_t index = row + channels; index < row + rowSize; index++) {
+      frame[index] += frame[index - channels];
+    }
+  }
+}
+
+bool inflateFrame(const uint8_t* data, size_t size, DeflateFilter filter, uint8_t* frame) {
+  if (inflateRaw(data, size, frame, frameSize) != frameSize) {
+    return false;
+  }
+  if (filter == DeflateFilter::sub) {
+    removeSubFilter(frame);
+  }
+  return true;
 }
 
 bool decodeRunLength(const uint8_t* data, size_t size, uint8_t* pixels, size_t pixelCount) {
@@ -208,7 +252,8 @@ void SerialDecoder::reset() {
   isDiscarding = false;
 }
 
-FrameAssembler::FrameAssembler(uint8_t* frame) : frame(frame) {}
+FrameAssembler::FrameAssembler(uint8_t* frame, uint8_t* deflated)
+    : frame(frame), deflated(deflated) {}
 
 bool FrameAssembler::isStale(uint32_t sequence) const {
   if (!latestSequence) {
@@ -232,6 +277,7 @@ bool FrameAssembler::start(uint32_t sequence, uint8_t chunkIndex, uint8_t chunkC
     pendingSequence = sequence;
     latestSequence = sequence;
     received.reset();
+    deflatedSize.reset();
   }
   return true;
 }
@@ -243,6 +289,7 @@ void FrameAssembler::reset() {
   pendingSequence.reset();
   latestSequence.reset();
   received.reset();
+  deflatedSize.reset();
 }
 
 bool FrameAssembler::finish(uint8_t chunkIndex, uint8_t chunkCount) {
@@ -255,7 +302,7 @@ bool FrameAssembler::finish(uint8_t chunkIndex, uint8_t chunkCount) {
 }
 
 bool FrameAssembler::add(const FrameChunk& chunk) {
-  if (!start(chunk.sequence, chunk.chunkIndex, chunk.chunkCount)) {
+  if (!start(chunk.sequence, chunk.chunkIndex, chunk.chunkCount) || deflatedSize) {
     return false;
   }
   std::memcpy(frame + chunk.offset * channels, chunk.pixels, chunk.pixelCount * channels);
@@ -263,12 +310,39 @@ bool FrameAssembler::add(const FrameChunk& chunk) {
 }
 
 bool FrameAssembler::add(const CompressedFrameChunk& chunk) {
-  if (!start(chunk.sequence, chunk.chunkIndex, chunk.chunkCount) ||
+  if (!start(chunk.sequence, chunk.chunkIndex, chunk.chunkCount) || deflatedSize ||
       !decodeRunLength(chunk.data, chunk.dataSize, frame + chunk.offset * channels,
                        chunk.pixelCount)) {
     return false;
   }
   return finish(chunk.chunkIndex, chunk.chunkCount);
+}
+
+bool FrameAssembler::add(const DeflateFrameChunk& chunk) {
+  if (!start(chunk.sequence, chunk.chunkIndex, chunk.chunkCount)) {
+    return false;
+  }
+  if (!deflatedSize) {
+    if (received.any()) {
+      return false;
+    }
+    deflatedSize = chunk.size;
+    deflatedFilter = chunk.filter;
+  }
+  if (chunk.size != *deflatedSize || chunk.filter != deflatedFilter) {
+    return false;
+  }
+  std::memcpy(deflated + chunk.offset, chunk.data, chunk.dataSize);
+  if (!finish(chunk.chunkIndex, chunk.chunkCount)) {
+    return false;
+  }
+  const uint16_t size = *deflatedSize;
+  deflatedSize.reset();
+  if (!inflateFrame(deflated, size, deflatedFilter, frame)) {
+    framesDropped++;
+    return false;
+  }
+  return true;
 }
 
 }  // namespace protocol

@@ -59,7 +59,7 @@ function sendStatus(): void {
     height: HEIGHT,
     brightness,
     mode: getMode(),
-    features: options.raw ? 0 : DeviceFeature.compressedFrames,
+    features: options.raw ? 0 : DeviceFeature.compressedFrames | DeviceFeature.deflateFrames,
     uptimeMs: performance.now() - startedAt,
     framesShown,
     framesDropped: assembler.getFramesDropped(),
@@ -107,7 +107,7 @@ socket.on("message", (data) => {
     return;
   }
   const message = decodeMessage(data);
-  if (message?.type === "frame") {
+  if (message?.type === "frame" || message?.type === "deflateFrame") {
     const assembled = assembler.add(message);
     if (assembled) {
       frame = assembled;

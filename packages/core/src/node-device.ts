@@ -11,6 +11,7 @@ import {
 import { dirname, join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { promisify } from "node:util";
+import { deflateRawSync } from "node:zlib";
 import type { DeviceAddress, DeviceTransportListener } from "./device-link.ts";
 import {
   DEVICE_PORT,
@@ -28,6 +29,10 @@ const USB_PACKET_SIZE = 64;
 const THROUGHPUT_WINDOW_MS = 1000;
 
 const execFileAsync = promisify(execFile);
+
+export function deflate(data: Uint8Array): Uint8Array {
+  return deflateRawSync(data, { level: 1 });
+}
 
 function setMessage(listeners: Set<DeviceTransportListener>, message: DeviceMessage): void {
   for (const listener of listeners) {

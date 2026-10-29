@@ -65,7 +65,7 @@ void sendStatus(uint32_t now) {
   const auto status = protocol::encodeStatus({
       .brightness = brightness,
       .mode = isStreaming(now) ? protocol::Mode::streaming : protocol::Mode::idle,
-      .features = protocol::compressedFramesFeature,
+      .features = protocol::compressedFramesFeature | protocol::deflateFramesFeature,
       .uptimeMs = now,
       .framesShown = framesShown,
       .framesDropped = receiver::getFramesDropped(),
@@ -80,15 +80,20 @@ void sendStatus(uint32_t now) {
 }
 
 void logStatus(uint32_t now) {
+  const auto inflate = receiver::takeInflateStats();
   log("%s %s  %u packets/s  %u fps  queued %u  refresh %u Hz  shown %u  dropped %u  "
-      "brightness %u  rssi %d",
+      "inflate %u us avg %u max  heap %u KB min %u  brightness %u  rssi %d",
       receiver::isSerialActive() ? "serial" : "udp", isStreaming(now) ? "streaming" : "idle",
       static_cast<unsigned>(receiver::getPacketsReceived() - packetsAtLastStatus),
       static_cast<unsigned>(framesShown - framesShownAtLastStatus),
       static_cast<unsigned>(receiver::getQueuedFrames()),
       static_cast<unsigned>(display::getRefreshRate()), static_cast<unsigned>(framesShown),
-      static_cast<unsigned>(receiver::getFramesDropped()), brightness,
-      static_cast<int>(WiFi.RSSI()));
+      static_cast<unsigned>(receiver::getFramesDropped()),
+      static_cast<unsigned>(inflate.frames > 0 ? inflate.totalUs / inflate.frames : 0),
+      static_cast<unsigned>(inflate.maxUs),
+      static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
+      static_cast<unsigned>(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL) / 1024),
+      brightness, static_cast<int>(WiFi.RSSI()));
   framesShownAtLastStatus = framesShown;
   packetsAtLastStatus = receiver::getPacketsReceived();
 }

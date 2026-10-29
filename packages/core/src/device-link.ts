@@ -1,5 +1,6 @@
 import { CHANNELS, type Frame, HEIGHT, WIDTH } from "./frame.ts";
 import {
+  DeflateFilter,
   DeviceFeature,
   DeviceMode,
   type DeviceMessage,
@@ -8,8 +9,10 @@ import {
   MAX_CHUNK_PIXELS,
   STATUS_INTERVAL_MS,
   encodeCompressedFrame,
+  encodeDeflateFrame,
   encodeFrame,
   encodeSetBrightness,
+  getSubFiltered,
 } from "./device-protocol.ts";
 import type { PlaybackEngine } from "./engine.ts";
 import type { DeviceState } from "./playback.ts";
@@ -19,6 +22,10 @@ const SENT_FRAME_HISTORY = 256;
 const LATENCY_SAMPLES = 8;
 const RAW_FRAME_SIZE =
   Math.ceil((WIDTH * HEIGHT) / MAX_CHUNK_PIXELS) * FRAME_HEADER_SIZE + WIDTH * HEIGHT * CHANNELS;
+
+const SUB_FILTER_MIN_SIZE = 3000;
+
+export type Deflate = (data: Uint8Array) => Uint8Array;
 
 export type DeviceAddress = NonNullable<DeviceState["address"]>;
 
@@ -51,6 +58,7 @@ export type DeviceLinkOptions = {
   transport: DeviceTransport;
   latencyOffset?: number;
   getTime?: () => number;
+  deflate?: Deflate;
   onLog?: (text: string) => void;
 };
 
@@ -60,11 +68,28 @@ function getSize(packets: Uint8Array[]): number {
   return packets.reduce((size, packet) => size + packet.length, 0);
 }
 
+function getDeflated(frame: Frame, deflate: Deflate): { data: Uint8Array; filter: DeflateFilter } {
+  const data = deflate(new Uint8Array(frame.buffer, frame.byteOffset, frame.byteLength));
+  if (data.length < SUB_FILTER_MIN_SIZE) {
+    return { data, filter: DeflateFilter.none };
+  }
+  const filtered = deflate(getSubFiltered(frame));
+  return filtered.length < data.length
+    ? { data: filtered, filter: DeflateFilter.sub }
+    : { data, filter: DeflateFilter.none };
+}
+
 export function encodeSmallestFrame(
   frame: Frame,
   sequence: number,
   features: number,
+  deflate?: Deflate,
 ): Uint8Array[] {
+  if (deflate && (features & DeviceFeature.deflateFrames) !== 0) {
+    const { data, filter } = getDeflated(frame, deflate);
+    const packets = encodeDeflateFrame(data, filter, sequence);
+    return getSize(packets) <= RAW_FRAME_SIZE ? packets : encodeFrame(frame, sequence);
+  }
   if ((features & DeviceFeature.compressedFrames) === 0) {
     return encodeFrame(frame, sequence);
   }
@@ -77,6 +102,7 @@ export function createDeviceLink({
   transport,
   latencyOffset = 0,
   getTime = () => performance.now(),
+  deflate,
   onLog,
 }: DeviceLinkOptions) {
   let status: DeviceStatus | null = null;
@@ -130,7 +156,7 @@ export function createDeviceLink({
   }
 
   function sendFrame(frame: Frame): void {
-    const packets = encodeSmallestFrame(frame, sequence, status?.features ?? 0);
+    const packets = encodeSmallestFrame(frame, sequence, status?.features ?? 0, deflate);
     if (transport.sendFrame(packets)) {
       sentFrames[sequence % SENT_FRAME_HISTORY] = { sequence, sentAt: getTime() };
       sequence = (sequence + 1) >>> 0;

@@ -14,6 +14,9 @@ using Packet = std::vector<uint8_t>;
 using Frame = std::vector<uint8_t>;
 
 constexpr size_t maxChunkPixels = 448;
+constexpr size_t maxDeflateChunkSize = 1340;
+
+uint8_t deflated[frameSize];
 
 Frame createGradient() {
   Frame frame(frameSize);
@@ -146,7 +149,7 @@ void test_truncates_long_log() {
 void test_reassembles_frame_in_any_order() {
   const Frame frame = createGradient();
   Frame assembled(frameSize);
-  FrameAssembler assembler(assembled.data());
+  FrameAssembler assembler(assembled.data(), deflated);
   auto packets = encodeFrame(frame, 1);
   std::reverse(packets.begin(), packets.end());
   TEST_ASSERT_TRUE(addAll(assembler, packets));
@@ -159,7 +162,7 @@ void test_reassembles_frame_in_any_order() {
 
 void test_drops_incomplete_frame_when_newer_one_starts() {
   Frame assembled(frameSize);
-  FrameAssembler assembler(assembled.data());
+  FrameAssembler assembler(assembled.data(), deflated);
   addAll(assembler, slice(encodeFrame(createGradient(), 1), 1, 10));
   TEST_ASSERT_TRUE(addAll(assembler, encodeFrame(createGradient(), 2)));
   TEST_ASSERT_EQUAL(1, assembler.getFramesDropped());
@@ -167,7 +170,7 @@ void test_drops_incomplete_frame_when_newer_one_starts() {
 
 void test_ignores_late_chunks_from_older_frames() {
   Frame assembled(frameSize);
-  FrameAssembler assembler(assembled.data());
+  FrameAssembler assembler(assembled.data(), deflated);
   const auto older = encodeFrame(createGradient(), 5);
   const auto newer = encodeFrame(createGradient(), 6);
   addAll(assembler, slice(newer, 0, 1));
@@ -179,7 +182,7 @@ void test_ignores_late_chunks_from_older_frames() {
 
 void test_accepts_restarted_sequence_far_behind() {
   Frame assembled(frameSize);
-  FrameAssembler assembler(assembled.data());
+  FrameAssembler assembler(assembled.data(), deflated);
   addAll(assembler, encodeFrame(createGradient(), 5000));
   TEST_ASSERT_TRUE(addAll(assembler, encodeFrame(createGradient(), 0)));
   TEST_ASSERT_FALSE(addAll(assembler, encodeFrame(createGradient(), 1 - staleFrameWindow)));
@@ -187,7 +190,7 @@ void test_accepts_restarted_sequence_far_behind() {
 
 void test_accepts_any_sequence_after_reset() {
   Frame assembled(frameSize);
-  FrameAssembler assembler(assembled.data());
+  FrameAssembler assembler(assembled.data(), deflated);
   addAll(assembler, encodeFrame(createGradient(), 5));
   addAll(assembler, slice(encodeFrame(createGradient(), 6), 0, 1));
   assembler.reset();
@@ -197,7 +200,7 @@ void test_accepts_any_sequence_after_reset() {
 
 void test_follows_sequence_across_wraparound() {
   Frame assembled(frameSize);
-  FrameAssembler assembler(assembled.data());
+  FrameAssembler assembler(assembled.data(), deflated);
   addAll(assembler, encodeFrame(createGradient(), 0xffffffff));
   TEST_ASSERT_TRUE(addAll(assembler, encodeFrame(createGradient(), 0)));
   TEST_ASSERT_FALSE(addAll(assembler, encodeFrame(createGradient(), 0xffffffff)));
@@ -240,7 +243,7 @@ bool addCompressed(FrameAssembler& assembler, const Packet& packet) {
 
 void test_reassembles_compressed_frame() {
   Frame assembled(frameSize, 0xff);
-  FrameAssembler assembler(assembled.data());
+  FrameAssembler assembler(assembled.data(), deflated);
   Packet tail = {0x01, 10, 20, 30, 40, 50, 60};
   const Packet runs = getRepeatRuns(94, 0, 0, 255);
   tail.insert(tail.end(), runs.begin(), runs.end());
@@ -385,6 +388,175 @@ void test_resyncs_after_garbage_and_truncated_packets() {
   TEST_ASSERT_TRUE(decoded[1] == brightness);
 }
 
+struct DeflateVector {
+  std::string frame;
+  DeflateFilter filter;
+  Packet data;
+};
+
+std::vector<DeflateVector> getDeflateVectors() {
+  const std::string path = __FILE__;
+  std::ifstream file(path.substr(0, path.find_last_of('/')) + "/../deflate_vectors.txt");
+  std::vector<DeflateVector> vectors;
+  std::string line;
+  while (std::getline(file, line)) {
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+    std::istringstream stream(line);
+    std::string frame;
+    int filter;
+    std::string data;
+    stream >> frame >> filter >> data;
+    vectors.push_back({frame, static_cast<DeflateFilter>(filter), getBytes(data)});
+  }
+  return vectors;
+}
+
+Packet getDeflateData(const std::string& frame, DeflateFilter filter) {
+  for (const auto& vector : getDeflateVectors()) {
+    if (vector.frame == frame && vector.filter == filter) {
+      return vector.data;
+    }
+  }
+  return {};
+}
+
+Packet createDeflateChunk(uint32_t sequence, uint8_t chunkIndex, uint8_t chunkCount,
+                          uint16_t offset, uint16_t size, DeflateFilter filter,
+                          const Packet& data) {
+  Packet packet = {0x4c,
+                   0x4d,
+                   version,
+                   static_cast<uint8_t>(MessageType::deflateFrame),
+                   static_cast<uint8_t>(sequence),
+                   static_cast<uint8_t>(sequence >> 8),
+                   static_cast<uint8_t>(sequence >> 16),
+                   static_cast<uint8_t>(sequence >> 24),
+                   chunkIndex,
+                   chunkCount,
+                   static_cast<uint8_t>(offset),
+                   static_cast<uint8_t>(offset >> 8),
+                   static_cast<uint8_t>(size),
+                   static_cast<uint8_t>(size >> 8),
+                   static_cast<uint8_t>(filter),
+                   0};
+  packet.insert(packet.end(), data.begin(), data.end());
+  return packet;
+}
+
+std::vector<Packet> encodeDeflateFrame(const Packet& data, DeflateFilter filter,
+                                       uint32_t sequence) {
+  const size_t chunkCount = (data.size() + maxDeflateChunkSize - 1) / maxDeflateChunkSize;
+  std::vector<Packet> packets;
+  for (size_t chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
+    const size_t offset = chunkIndex * maxDeflateChunkSize;
+    const size_t end = std::min(data.size(), offset + maxDeflateChunkSize);
+    packets.push_back(createDeflateChunk(sequence, chunkIndex, chunkCount, offset, data.size(),
+                                         filter,
+                                         Packet(data.begin() + offset, data.begin() + end)));
+  }
+  return packets;
+}
+
+bool addDeflate(FrameAssembler& assembler, const Packet& packet) {
+  const auto chunk = decodeDeflateFrameChunk(packet.data(), packet.size());
+  return chunk && assembler.add(*chunk);
+}
+
+bool addAllDeflate(FrameAssembler& assembler, const std::vector<Packet>& packets) {
+  bool isComplete = false;
+  for (const Packet& packet : packets) {
+    isComplete = addDeflate(assembler, packet) || isComplete;
+  }
+  return isComplete;
+}
+
+void test_matches_shared_deflate_vectors() {
+  const auto vectors = getDeflateVectors();
+  TEST_ASSERT_EQUAL(10, vectors.size());
+  const Frame black(frameSize);
+  const Frame gradient = createGradient();
+  for (const auto& vector : vectors) {
+    Frame frame(frameSize, 0x55);
+    const bool isValid =
+        inflateFrame(vector.data.data(), vector.data.size(), vector.filter, frame.data());
+    TEST_ASSERT_EQUAL(vector.frame != "invalid", isValid);
+    if (isValid) {
+      const Frame& expected = vector.frame == "black" ? black : gradient;
+      TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.data(), frame.data(), frameSize);
+    }
+  }
+}
+
+void test_reassembles_deflate_frame_in_any_order() {
+  const Packet data = getDeflateData("gradient", DeflateFilter::none);
+  auto packets = encodeDeflateFrame(data, DeflateFilter::none, 3);
+  TEST_ASSERT_EQUAL(9, packets.size());
+  std::reverse(packets.begin(), packets.end());
+  Frame assembled(frameSize);
+  FrameAssembler assembler(assembled.data(), deflated);
+  TEST_ASSERT_FALSE(addAllDeflate(assembler, slice(packets, 0, 8)));
+  TEST_ASSERT_TRUE(addAllDeflate(assembler, slice(packets, 8, 9)));
+  const Frame gradient = createGradient();
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(gradient.data(), assembled.data(), frameSize);
+  const auto filtered =
+      encodeDeflateFrame(getDeflateData("gradient", DeflateFilter::sub), DeflateFilter::sub, 4);
+  TEST_ASSERT_EQUAL(1, filtered.size());
+  std::fill(assembled.begin(), assembled.end(), 0);
+  TEST_ASSERT_TRUE(addAllDeflate(assembler, filtered));
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(gradient.data(), assembled.data(), frameSize);
+  TEST_ASSERT_EQUAL(0, assembler.getFramesDropped());
+}
+
+void test_rejects_deflate_chunks_past_the_end_or_with_unknown_filter() {
+  const Packet data(100, 0x11);
+  const Packet valid = createDeflateChunk(1, 0, 1, 0, 100, DeflateFilter::none, data);
+  const Packet pastEnd = createDeflateChunk(1, 0, 1, 1, 100, DeflateFilter::none, data);
+  const Packet tooLarge = createDeflateChunk(1, 0, 1, 0, frameSize + 1, DeflateFilter::none, data);
+  const Packet unknownFilter =
+      createDeflateChunk(1, 0, 1, 0, 100, static_cast<DeflateFilter>(2), data);
+  TEST_ASSERT_TRUE(decodeDeflateFrameChunk(valid.data(), valid.size()).has_value());
+  TEST_ASSERT_FALSE(decodeDeflateFrameChunk(valid.data(), deflateFrameHeaderSize).has_value());
+  TEST_ASSERT_FALSE(decodeDeflateFrameChunk(pastEnd.data(), pastEnd.size()).has_value());
+  TEST_ASSERT_FALSE(decodeDeflateFrameChunk(tooLarge.data(), tooLarge.size()).has_value());
+  TEST_ASSERT_FALSE(
+      decodeDeflateFrameChunk(unknownFilter.data(), unknownFilter.size()).has_value());
+}
+
+void test_rejects_mismatched_deflate_chunks() {
+  const Packet data = getDeflateData("gradient", DeflateFilter::none);
+  const auto packets = encodeDeflateFrame(data, DeflateFilter::none, 5);
+  Frame assembled(frameSize);
+  FrameAssembler assembler(assembled.data(), deflated);
+  TEST_ASSERT_FALSE(addDeflate(assembler, packets[0]));
+  Packet otherSize = packets[1];
+  otherSize[12]++;
+  Packet otherFilter = packets[1];
+  otherFilter[14] = static_cast<uint8_t>(DeflateFilter::sub);
+  TEST_ASSERT_FALSE(addDeflate(assembler, otherSize));
+  TEST_ASSERT_FALSE(addDeflate(assembler, otherFilter));
+  TEST_ASSERT_FALSE(addAll(assembler, slice(encodeFrame(createGradient(), 5), 1, 10)));
+  TEST_ASSERT_TRUE(addAllDeflate(assembler, slice(packets, 1, packets.size())));
+  const Frame gradient = createGradient();
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(gradient.data(), assembled.data(), frameSize);
+  addAll(assembler, slice(encodeFrame(createGradient(), 6), 0, 1));
+  TEST_ASSERT_FALSE(addAllDeflate(assembler, encodeDeflateFrame(data, DeflateFilter::none, 6)));
+}
+
+void test_drops_deflate_frame_that_does_not_inflate_to_one_frame() {
+  Frame assembled(frameSize);
+  FrameAssembler assembler(assembled.data(), deflated);
+  uint32_t sequence = 0;
+  for (const auto& vector : getDeflateVectors()) {
+    if (vector.frame == "invalid") {
+      TEST_ASSERT_FALSE(
+          addAllDeflate(assembler, encodeDeflateFrame(vector.data, vector.filter, sequence++)));
+    }
+  }
+  TEST_ASSERT_EQUAL(4, assembler.getFramesDropped());
+}
+
 void setUp() {}
 
 void tearDown() {}
@@ -406,6 +578,11 @@ int main() {
   RUN_TEST(test_follows_sequence_across_wraparound);
   RUN_TEST(test_reassembles_compressed_frame);
   RUN_TEST(test_rejects_malformed_runs);
+  RUN_TEST(test_matches_shared_deflate_vectors);
+  RUN_TEST(test_reassembles_deflate_frame_in_any_order);
+  RUN_TEST(test_rejects_deflate_chunks_past_the_end_or_with_unknown_filter);
+  RUN_TEST(test_rejects_mismatched_deflate_chunks);
+  RUN_TEST(test_drops_deflate_frame_that_does_not_inflate_to_one_frame);
   RUN_TEST(test_matches_shared_serial_vectors);
   RUN_TEST(test_decodes_serial_stream_in_any_chunk_size);
   RUN_TEST(test_decodes_serial_packets_up_to_max_size);

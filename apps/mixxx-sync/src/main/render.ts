@@ -5,7 +5,7 @@ import {
   createRenderer,
 } from "@led-matrix/core";
 import { nodeCanvas } from "@led-matrix/core/node-canvas";
-import { createSerialTransport } from "@led-matrix/core/node-device";
+import { createSerialTransport, deflate } from "@led-matrix/core/node-device";
 import {
   type RenderEvent,
   type RenderMessage,
@@ -51,6 +51,7 @@ const device = createDeviceLink({
   engine,
   transport,
   latencyOffset,
+  deflate,
   onLog: (text) => send({ type: "deviceLog", text }),
 });
 device.subscribe((state) =>

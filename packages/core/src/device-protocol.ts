@@ -1,3 +1,4 @@
+import { inflateSync } from "fflate";
 import { z } from "zod";
 import { CHANNELS, type Frame, HEIGHT, WIDTH, createFrame } from "./frame.ts";
 
@@ -7,6 +8,7 @@ export const PROTOCOL_VERSION = 1;
 export const HEADER_SIZE = 4;
 export const FRAME_HEADER_SIZE = 12;
 export const COMPRESSED_FRAME_HEADER_SIZE = 14;
+export const DEFLATE_FRAME_HEADER_SIZE = 16;
 export const MAX_CHUNK_PIXELS = 448;
 export const MAX_PACKET_SIZE = FRAME_HEADER_SIZE + MAX_CHUNK_PIXELS * CHANNELS;
 export const STALE_FRAME_WINDOW = 16;
@@ -21,6 +23,7 @@ export const MessageType = {
   frame: 0x01,
   setBrightness: 0x02,
   compressedFrame: 0x03,
+  deflateFrame: 0x04,
   status: 0x81,
   log: 0x82,
 } as const;
@@ -35,7 +38,15 @@ export type DeviceMode = (typeof DeviceMode)[keyof typeof DeviceMode];
 
 export const DeviceFeature = {
   compressedFrames: 0x01,
+  deflateFrames: 0x02,
 } as const;
+
+export const DeflateFilter = {
+  none: 0,
+  sub: 1,
+} as const;
+
+export type DeflateFilter = (typeof DeflateFilter)[keyof typeof DeflateFilter];
 
 const MAX_RUN = 128;
 const MIN_REPEAT_RUN = 3;
@@ -64,8 +75,19 @@ export type FrameChunk = {
   pixels: Uint8Array;
 };
 
+export type DeflateFrameChunk = {
+  sequence: number;
+  chunkIndex: number;
+  chunkCount: number;
+  offset: number;
+  size: number;
+  filter: DeflateFilter;
+  data: Uint8Array;
+};
+
 export type DeviceMessage =
   | ({ type: "frame" } & FrameChunk)
+  | ({ type: "deflateFrame" } & DeflateFrameChunk)
   | { type: "setBrightness"; brightness: number }
   | { type: "status"; status: DeviceStatus }
   | { type: "log"; text: string };
@@ -77,6 +99,9 @@ function createMessage(type: number, size: number): { bytes: Uint8Array; view: D
 }
 
 const PIXEL_COUNT = WIDTH * HEIGHT;
+const FRAME_SIZE = PIXEL_COUNT * CHANNELS;
+const ROW_SIZE = WIDTH * CHANNELS;
+const MAX_DEFLATE_CHUNK_SIZE = MAX_PACKET_SIZE - DEFLATE_FRAME_HEADER_SIZE;
 const CHUNK_COUNT = Math.ceil(PIXEL_COUNT / MAX_CHUNK_PIXELS);
 
 export function encodeFrame(frame: Frame, sequence: number): Uint8Array[] {
@@ -196,6 +221,71 @@ export function decodeRunLength(data: Uint8Array, pixelCount: number): Uint8Arra
   return pixel === pixelCount ? pixels : undefined;
 }
 
+export function getSubFiltered(frame: Frame | Uint8Array): Uint8Array {
+  const filtered = new Uint8Array(frame.length);
+  for (let row = 0; row < frame.length; row += ROW_SIZE) {
+    filtered[row] = frame[row]!;
+    filtered[row + 1] = frame[row + 1]!;
+    filtered[row + 2] = frame[row + 2]!;
+    for (let index = row + CHANNELS; index < row + ROW_SIZE; index++) {
+      filtered[index] = frame[index]! - frame[index - CHANNELS]!;
+    }
+  }
+  return filtered;
+}
+
+export function removeSubFilter(pixels: Uint8Array): void {
+  for (let row = 0; row < pixels.length; row += ROW_SIZE) {
+    for (let index = row + CHANNELS; index < row + ROW_SIZE; index++) {
+      pixels[index] = pixels[index]! + pixels[index - CHANNELS]!;
+    }
+  }
+}
+
+export function encodeDeflateFrame(
+  data: Uint8Array,
+  filter: DeflateFilter,
+  sequence: number,
+): Uint8Array[] {
+  const chunkCount = Math.max(1, Math.ceil(data.length / MAX_DEFLATE_CHUNK_SIZE));
+  return Array.from({ length: chunkCount }, (_, chunkIndex) => {
+    const offset = chunkIndex * MAX_DEFLATE_CHUNK_SIZE;
+    const chunk = data.subarray(offset, offset + MAX_DEFLATE_CHUNK_SIZE);
+    const { bytes, view } = createMessage(
+      MessageType.deflateFrame,
+      DEFLATE_FRAME_HEADER_SIZE + chunk.length,
+    );
+    view.setUint32(4, sequence >>> 0, true);
+    view.setUint8(8, chunkIndex);
+    view.setUint8(9, chunkCount);
+    view.setUint16(10, offset, true);
+    view.setUint16(12, data.length, true);
+    view.setUint8(14, filter);
+    bytes.set(chunk, DEFLATE_FRAME_HEADER_SIZE);
+    return bytes;
+  });
+}
+
+export function inflateFrame(data: Uint8Array, filter: DeflateFilter): Frame | undefined {
+  let pixels: Uint8Array;
+  try {
+    pixels = inflateSync(data);
+  } catch {
+    return undefined;
+  }
+  if (pixels.length !== FRAME_SIZE) {
+    return undefined;
+  }
+  if (filter === DeflateFilter.sub) {
+    removeSubFilter(pixels);
+  }
+  return new Uint8ClampedArray(pixels.buffer, pixels.byteOffset, pixels.byteLength);
+}
+
+function isDeflateFilter(value: number): value is DeflateFilter {
+  return Object.values<number>(DeflateFilter).includes(value);
+}
+
 export function encodeSetBrightness(brightness: number): Uint8Array {
   const { bytes, view } = createMessage(MessageType.setBrightness, BRIGHTNESS_SIZE);
   view.setUint8(4, brightness);
@@ -280,6 +370,28 @@ export function decodeMessage(bytes: Uint8Array): DeviceMessage | undefined {
             pixels,
           }
         : undefined;
+    }
+    case MessageType.deflateFrame: {
+      if (bytes.length <= DEFLATE_FRAME_HEADER_SIZE) {
+        return undefined;
+      }
+      const offset = view.getUint16(10, true);
+      const size = view.getUint16(12, true);
+      const filter = view.getUint8(14);
+      const data = bytes.subarray(DEFLATE_FRAME_HEADER_SIZE);
+      if (size > FRAME_SIZE || offset + data.length > size || !isDeflateFilter(filter)) {
+        return undefined;
+      }
+      return {
+        type: "deflateFrame",
+        sequence: view.getUint32(4, true),
+        chunkIndex: view.getUint8(8),
+        chunkCount: view.getUint8(9),
+        offset,
+        size,
+        filter,
+        data,
+      };
     }
     case MessageType.setBrightness:
       return bytes.length < BRIGHTNESS_SIZE
@@ -414,8 +526,19 @@ function getSequenceDistance(from: number, to: number): number {
 
 export type FrameAssembler = ReturnType<typeof createFrameAssembler>;
 
+type PendingFrame = {
+  sequence: number;
+  frame: Frame;
+  received: Set<number>;
+  deflated?: { data: Uint8Array; filter: DeflateFilter };
+};
+
+function isDeflateChunk(chunk: FrameChunk | DeflateFrameChunk): chunk is DeflateFrameChunk {
+  return "data" in chunk;
+}
+
 export function createFrameAssembler() {
-  let pending: { sequence: number; frame: Frame; received: Set<number> } | undefined;
+  let pending: PendingFrame | undefined;
   let latest: number | undefined;
   let framesDropped = 0;
 
@@ -427,9 +550,18 @@ export function createFrameAssembler() {
     return behind >= 0 && behind < STALE_FRAME_WINDOW;
   }
 
+  function setDeflateChunk(frame: PendingFrame, chunk: DeflateFrameChunk): boolean {
+    frame.deflated ??= { data: new Uint8Array(chunk.size), filter: chunk.filter };
+    if (frame.deflated.data.length !== chunk.size || frame.deflated.filter !== chunk.filter) {
+      return false;
+    }
+    frame.deflated.data.set(chunk.data, chunk.offset);
+    return true;
+  }
+
   return {
     getFramesDropped: () => framesDropped,
-    add(chunk: FrameChunk): Frame | undefined {
+    add(chunk: FrameChunk | DeflateFrameChunk): Frame | undefined {
       if (chunk.chunkIndex >= chunk.chunkCount) {
         return undefined;
       }
@@ -443,14 +575,27 @@ export function createFrameAssembler() {
         pending = { sequence: chunk.sequence, frame: createFrame(), received: new Set() };
         latest = chunk.sequence;
       }
-      pending.frame.set(chunk.pixels, chunk.offset * CHANNELS);
+      if (isDeflateChunk(chunk)) {
+        if (!setDeflateChunk(pending, chunk)) {
+          return undefined;
+        }
+      } else {
+        pending.frame.set(chunk.pixels, chunk.offset * CHANNELS);
+      }
       pending.received.add(chunk.chunkIndex);
       if (pending.received.size < chunk.chunkCount) {
         return undefined;
       }
-      const { frame } = pending;
+      const { frame, deflated } = pending;
       pending = undefined;
-      return frame;
+      if (!deflated) {
+        return frame;
+      }
+      const inflated = inflateFrame(deflated.data, deflated.filter);
+      if (!inflated) {
+        framesDropped += 1;
+      }
+      return inflated;
     },
   };
 }

@@ -4,6 +4,7 @@
 #include <protocol.h>
 #include <scheduler.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <mutex>
@@ -32,11 +33,12 @@ protocol::SerialDecoder serialDecoder;
 Source source = Source::udp;
 std::mutex packetMutex;
 uint8_t assembled[protocol::frameSize];
+uint8_t deflated[protocol::frameSize];
 uint8_t* queue = nullptr;
 uint32_t sequences[queueSize];
 size_t queueStart = 0;
 size_t queueCount = 0;
-protocol::FrameAssembler assembler(assembled);
+protocol::FrameAssembler assembler(assembled, deflated);
 std::mutex queueMutex;
 scheduler::FrameScheduler frameScheduler(targetDepth);
 uint32_t framesReplaced = 0;
@@ -45,6 +47,8 @@ std::atomic<uint32_t> framesDropped{0};
 std::atomic<uint32_t> packetsReceived{0};
 std::atomic<bool> hasSerialPacket{false};
 std::atomic<uint32_t> serialPacketAt{0};
+std::mutex inflateStatsMutex;
+InflateStats inflateStats;
 
 size_t getSlot(size_t index) { return (queueStart + index) % queueSize; }
 
@@ -64,6 +68,13 @@ void addFrame(uint32_t sequence) {
   framesDropped = assembler.getFramesDropped() + framesReplaced;
 }
 
+void addInflateTime(uint32_t elapsedUs) {
+  std::lock_guard lock(inflateStatsMutex);
+  inflateStats.frames++;
+  inflateStats.totalUs += elapsedUs;
+  inflateStats.maxUs = std::max(inflateStats.maxUs, elapsedUs);
+}
+
 void handlePacket(Source packetSource, const uint8_t* data, size_t size) {
   std::lock_guard lock(packetMutex);
   if (packetSource != source) {
@@ -79,6 +90,18 @@ void handlePacket(Source packetSource, const uint8_t* data, size_t size) {
   } else if (type == protocol::MessageType::compressedFrame) {
     const auto chunk = protocol::decodeCompressedFrameChunk(data, size);
     if (chunk && assembler.add(*chunk)) {
+      addFrame(chunk->sequence);
+    }
+  } else if (type == protocol::MessageType::deflateFrame) {
+    const auto chunk = protocol::decodeDeflateFrameChunk(data, size);
+    if (!chunk) {
+      return;
+    }
+    const uint32_t startedAt = micros();
+    const bool isComplete = assembler.add(*chunk);
+    const uint32_t elapsedUs = micros() - startedAt;
+    if (isComplete) {
+      addInflateTime(elapsedUs);
       addFrame(chunk->sequence);
     }
   } else if (type == protocol::MessageType::setBrightness) {
@@ -164,6 +187,13 @@ std::optional<uint8_t> takeBrightness() {
 uint32_t getFramesDropped() { return framesDropped; }
 
 uint32_t getPacketsReceived() { return packetsReceived; }
+
+InflateStats takeInflateStats() {
+  std::lock_guard lock(inflateStatsMutex);
+  const InflateStats stats = inflateStats;
+  inflateStats = {};
+  return stats;
+}
 
 bool isSerialActive() {
   return hasSerialPacket && millis() - serialPacketAt < protocol::frameTimeoutMs;

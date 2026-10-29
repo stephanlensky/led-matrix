@@ -3,12 +3,11 @@ import {
   DeviceMode,
   type Frame,
   createFrame,
-  encodeCompressedFrame,
-  encodeFrame,
   encodeSetBrightness,
+  encodeSmallestFrame,
   setPixel,
 } from "@led-matrix/core";
-import { createSerialTransport, encodeSerialFrame } from "@led-matrix/core/node-device";
+import { createSerialTransport, deflate, encodeSerialFrame } from "@led-matrix/core/node-device";
 
 const { values: options } = parseArgs({
   options: {
@@ -31,6 +30,7 @@ let sequence = 0;
 let frameIndex = 0;
 let bytesSent = 0;
 let lateTicks = 0;
+let features = 0;
 
 function getFrame(index: number): Frame {
   const frame = createFrame();
@@ -77,6 +77,7 @@ transport.subscribe({
       return;
     }
     const { status } = message;
+    features = status.features;
     const sent = sentAt.get(status.shownSequence);
     const latency = sent === undefined ? undefined : now - status.shownAgeMs - sent;
     if (latency !== undefined && status.mode === DeviceMode.streaming) {
@@ -111,9 +112,7 @@ function start(): void {
     }
     const frame = getFrame(frameIndex);
     frameIndex += 1;
-    const packets = options.raw
-      ? encodeFrame(frame, sequence)
-      : encodeCompressedFrame(frame, sequence);
+    const packets = encodeSmallestFrame(frame, sequence, options.raw ? 0 : features, deflate);
     if (transport.sendFrame(packets)) {
       bytesSent += encodeSerialFrame(packets).length;
       sentAt.set(sequence, performance.now());
