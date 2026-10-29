@@ -15,7 +15,7 @@ import {
   createPlaybackEngine,
 } from "@led-matrix/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type DeviceLink, createDeviceLink } from "./device.ts";
+import { type UdpDeviceLink, createUdpDeviceLink } from "./device.ts";
 
 const status: DeviceStatus = {
   width: 64,
@@ -73,7 +73,11 @@ describe("device link", () => {
       bpm: 120,
       getTime: () => clock.time,
     });
-    const link: DeviceLink = await createDeviceLink({ engine, port: 0, getTime: () => clock.time });
+    const link: UdpDeviceLink = await createUdpDeviceLink({
+      engine,
+      port: 0,
+      getTime: () => clock.time,
+    });
     const device = await createFakeDevice();
     cleanup.push(
       () => link.close(),

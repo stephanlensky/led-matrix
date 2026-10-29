@@ -23,6 +23,7 @@ import {
   clipInfoSchema,
   createFrameCache,
   createRenderer,
+  disabledDeviceState,
   effects,
   getSectionedAnimation,
   outputSchema,
@@ -38,12 +39,7 @@ import { createAnimationStore } from "./animations.ts";
 import { createClipStore } from "./clips.ts";
 import { getSlugId, openDatabase } from "./database.ts";
 import { DecodeError, type UploadedFile, decodeClipInWorker } from "./decode.ts";
-import {
-  type DeviceLink,
-  type DeviceLinkOptions,
-  createDeviceLink,
-  disabledDeviceState,
-} from "./device.ts";
+import { type UdpDeviceLink, type UdpDeviceLinkOptions, createUdpDeviceLink } from "./device.ts";
 import { seedAnimations } from "./seeds.ts";
 
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
@@ -54,7 +50,7 @@ export type AppOptions = {
   logger?: boolean;
   fps?: number;
   bpm?: number;
-  device?: Omit<DeviceLinkOptions, "engine" | "onError">;
+  device?: Omit<UdpDeviceLinkOptions, "engine" | "onError">;
   webRoot?: string;
 };
 
@@ -153,11 +149,11 @@ export function createApp({
     store.set(id, animationSchema.parse(animation));
   }
 
-  let device: DeviceLink | undefined;
+  let device: UdpDeviceLink | undefined;
 
   app.addHook("onReady", async () => {
     if (deviceOptions) {
-      device = await createDeviceLink({
+      device = await createUdpDeviceLink({
         ...deviceOptions,
         engine: engines.device,
         onError: (error) => app.log.error(error, "Device link error"),
