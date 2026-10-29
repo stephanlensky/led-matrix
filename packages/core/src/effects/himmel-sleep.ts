@@ -2,11 +2,11 @@ import { z } from "zod";
 import { defineEffect } from "../effect.ts";
 import { fonts, drawText } from "../fonts/index.ts";
 import { HEIGHT, WIDTH } from "../frame.ts";
-import { type Vector, createRaster, getRotation, resolveRaster } from "../mesh.ts";
+import { type Raster, type Vector, createRaster, getRotation, resolveRaster } from "../mesh.ts";
 import { TAU, toRadians } from "./cat-duo.ts";
 import { getCycle } from "./cat-dance.ts";
-import { HERO_CENTER, PROP_COLORS, drawHero, drawProp } from "./frieren-model.ts";
-import { getModelProjector } from "./hunter-model.ts";
+import { HERO_CENTER, type HeroId, PROP_COLORS, drawHero, drawProp } from "./frieren-model.ts";
+import { type ModelPlacement, getModelProjector } from "./hunter-model.ts";
 import { createBedMesh, createBlanketMesh } from "./frieren-props.ts";
 import { scale } from "./cat-model.ts";
 
@@ -14,6 +14,38 @@ const bedMesh = createBedMesh();
 const SNORE_COLOR = PROP_COLORS.pillow;
 const SNORE_LETTERS = 3;
 const HEAD: Vector = [0, 0.3, -0.9];
+
+export function drawSleepingHero(
+  raster: Raster,
+  hero: HeroId,
+  placement: ModelPlacement,
+  inhale: number,
+): void {
+  drawProp(raster, bedMesh, placement);
+  drawProp(raster, createBlanketMesh(0.5 + 0.06 * inhale), placement);
+  drawHero(raster, hero, {
+    ...placement,
+    orient: getRotation(toRadians(-90), 0, 0),
+    offset: [0, 0.3, 0.15],
+    eyes: "closed",
+    hidden: [
+      "cape",
+      "leftArm",
+      "rightArm",
+      "leftForearm",
+      "rightForearm",
+      "leftLeg",
+      "rightLeg",
+      "leftShin",
+      "rightShin",
+    ],
+    pose: { head: getRotation(toRadians(8 * inhale), 0, toRadians(-12)) },
+  });
+}
+
+export function getSleepingHead(placement: ModelPlacement): Vector {
+  return getModelProjector(HERO_CENTER, placement)(HEAD);
+}
 
 export const himmelSleep = defineEffect({
   id: "himmel-sleep",
@@ -36,29 +68,10 @@ export const himmelSleep = defineEffect({
       size: params.size,
       rotate: getRotation(toRadians(params.pitch), toRadians(params.yaw), 0),
     };
-    drawProp(raster, bedMesh, placement);
-    drawProp(raster, createBlanketMesh(0.5 + 0.06 * inhale), placement);
-    drawHero(raster, "himmel", {
-      ...placement,
-      orient: getRotation(toRadians(-90), 0, 0),
-      offset: [0, 0.3, 0.15],
-      eyes: "closed",
-      hidden: [
-        "cape",
-        "leftArm",
-        "rightArm",
-        "leftForearm",
-        "rightForearm",
-        "leftLeg",
-        "rightLeg",
-        "leftShin",
-        "rightShin",
-      ],
-      pose: { head: getRotation(toRadians(8 * inhale), 0, toRadians(-12)) },
-    });
+    drawSleepingHero(raster, "himmel", placement, inhale);
     resolveRaster(raster, image);
     const font = fonts["spleen-5x8"];
-    const [headX, headY] = getModelProjector(HERO_CENTER, placement)(HEAD);
+    const [headX, headY] = getSleepingHead(placement);
     for (let index = 0; index < SNORE_LETTERS; index++) {
       const age = getCycle(phase + index / SNORE_LETTERS);
       const fade = Math.sin(age * Math.PI);

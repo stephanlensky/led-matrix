@@ -2605,6 +2605,30 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         getValueParameter("Rain", "rain", { Off: 0, Light: 3, Heavy: 8 }, "Light"),
       ],
     ),
+    "hero-week": {
+      name: "Frieren and Himmel too slow",
+      parameters: [
+        getValueParameter(
+          "Characters",
+          "waiter",
+          { "Himmel waits, Frieren slow": "himmel", "Frieren waits, Himmel slow": "frieren" },
+          "Himmel waits, Frieren slow",
+        ),
+        loveColorParameter,
+        backgroundParameter,
+      ],
+      sections: [
+        {
+          mode: { type: "once", beats: 64 },
+          layers: [
+            {
+              effect: "hero-week",
+              params: getReferences(["waiter", "heartColor", "background"]),
+            },
+          ],
+        },
+      ],
+    },
     "frieren-himmel-dance": getLoop(
       "Frieren and Himmel dance",
       16,

@@ -6,6 +6,7 @@ import { easings } from "../keyframes.ts";
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import {
   type Mesh,
+  type Raster,
   type Vector,
   addBox,
   addEllipsoid,
@@ -37,6 +38,7 @@ import {
 import { blendPixel, drawHeart } from "./heart.ts";
 import { getBeatKick } from "./heart-pulse.ts";
 import { getAlignment } from "./frieren-pose.ts";
+import type { ModelPlacement } from "./hunter-model.ts";
 import { drawThought, getThoughtMask } from "./thought-bubble.ts";
 
 const WHITE: Color = [255, 255, 255];
@@ -154,6 +156,26 @@ function getSadPose(lean: number, nuzzle: number): HeroPlacement["pose"] {
     leftShin: getRotation(toRadians(85), 0, 0),
     rightShin: getRotation(toRadians(85), 0, 0),
   };
+}
+
+export function getDeskPlacement(
+  hero: HeroId,
+  placement: ModelPlacement,
+  breath: number,
+  nuzzle: number,
+): HeroPlacement {
+  return {
+    ...placement,
+    eyes: "closed",
+    pose: getSadPose(toRadians(32 - 5 * breath), nuzzle),
+    hidden: ["leftForearm", "rightForearm"],
+    attachments: [getArmsAttachment(hero)],
+  };
+}
+
+export function drawDeskHero(raster: Raster, hero: HeroId, placement: HeroPlacement): void {
+  drawProp(raster, deskMesh, placement);
+  drawHero(raster, hero, placement);
 }
 
 const RAIN_SEED = 0x7a1d;
@@ -284,21 +306,20 @@ export const heroDesk = defineEffect({
     const heart = parseColor(params.heartColor);
     const { pulse, kick } = getBeatKick(beat, params.every);
     const breath = 0.5 - 0.5 * Math.cos(getCycle(beat / params.sigh) * TAU);
-    const lean = toRadians(32 - 5 * breath);
-    const placement: HeroPlacement = {
-      x: WIDTH / 2 + 4,
-      y: HEIGHT / 2 + 6,
-      size: params.size,
-      rotate: getRotation(toRadians(params.pitch), toRadians(params.yaw), 0),
-      eyes: "closed",
-      pose: getSadPose(lean, kick),
-      hidden: ["leftForearm", "rightForearm"],
-      attachments: [getArmsAttachment(params.hero)],
-    };
+    const placement = getDeskPlacement(
+      params.hero,
+      {
+        x: WIDTH / 2 + 4,
+        y: HEIGHT / 2 + 6,
+        size: params.size,
+        rotate: getRotation(toRadians(params.pitch), toRadians(params.yaw), 0),
+      },
+      breath,
+      kick,
+    );
     drawRain(image, pulse, params.rain, rain);
     const raster = createRaster();
-    drawProp(raster, deskMesh, placement);
-    drawHero(raster, params.hero, placement);
+    drawDeskHero(raster, params.hero, placement);
     compositeRaster(raster, image);
     const [faceX, faceY] = getHeroPoint(params.hero, placement, FACE, "head");
     const [landX, landY] = getHeroPoint(params.hero, placement, TEAR_LAND);

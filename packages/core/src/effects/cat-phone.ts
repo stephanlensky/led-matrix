@@ -59,7 +59,7 @@ import { HEART_SEED, drawFloatingHearts, drawSparkle, drawSparkles } from "./hea
 
 type PhonePart = "case" | "screen";
 
-type PhoneScreen = (u: number, v: number) => Color;
+export type PhoneScreen = (u: number, v: number) => Color;
 
 type Angles = { pitch: number; yaw?: number; roll?: number };
 
@@ -74,9 +74,9 @@ const partners: Readonly<Record<CharacterId, CharacterId>> = {
   himmel: "frieren",
 };
 
-type Character = { type: "cat"; coat: Coat } | { type: "hero"; hero: HeroId };
+export type Character = { type: "cat"; coat: Coat } | { type: "hero"; hero: HeroId };
 
-type PhoneCat = {
+export type PhoneCat = {
   character: Character;
   side: number;
   x: number;
@@ -97,7 +97,7 @@ type PhoneCat = {
   eyes: EyeStyle;
 };
 
-type PhoneCatPoints = CatFace & { phone: Vector; eyeSize: number };
+export type PhoneCatPoints = CatFace & { phone: Vector; eyeSize: number };
 
 type View = { x: number; y: number; zoom: number };
 
@@ -131,9 +131,9 @@ const BUZZ_BEATS = 8;
 const SWOOSH_SLOPE = 0.45;
 const WHITE: Color = [255, 255, 255];
 const YELLOW: Color = [255, 220, 60];
-const DARK_PHONE: Color = [40, 40, 52];
-const LIGHT_PHONE: Color = [232, 222, 236];
-const SCREEN_OFF: Color = [14, 14, 22];
+export const DARK_PHONE: Color = [40, 40, 52];
+export const LIGHT_PHONE: Color = [232, 222, 236];
+export const SCREEN_OFF: Color = [14, 14, 22];
 
 function createPhoneMesh() {
   const mesh = createMesh<PhonePart>();
@@ -159,7 +159,11 @@ function drawPhone(raster: Raster, placement: CatPlacement, color: Color, screen
   });
 }
 
-function drawPhoneCharacter(raster: Raster, cat: PhoneCat, view = FULL_VIEW): PhoneCatPoints {
+export function drawPhoneCharacter(
+  raster: Raster,
+  cat: PhoneCat,
+  view = FULL_VIEW,
+): PhoneCatPoints {
   const { character } = cat;
   return character.type === "cat"
     ? drawPhoneCat(raster, cat, character.coat, view)
@@ -454,7 +458,12 @@ function drawSpeedLines(image: RgbaImage, [x, y]: Vector, amount: number, color:
   }
 }
 
-function drawVibration(image: RgbaImage, [x, y]: Vector, size: number, amount: number): void {
+export function drawVibration(
+  image: RgbaImage,
+  [x, y]: Vector,
+  size: number,
+  amount: number,
+): void {
   const reach = PHONE_HALF[0] * size + 2;
   for (const side of [-1, 1]) {
     for (const [ring, distance] of [0, 3].entries()) {
@@ -473,7 +482,12 @@ function drawVibration(image: RgbaImage, [x, y]: Vector, size: number, amount: n
   }
 }
 
-function drawExclamation(image: RgbaImage, [x, y]: Vector, pop: number, amount: number): void {
+export function drawExclamation(
+  image: RgbaImage,
+  [x, y]: Vector,
+  pop: number,
+  amount: number,
+): void {
   const size = getOvershoot(clamp(pop));
   const height = Math.round(7 * size);
   const left = Math.round(x);
@@ -982,7 +996,7 @@ function drawDuet(
   });
 }
 
-function getLockScreen(glow: Color, light: number): PhoneScreen {
+export function getLockScreen(glow: Color, light: number): PhoneScreen {
   return (_u, v) => mix(SCREEN_OFF, scale(glow, 0.4 + 0.3 * v), light);
 }
 

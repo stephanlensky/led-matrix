@@ -100,6 +100,7 @@ import { frierenMimic } from "./frieren-mimic.ts";
 import { himmelBench, himmelSquat } from "./himmel-lift.ts";
 import { himmelSleep } from "./himmel-sleep.ts";
 import { heroDesk } from "./hero-desk.ts";
+import { heroWeek } from "./hero-week.ts";
 import { bigText } from "./big-text.ts";
 import { clip } from "./clip.ts";
 import { plasma } from "./plasma.ts";
@@ -238,6 +239,7 @@ export const effects: readonly Effect[] = [
   himmelSquat,
   himmelSleep,
   heroDesk,
+  heroWeek,
   emboss,
   tilt,
   pixelate,
