@@ -2629,6 +2629,59 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
     },
+    "character-select": {
+      name: "Character select",
+      parameters: [
+        getValueParameter(
+          "Character",
+          "selected",
+          {
+            Frieren: "frieren",
+            Himmel: "himmel",
+            Zoey: "zoey",
+            Rumi: "rumi",
+            Mira: "mira",
+            "Tabby cat": "tabby",
+            "Black cat": "black",
+          },
+          "Frieren",
+        ),
+        getParameter(
+          "Colors",
+          {
+            "Gold and cyan": { arrowColor: "#ffd030", sparkColor: "#3cdcff" },
+            "Pink and cyan": { arrowColor: "#ff3cb4", sparkColor: "#3cdcff" },
+            "Green and violet": { arrowColor: "#40ff80", sparkColor: "#a050ff" },
+          },
+          "Gold and cyan",
+        ),
+      ],
+      sections: [
+        {
+          name: "Search",
+          mode: { type: "once", beats: 32 },
+          layers: [
+            {
+              effect: "character-select",
+              params: getReferences(["selected", "arrowColor", "sparkColor"]),
+            },
+          ],
+        },
+        {
+          name: "Selected",
+          mode: { type: "loop", beats: 4 },
+          layers: [
+            {
+              effect: "character-select",
+              params: {
+                ...getReferences(["selected", "arrowColor", "sparkColor"]),
+                stage: "victory",
+              },
+            },
+          ],
+        },
+      ],
+    },
     "hero-band": getLoop(
       "Frieren and Himmel band",
       16,

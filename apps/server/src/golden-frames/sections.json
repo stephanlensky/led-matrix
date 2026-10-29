@@ -264,6 +264,16 @@
       "section": 0
     },
     {
+      "name": "character-select#0",
+      "id": "character-select",
+      "section": 0
+    },
+    {
+      "name": "character-select#1",
+      "id": "character-select",
+      "section": 1
+    },
+    {
       "name": "hero-band#0",
       "id": "hero-band",
       "section": 0

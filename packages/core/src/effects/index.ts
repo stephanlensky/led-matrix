@@ -100,6 +100,7 @@ import { frierenMimic } from "./frieren-mimic.ts";
 import { himmelBench, himmelSquat } from "./himmel-lift.ts";
 import { himmelSleep } from "./himmel-sleep.ts";
 import { heroBand } from "./hero-band.ts";
+import { characterSelect } from "./character-select.ts";
 import { heroDesk } from "./hero-desk.ts";
 import { heroWeek } from "./hero-week.ts";
 import { bigText } from "./big-text.ts";
@@ -240,6 +241,7 @@ export const effects: readonly Effect[] = [
   himmelSquat,
   himmelSleep,
   heroBand,
+  characterSelect,
   heroDesk,
   heroWeek,
   emboss,
