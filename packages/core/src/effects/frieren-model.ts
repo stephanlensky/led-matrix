@@ -283,8 +283,7 @@ const FRIEREN_OUTFIT: Outfit = (part, [x, y, z]) => {
       return y < -0.4 ? FRIEREN_BOOT : FRIEREN_TIGHTS;
     case "shoe":
       return FRIEREN_BOOT;
-    case "sleeve":
-    case "cape":
+    default:
       return FRIEREN_WHITE;
   }
 };
@@ -323,7 +322,7 @@ const HIMMEL_OUTFIT: Outfit = (part, [x, y, z]) => {
       return y < -0.42 ? HIMMEL_BOOT : HIMMEL_WHITE;
     case "shoe":
       return HIMMEL_BOOT;
-    case "cape":
+    default:
       return HIMMEL_CAPE;
   }
 };

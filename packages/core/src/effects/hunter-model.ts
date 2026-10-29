@@ -197,7 +197,7 @@ const ZOEY_OUTFIT: Outfit = (part, [x, y]) => {
       return ZOEY_PANTS;
     case "leg":
       return y < -0.4 && x * getLegSide(x) > 0.2 ? YELLOW : ZOEY_PANTS;
-    case "shoe":
+    default:
       return y < -0.66 ? YELLOW : DARK;
   }
 };
@@ -225,7 +225,7 @@ const RUMI_OUTFIT: Outfit = (part, [x, y, z]) => {
         return SKIN;
       }
       return z > 0.05 && Math.abs(x - getLegSide(x) * 0.15) < 0.035 ? PINK : DARK;
-    case "shoe":
+    default:
       return DARK;
   }
 };
@@ -246,9 +246,6 @@ const MIRA_OUTFIT: Outfit = (part, [x, y, z]) => {
       const isPrint = z > 0.1 && Math.abs(x) < 0.18 && y > 0.36 && y < 0.56;
       return isPrint ? MIRA_PRINT : DARK;
     }
-    case "sleeve":
-    case "shoe":
-      return DARK;
     case "bottoms":
       return YELLOW;
     case "leg":
@@ -256,6 +253,8 @@ const MIRA_OUTFIT: Outfit = (part, [x, y, z]) => {
         return SKIN;
       }
       return z > 0.05 && y > -0.48 && y < -0.34 ? PINK : DARK;
+    default:
+      return DARK;
   }
 };
 
