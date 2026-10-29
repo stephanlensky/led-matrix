@@ -1,9 +1,13 @@
 import { z } from "zod";
+import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { WIDTH } from "../frame.ts";
 import { createRaster, resolveRaster } from "../mesh.ts";
 import { type Dancer, hunterMoveFrames, hunterMoves } from "./hunter-dance.ts";
+import { type CatFace, drawEyes, eyeStyles } from "./cat-face.ts";
+import { getCycle } from "./cat-dance.ts";
 import { drawHero, heroIds } from "./frieren-model.ts";
+import { getHeroFace } from "./hero-love.ts";
 
 const syncPhases = {
   together: [0, 0],
@@ -23,9 +27,12 @@ export const heroDance = defineEffect({
     sync: z.enum(heroSyncs).default("together"),
     size: z.number().min(4).max(20).default(15),
     spacing: z.number().min(0).max(30).default(15),
+    eyes: z.enum(eyeStyles).default("open"),
+    heartColor: colorSchema.default("#ff2a6d"),
   }),
   render(image, { params, beat }) {
     const raster = createRaster();
+    const faces: CatFace[] = [];
     for (const [index, hero] of heroIds.entries()) {
       const side = index === 0 ? 1 : -1;
       const dancer: Dancer = {
@@ -34,12 +41,29 @@ export const heroDance = defineEffect({
         side,
       };
       const frame = hunterMoveFrames[params.move](beat * params.speed, dancer, params.size);
-      drawHero(raster, hero, {
+      const placement = {
         ...frame,
         pose: { ...frame.pose, cape: frame.pose.hair, skirt: frame.pose.hips },
-        hidden: params.move === "twerk" ? ["cape"] : [],
-      });
+        eyesClosed: params.eyes !== "open",
+        hidden: params.move === "twerk" ? ["cape" as const] : [],
+      };
+      drawHero(raster, hero, placement);
+      faces.push(getHeroFace(hero, placement));
     }
     resolveRaster(raster, image);
+    if (params.eyes === "hearts") {
+      const pop = 1 + 0.3 * Math.exp(-getCycle(beat) * 6);
+      for (const face of faces) {
+        drawEyes(
+          image,
+          face,
+          "hearts",
+          [0, 0, 0],
+          parseColor(params.heartColor),
+          pop,
+          params.size * 0.23,
+        );
+      }
+    }
   },
 });

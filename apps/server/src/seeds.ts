@@ -1695,7 +1695,13 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
   "hero-love": getLoop(
     "Frieren and Himmel love",
     16,
-    [loveFloatLayer, { effect: "hero-dance", params: getReferences(["move", "speed", "sync"]) }],
+    [
+      loveFloatLayer,
+      {
+        effect: "hero-dance",
+        params: getReferences(["move", "speed", "sync", "eyes", "heartColor"]),
+      },
+    ],
     [
       getValueParameter(
         "Move",
@@ -1711,6 +1717,12 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
         "Sway",
       ),
       danceSpeedParameter,
+      getValueParameter(
+        "Eyes",
+        "eyes",
+        { Hearts: "hearts", Happy: "happy", Open: "open" },
+        "Hearts",
+      ),
       heroSyncParameter,
       lovePulseParameter,
       loveColorParameter,

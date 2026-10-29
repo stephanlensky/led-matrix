@@ -48,7 +48,7 @@ import {
   getHeroPoint,
   heroIds,
 } from "./frieren-model.ts";
-import { HAND, getArm, getHeroEyes } from "./hero-love.ts";
+import { HAND, getArm, getHeroFace } from "./hero-love.ts";
 import { type CatFace, type EyeStyle, drawEyes, getCatFace, getEyelessCoat } from "./cat-face.ts";
 import { blendPixel, drawHeart, getHeartCoverage } from "./heart.ts";
 import { HEART_SEED, drawFloatingHearts, drawSparkle, drawSparkles } from "./heart-particles.ts";
@@ -201,8 +201,6 @@ function drawPhoneCat(raster: Raster, cat: PhoneCat, coat: Coat, view: View): Ph
 
 const HERO_SCALE = 0.8;
 const HERO_GROUND = -1.12;
-const HERO_HEAD_CENTER: Vector = [0, 1.05, 0.02];
-const HERO_TOP: Vector = [0, 1.62, 0];
 const OVERHEAD: Vector = [0.85, 0.8, 0.15];
 
 function getMix([ax, ay, az]: Vector, [bx, by, bz]: Vector, amount: number): Vector {
@@ -270,14 +268,8 @@ function drawPhoneHero(raster: Raster, cat: PhoneCat, hero: HeroId, view: View):
     cat.phone.color,
     cat.phone.screen,
   );
-  const eyes = getHeroEyes(hero, placement);
-  const center = getHeroPoint(hero, placement, HERO_HEAD_CENTER, "head");
-  const isVisible = eyes.map(([, , depth]) => depth > center[2] + 0.1);
   return {
-    eyes,
-    isFacing: isVisible.every(Boolean),
-    isVisible,
-    top: getHeroPoint(hero, placement, HERO_TOP, "head"),
+    ...getHeroFace(hero, placement),
     phone,
     hasClosedEyes: true,
     eyeSize: 3,

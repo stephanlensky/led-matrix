@@ -6,7 +6,7 @@ import { easings } from "../keyframes.ts";
 import { type Vector, createRaster, getRotation, resolveRaster } from "../mesh.ts";
 import { TAU, clamp, toRadians } from "./cat-duo.ts";
 import { VIEW_PITCH, getCycle } from "./cat-dance.ts";
-import { drawEyes } from "./cat-face.ts";
+import { type CatFace, drawEyes } from "./cat-face.ts";
 import { drawBurst } from "./cat-love.ts";
 import { mix } from "./cat-model.ts";
 import { getOvershoot } from "./cat-wands.ts";
@@ -30,6 +30,8 @@ export const HAND: Vector = [0.44, 0.02, 0];
 export const EYE: Vector = [0.18, 1.04, 0.44];
 const MOUTH: Vector = [0, 0.86, 0.48];
 const CHEEK: Vector = [0.3, 0.9, 0.36];
+const HEAD_CENTER: Vector = [0, 1.05, 0.02];
+const HEAD_TOP: Vector = [0, 1.62, 0];
 const KISS_BEATS = 4;
 const HERO_EYE_COLORS: Readonly<Record<HeroId, Color>> = {
   frieren: parseColor("#1e7860"),
@@ -63,6 +65,18 @@ export function getHeroEyes(hero: HeroId, placement: HeroPlacement): Vector[] {
   return [-1, 1].map((eye) =>
     getHeroPoint(hero, placement, [eye * EYE[0], EYE[1], EYE[2]], "head"),
   );
+}
+
+export function getHeroFace(hero: HeroId, placement: HeroPlacement): CatFace {
+  const eyes = getHeroEyes(hero, placement);
+  const center = getHeroPoint(hero, placement, HEAD_CENTER, "head");
+  const isVisible = eyes.map(([, , depth]) => depth > center[2] + 0.1);
+  return {
+    eyes,
+    isFacing: isVisible.every(Boolean),
+    isVisible,
+    top: getHeroPoint(hero, placement, HEAD_TOP, "head"),
+  };
 }
 
 export const heroHeartHands = defineEffect({
