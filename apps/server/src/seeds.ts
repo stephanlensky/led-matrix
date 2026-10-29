@@ -1161,16 +1161,26 @@ const bloodAnimations: Record<string, AnimationInput> = {
   ),
   veins: {
     name: "Veins",
+    parameters: [
+      getColorParameter("Blood", {
+        Blood: "#7a0614",
+        Cyan: "#0080b4",
+        Blue: "#2646b4",
+        Green: "#269800",
+      }),
+    ],
     sections: [
       {
         name: "Creep",
         mode: { type: "once", beats: 16 },
-        layers: [{ effect: "blood-veins", params: { growth: getRamp(0, 1) } }],
+        layers: [
+          { effect: "blood-veins", params: { growth: getRamp(0, 1), color: { param: "color" } } },
+        ],
       },
       {
         name: "Pulse",
         mode: { type: "loop", beats: 8 },
-        layers: [{ effect: "blood-veins" }],
+        layers: [{ effect: "blood-veins", params: { color: { param: "color" } } }],
       },
     ],
   },
