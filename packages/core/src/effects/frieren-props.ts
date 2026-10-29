@@ -24,7 +24,7 @@ function addHalfCylinder(
   }
   for (let segment = 0; segment < segments; segment++) {
     const a = start + segment * 2;
-    mesh.triangles.push([a, a + 1, a + 3, material], [a, a + 3, a + 2, material]);
+    mesh.triangles.push([a, a + 1, a + 3, material, true], [a, a + 3, a + 2, material, true]);
   }
   for (const z of [-1, 1]) {
     const center = mesh.positions.length;
@@ -36,7 +36,11 @@ function addHalfCylinder(
       mesh.normals.push([0, 0, z]);
     }
     for (let segment = 0; segment < segments; segment++) {
-      mesh.triangles.push([center, center + 1 + segment, center + 2 + segment, material]);
+      const [b, c] =
+        z > 0
+          ? [center + 2 + segment, center + 1 + segment]
+          : [center + 1 + segment, center + 2 + segment];
+      mesh.triangles.push([center, b, c, material]);
     }
   }
 }

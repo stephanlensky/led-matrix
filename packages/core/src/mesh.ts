@@ -7,7 +7,7 @@ export type Rotation = (vector: Vector) => Vector;
 export type Mesh<M extends string = string> = {
   positions: Vector[];
   normals: Vector[];
-  triangles: [a: number, b: number, c: number, material: M][];
+  triangles: [a: number, b: number, c: number, material: M, isDoubleSided?: boolean][];
 };
 
 export type Raster = {
@@ -204,7 +204,7 @@ export function addCone<M extends string>(
   }
   for (let segment = 0; segment < segments; segment++) {
     const next = (segment + 1) % segments;
-    mesh.triangles.push([start, start + 1 + segment, start + 1 + next, material]);
+    mesh.triangles.push([start, start + 1 + next, start + 1 + segment, material, true]);
   }
 }
 
@@ -300,12 +300,12 @@ export function drawMesh<M extends string>(
   });
   const shades = mesh.normals.map(getShade);
 
-  for (const [a, b, c, material] of mesh.triangles) {
+  for (const [a, b, c, material, isDoubleSided] of mesh.triangles) {
     const [ax, ay, az] = projected[a] ?? [0, 0, 0];
     const [bx, by, bz] = projected[b] ?? [0, 0, 0];
     const [cx, cy, cz] = projected[c] ?? [0, 0, 0];
     const area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-    if (Math.abs(area) < 1e-9) {
+    if (Math.abs(area) < 1e-9 || (area > 0 && !isDoubleSided)) {
       continue;
     }
     const origin: Vector = [0, 0, 0];
