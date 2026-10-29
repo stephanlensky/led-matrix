@@ -17,6 +17,8 @@ constexpr size_t compressedFrameHeaderSize = 14;
 constexpr size_t setBrightnessSize = headerSize + 1;
 constexpr size_t statusSize = 32;
 constexpr size_t maxPacketSize = 1472;
+constexpr uint8_t serialDelimiter = 0x00;
+constexpr size_t maxEncodedSerialSize = maxPacketSize + (maxPacketSize + 253) / 254 + 1;
 constexpr uint32_t staleFrameWindow = 16;
 constexpr uint32_t frameTimeoutMs = 2000;
 constexpr uint32_t statusIntervalMs = 1000;
@@ -72,6 +74,35 @@ std::optional<CompressedFrameChunk> decodeCompressedFrameChunk(const uint8_t* da
 bool decodeRunLength(const uint8_t* data, size_t size, uint8_t* pixels, size_t pixelCount);
 std::optional<uint8_t> decodeSetBrightness(const uint8_t* data, size_t size);
 std::array<uint8_t, statusSize> encodeStatus(const Status& status);
+size_t encodeSerialPacket(const uint8_t* data, size_t size, uint8_t* encoded);
+
+class SerialDecoder {
+ public:
+  bool add(uint8_t byte);
+  const uint8_t* getPacket() const { return packet.data(); }
+  size_t getPacketSize() const { return packetSize; }
+
+  template <typename Handler>
+  void add(const uint8_t* data, size_t size, Handler&& handle) {
+    for (size_t index = 0; index < size; index++) {
+      if (add(data[index])) {
+        handle(packet.data(), packetSize);
+      }
+    }
+  }
+
+ private:
+  void append(uint8_t byte);
+  void reset();
+
+  std::array<uint8_t, maxPacketSize> packet{};
+  size_t size = 0;
+  size_t packetSize = 0;
+  uint8_t remaining = 0;
+  bool isStarted = false;
+  bool isZeroPending = false;
+  bool isDiscarding = false;
+};
 
 class FrameAssembler {
  public:

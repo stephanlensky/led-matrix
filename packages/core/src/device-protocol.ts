@@ -299,6 +299,101 @@ export function decodeMessage(bytes: Uint8Array): DeviceMessage | undefined {
   }
 }
 
+export const SERIAL_DELIMITER = 0x00;
+export const MAX_SERIAL_PACKET_SIZE = 1472;
+
+const MAX_BLOCK_CODE = 0xff;
+
+export function getMaxEncodedSerialSize(size: number): number {
+  return size + Math.max(1, Math.ceil(size / (MAX_BLOCK_CODE - 1))) + 1;
+}
+
+export function encodeSerialPacket(packet: Uint8Array): Uint8Array {
+  const encoded = new Uint8Array(getMaxEncodedSerialSize(packet.length));
+  let codeIndex = 0;
+  let position = 1;
+  let code = 1;
+  for (let index = 0; index < packet.length; index++) {
+    const byte = packet[index]!;
+    if (byte !== SERIAL_DELIMITER) {
+      encoded[position++] = byte;
+      code++;
+    }
+    if (byte === SERIAL_DELIMITER || (code === MAX_BLOCK_CODE && index + 1 < packet.length)) {
+      encoded[codeIndex] = code;
+      code = 1;
+      codeIndex = position++;
+    }
+  }
+  encoded[codeIndex] = code;
+  encoded[position++] = SERIAL_DELIMITER;
+  return encoded.slice(0, position);
+}
+
+export type SerialDecoder = ReturnType<typeof createSerialDecoder>;
+
+export function createSerialDecoder(maxPacketSize = MAX_SERIAL_PACKET_SIZE) {
+  const buffer = new Uint8Array(maxPacketSize);
+  let size = 0;
+  let remaining = 0;
+  let isStarted = false;
+  let isZeroPending = false;
+  let isDiscarding = false;
+
+  function reset() {
+    size = 0;
+    remaining = 0;
+    isStarted = false;
+    isZeroPending = false;
+    isDiscarding = false;
+  }
+
+  function append(byte: number) {
+    if (size === maxPacketSize) {
+      isDiscarding = true;
+      return;
+    }
+    buffer[size++] = byte;
+  }
+
+  function addByte(byte: number): Uint8Array | undefined {
+    if (byte === SERIAL_DELIMITER) {
+      const isComplete = isStarted && !isDiscarding && remaining === 0 && size > 0;
+      const packet = isComplete ? buffer.slice(0, size) : undefined;
+      reset();
+      return packet;
+    }
+    if (isDiscarding) {
+      return undefined;
+    }
+    if (remaining > 0) {
+      append(byte);
+      remaining--;
+      return undefined;
+    }
+    if (isZeroPending) {
+      append(SERIAL_DELIMITER);
+    }
+    isStarted = true;
+    isZeroPending = byte !== MAX_BLOCK_CODE;
+    remaining = byte - 1;
+    return undefined;
+  }
+
+  return {
+    add(bytes: Uint8Array): Uint8Array[] {
+      const packets: Uint8Array[] = [];
+      for (const byte of bytes) {
+        const packet = addByte(byte);
+        if (packet) {
+          packets.push(packet);
+        }
+      }
+      return packets;
+    },
+  };
+}
+
 function getSequenceDistance(from: number, to: number): number {
   return (to - from) | 0;
 }

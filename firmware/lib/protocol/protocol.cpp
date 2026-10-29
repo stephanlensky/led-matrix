@@ -8,6 +8,7 @@ namespace {
 
 constexpr uint8_t magic[] = {0x4c, 0x4d};
 constexpr uint8_t repeatFlag = 0x80;
+constexpr uint8_t maxBlockCode = 0xff;
 
 uint16_t readUint16(const uint8_t* data) { return data[0] | (data[1] << 8); }
 
@@ -133,6 +134,66 @@ std::array<uint8_t, statusSize> encodeStatus(const Status& status) {
   writeUint32(&bytes[24], status.shownSequence);
   writeUint16(&bytes[28], status.shownAgeMs);
   return bytes;
+}
+
+size_t encodeSerialPacket(const uint8_t* data, size_t size, uint8_t* encoded) {
+  size_t codeIndex = 0;
+  size_t position = 1;
+  uint8_t code = 1;
+  for (size_t index = 0; index < size; index++) {
+    if (data[index] != serialDelimiter) {
+      encoded[position++] = data[index];
+      code++;
+    }
+    if (data[index] == serialDelimiter || (code == maxBlockCode && index + 1 < size)) {
+      encoded[codeIndex] = code;
+      code = 1;
+      codeIndex = position++;
+    }
+  }
+  encoded[codeIndex] = code;
+  encoded[position++] = serialDelimiter;
+  return position;
+}
+
+bool SerialDecoder::add(uint8_t byte) {
+  if (byte == serialDelimiter) {
+    const bool isComplete = isStarted && !isDiscarding && remaining == 0 && size > 0;
+    packetSize = isComplete ? size : 0;
+    reset();
+    return isComplete;
+  }
+  if (isDiscarding) {
+    return false;
+  }
+  if (remaining > 0) {
+    append(byte);
+    remaining--;
+    return false;
+  }
+  if (isZeroPending) {
+    append(serialDelimiter);
+  }
+  isStarted = true;
+  isZeroPending = byte != maxBlockCode;
+  remaining = byte - 1;
+  return false;
+}
+
+void SerialDecoder::append(uint8_t byte) {
+  if (size == packet.size()) {
+    isDiscarding = true;
+    return;
+  }
+  packet[size++] = byte;
+}
+
+void SerialDecoder::reset() {
+  size = 0;
+  remaining = 0;
+  isStarted = false;
+  isZeroPending = false;
+  isDiscarding = false;
 }
 
 FrameAssembler::FrameAssembler(uint8_t* frame) : frame(frame) {}

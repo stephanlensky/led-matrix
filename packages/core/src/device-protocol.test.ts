@@ -1,16 +1,21 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   DeviceMode,
   type DeviceStatus,
   type FrameChunk,
+  MAX_SERIAL_PACKET_SIZE,
   STALE_FRAME_WINDOW,
   createFrameAssembler,
+  createSerialDecoder,
   decodeMessage,
   decodeRunLength,
   encodeCompressedFrame,
   encodeFrame,
+  encodeSerialPacket,
   encodeSetBrightness,
   encodeStatus,
+  getMaxEncodedSerialSize,
 } from "./device-protocol.ts";
 import { type Frame, createFrame, getPixel, setPixel } from "./frame.ts";
 
@@ -177,5 +182,93 @@ describe("frame assembler", () => {
     addAll(assembler, getChunks(createGradient(), 0xffff_ffff));
     expect(addAll(assembler, getChunks(createGradient(), 0))).toBeDefined();
     expect(addAll(assembler, getChunks(createGradient(), 0xffff_ffff))).toBeUndefined();
+  });
+});
+
+function getSerialVectors(): [Uint8Array, Uint8Array][] {
+  const text = readFileSync(
+    new URL("../../../firmware/test/serial_vectors.txt", import.meta.url),
+    "utf8",
+  );
+  return text
+    .split("\n")
+    .filter((line) => line !== "" && !line.startsWith("#"))
+    .map((line) => {
+      const [packet = "", encoded = ""] = line.split(" ");
+      return [Buffer.from(packet, "hex"), Buffer.from(encoded, "hex")];
+    });
+}
+
+function decodeSerial(stream: Uint8Array, chunkSize: number): Uint8Array[] {
+  const decoder = createSerialDecoder();
+  const packets: Uint8Array[] = [];
+  for (let start = 0; start < stream.length; start += chunkSize) {
+    packets.push(...decoder.add(stream.subarray(start, start + chunkSize)));
+  }
+  return packets;
+}
+
+function join(parts: Uint8Array[]): Uint8Array {
+  return Uint8Array.from(parts.flatMap((part) => [...part]));
+}
+
+describe("serial framing", () => {
+  it("matches the shared test vectors", () => {
+    const vectors = getSerialVectors();
+    expect(vectors).toHaveLength(13);
+    for (const [packet, encoded] of vectors) {
+      expect(encodeSerialPacket(packet)).toEqual(new Uint8Array(encoded));
+      expect(decodeSerial(encoded, 1)).toEqual([new Uint8Array(packet)]);
+    }
+  });
+
+  it.each([1, 7, 64, 20_000])("decodes a stream fed in chunks of %i bytes", (chunkSize) => {
+    const packets = encodeCompressedFrame(createNoise(), 3);
+    const stream = join(packets.map((packet) => encodeSerialPacket(packet)));
+    expect(decodeSerial(stream, chunkSize)).toEqual(packets);
+  });
+
+  it("decodes packets up to the max size and drops longer ones", () => {
+    const largest = Uint8Array.from({ length: MAX_SERIAL_PACKET_SIZE }, (_, index) =>
+      index % 300 < 260 ? (index % 255) + 1 : 0,
+    );
+    const oversized = new Uint8Array(MAX_SERIAL_PACKET_SIZE + 1).fill(0x11);
+    expect(encodeSerialPacket(oversized.subarray(1))).toHaveLength(
+      getMaxEncodedSerialSize(MAX_SERIAL_PACKET_SIZE),
+    );
+    const stream = join([
+      encodeSerialPacket(oversized),
+      encodeSerialPacket(largest),
+      encodeSerialPacket(oversized),
+    ]);
+    expect(decodeSerial(stream, 5)).toEqual([largest]);
+  });
+
+  it("resyncs after garbage and truncated packets", () => {
+    const status = encodeSerialPacket(
+      encodeStatus({
+        width: 64,
+        height: 64,
+        brightness: 10,
+        mode: DeviceMode.idle,
+        features: 1,
+        uptimeMs: 5,
+        framesShown: 0,
+        framesDropped: 0,
+        shownSequence: 0,
+        shownAgeMs: 0,
+      }),
+    );
+    const stream = join([
+      Uint8Array.of(0x00, 0x00, 0x13, 0x37, 0xff, 0x00),
+      status,
+      Uint8Array.of(0x42, 0x43),
+      status,
+      status.subarray(0, 3),
+      Uint8Array.of(0x00, 0x09, 0x01, 0x00),
+      status,
+    ]);
+    const messages = decodeSerial(stream, 3).map((packet) => decodeMessage(packet)?.type);
+    expect(messages).toEqual(["status", "status"]);
   });
 });

@@ -1,8 +1,8 @@
 # Device protocol
 
-UDP protocol between the server (laptop) and the LED matrix device (Matrix Portal S3). The reference implementation is `packages/core/src/device-protocol.ts` and the firmware implementation is `firmware/lib/protocol`; `pnpm fake-device` runs a receiver that behaves like the firmware should.
+Protocol between the host (the server or the mixxx-sync daemon) and the LED matrix device (Matrix Portal S3), over UDP or USB serial. The reference implementation is `packages/core/src/device-protocol.ts` and the firmware implementation is `firmware/lib/protocol`; `pnpm fake-device` runs a receiver that behaves like the firmware should.
 
-## Transport
+## UDP transport
 
 | Port | Owner  | Receives                        |
 | ---- | ------ | ------------------------------- |
@@ -14,6 +14,16 @@ The device uses one socket bound to 7700 for everything and sends its status fro
 The device sends status to the configured server address if it has one, otherwise to the subnet broadcast address. This covers both the device joining a laptop hotspot and the laptop joining an access point run by the device.
 
 Every packet fits in one datagram of at most 1356 bytes, so nothing relies on IP fragmentation, even on networks with a smaller MTU (the Kubernetes pod network uses 1420). The device drops IP fragments.
+
+## Serial transport
+
+Over USB serial (the board's native USB CDC port) the same packets are sent in both directions, each framed with [COBS](https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing) and followed by a `00` delimiter. UDP packets stay unframed.
+
+- COBS replaces every `00` in the packet, so `00` only ever appears as the delimiter. The encoder writes no trailing block code after a full 254-byte block that ends the packet (the canonical form), and the decoder accepts both forms.
+- A decoded packet is at most 1472 bytes. Encoded with its delimiter it is at most 1479 bytes (`n + ceil(n / 254) + 1`). Hosts send at most 1356-byte packets, like over UDP.
+- Receivers decode incrementally and drop a frame that is empty, longer than 1472 bytes once decoded, or whose last block runs past the delimiter, then resume at the next `00`. The packet inside is then checked like a UDP packet.
+- A host should send a lone `00` after opening the port, so any partial frame left in the device's buffer ends there.
+- `firmware/test/serial_vectors.txt` holds shared test vectors (packet and encoded frame in hex) that both implementations test against.
 
 ## Packet header
 
