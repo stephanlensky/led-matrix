@@ -1,3 +1,4 @@
+import type { Frame } from "@led-matrix/core";
 import { type IpcRendererEvent, contextBridge, ipcRenderer } from "electron";
 import {
   type Api,
@@ -16,6 +17,7 @@ type Events = {
   [channels.log]: LogEntry;
   [channels.position]: LivePosition | undefined;
   [channels.mapping]: MappingState;
+  [channels.localFrame]: Frame;
 };
 
 function subscribe<C extends keyof Events>(
@@ -58,6 +60,14 @@ const api: Api = {
   onLog: (listener) => subscribe(channels.log, listener),
   onPosition: (listener) => subscribe(channels.position, listener),
   onMapping: (listener) => subscribe(channels.mapping, listener),
+  onLocalFrame(listener) {
+    const unsubscribe = subscribe(channels.localFrame, listener);
+    ipcRenderer.send(channels.setLocalFrameStream, true);
+    return () => {
+      unsubscribe();
+      ipcRenderer.send(channels.setLocalFrameStream, false);
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);

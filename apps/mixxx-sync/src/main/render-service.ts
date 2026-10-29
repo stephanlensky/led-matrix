@@ -1,5 +1,6 @@
 import {
   type Animation,
+  type Frame,
   type Clip,
   type ClipLibrary,
   type ParameterSelection,
@@ -34,6 +35,7 @@ export type RenderServiceOptions = {
   engine: PlaybackEngine;
   clips: ClipStore;
   setBrightness: (brightness: number) => void;
+  getLatency?: () => number;
   send: (event: RenderEvent) => void;
 };
 
@@ -54,8 +56,38 @@ export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function createRenderService({ engine, clips, setBrightness, send }: RenderServiceOptions) {
+export function createRenderService({
+  engine,
+  clips,
+  setBrightness,
+  getLatency = () => 0,
+  send,
+}: RenderServiceOptions) {
   let animations = new Map<string, AnimationEntry>();
+  let unsubscribeFrames: (() => void) | undefined;
+
+  function sendFrame(frame: Frame): void {
+    send({
+      type: "frame",
+      frame: Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength).toString("base64"),
+    });
+  }
+
+  function setFrameStream(isEnabled: boolean): void {
+    unsubscribeFrames?.();
+    unsubscribeFrames = isEnabled
+      ? engine.subscribe({
+          setFrame(frame) {
+            const latency = getLatency();
+            if (latency > 0) {
+              setTimeout(() => sendFrame(frame), latency);
+            } else {
+              sendFrame(frame);
+            }
+          },
+        })
+      : undefined;
+  }
 
   function getAnimation(id: string): Animation {
     const entry = animations.get(id);
@@ -165,10 +197,14 @@ export function createRenderService({ engine, clips, setBrightness, send }: Rend
         case "setBrightness":
           setBrightness(message.brightness);
           break;
+        case "setFrameStream":
+          setFrameStream(message.isEnabled);
+          break;
       }
     },
     close(): void {
       unsubscribe();
+      unsubscribeFrames?.();
     },
   };
 }

@@ -159,4 +159,19 @@ describe("createRenderService", () => {
     service.handle({ type: "setBrightness", brightness: 40 });
     expect(setBrightness).toHaveBeenCalledWith(40);
   });
+
+  it("streams frames only while the frame stream is enabled", () => {
+    const { engine, events, service } = setup();
+    const getFrames = () => events.filter((event) => event.type === "frame");
+    engine.tick();
+    expect(getFrames()).toHaveLength(0);
+    service.handle({ type: "setFrameStream", isEnabled: true });
+    engine.tick();
+    expect(getFrames()).toEqual([
+      { type: "frame", frame: Buffer.from(createFrame()).toString("base64") },
+    ]);
+    service.handle({ type: "setFrameStream", isEnabled: false });
+    engine.tick();
+    expect(getFrames()).toHaveLength(1);
+  });
 });

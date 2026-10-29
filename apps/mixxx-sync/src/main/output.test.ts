@@ -35,6 +35,7 @@ function createFakeLocal(serialPort: string | null, load: LocalClient["load"]) {
     setTimeline: getUnused,
     setClock: getUnused,
     setBrightness: () => undefined,
+    setFrameStream: () => undefined,
     getDeviceState: () => disabledRenderDeviceState,
     close,
   };

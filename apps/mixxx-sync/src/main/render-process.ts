@@ -1,6 +1,6 @@
 import { fork } from "node:child_process";
 import { join } from "node:path";
-import type { PlaybackState, StoredAnimation } from "@led-matrix/core";
+import type { Frame, PlaybackState, StoredAnimation } from "@led-matrix/core";
 import {
   type RenderClip,
   type RenderDeviceState,
@@ -27,6 +27,7 @@ export type RenderProcessOptions = Partial<RenderOptions> & {
   onDevice?: (state: RenderDeviceState) => void;
   onLog?: (message: string) => void;
   onDeviceLog?: (text: string) => void;
+  onFrame?: (frame: Frame) => void;
   onExit?: (code: number | string) => void;
 };
 
@@ -38,6 +39,7 @@ export function createRenderProcess({
   onDevice,
   onLog,
   onDeviceLog,
+  onFrame,
   onExit,
   ...options
 }: RenderProcessOptions = {}) {
@@ -104,6 +106,9 @@ export function createRenderProcess({
       case "deviceLog":
         onDeviceLog?.(event.text);
         break;
+      case "frame":
+        onFrame?.(new Uint8ClampedArray(Buffer.from(event.frame, "base64")));
+        break;
     }
   });
   function setExited(code: number | string): void {
@@ -155,6 +160,9 @@ export function createRenderProcess({
     },
     setBrightness(brightness: number): void {
       post({ type: "setBrightness", brightness });
+    },
+    setFrameStream(isEnabled: boolean): void {
+      post({ type: "setFrameStream", isEnabled });
     },
     getDeviceState: () => deviceState,
     getPid: () => child.pid,

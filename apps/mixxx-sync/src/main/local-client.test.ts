@@ -69,6 +69,7 @@ function createFakeProcess(options: RenderProcessOptions) {
   });
   const clips = createClipStore();
   const brightness: number[] = [];
+  const frameStreams: boolean[] = [];
   let response: RenderEvent | undefined;
   let isRunning = true;
   const service = createRenderService({
@@ -117,6 +118,7 @@ function createFakeProcess(options: RenderProcessOptions) {
       service.handle({ type: "removeClip", id }),
     ),
     setBrightness: (value) => service.handle({ type: "setBrightness", brightness: value }),
+    setFrameStream: (isEnabled) => frameStreams.push(isEnabled),
     getDeviceState: () => disabledRenderDeviceState,
     close: vi.fn<LocalRenderProcess["close"]>(() => exit("SIGTERM")),
   };
@@ -126,7 +128,7 @@ function createFakeProcess(options: RenderProcessOptions) {
     options.onExit?.(code);
   }
 
-  return { render, options, clips, brightness, exit };
+  return { render, options, clips, brightness, frameStreams, exit };
 }
 
 function setup(animations: StoredAnimation[], clips: ClipInfo[] = []) {
@@ -247,7 +249,7 @@ describe("createLocalClient", () => {
     expect(processes[0]?.render.setAnimations).toHaveBeenCalledTimes(1);
   });
 
-  it("restarts the render process with its content and brightness", async () => {
+  it("restarts the render process with its content, brightness and frame stream", async () => {
     vi.useFakeTimers();
     const { client, processes, clock, logs } = setup(
       [getAnimation("clip-animation", "clip-a")],
@@ -255,6 +257,7 @@ describe("createLocalClient", () => {
     );
     await client.getAnimations();
     client.setBrightness(40);
+    client.setFrameStream(true);
     processes[0]?.exit(1);
     await expect(client.getState()).rejects.toThrow("exited");
     expect(logs).toContain("Render process exited with 1, restarting in 1 s");
@@ -263,6 +266,7 @@ describe("createLocalClient", () => {
     const restarted = processes[1];
     expect(restarted?.clips.library.getClip("clip-a")).toBeDefined();
     expect(restarted?.brightness).toEqual([40]);
+    expect(restarted?.frameStreams).toEqual([true]);
     await expect(
       client.play({ id: "clip-animation", section: 0, beat: 0, bpm: 120 }),
     ).resolves.toMatchObject({ animationId: "clip-animation" });

@@ -7,7 +7,7 @@ import type { DaemonStatus, Settings } from "../../shared/api.ts";
 import type { AnimationSource, CueSelection, LaneEditor } from "./AnimationLane.tsx";
 import { AnimationPanel, type CueParams, useAnimations } from "./AnimationPanel.tsx";
 import { LibraryNav } from "./LibraryNav.tsx";
-import { type AnimationPreview, PlaybackSimulator } from "./Playback.tsx";
+import { type AnimationPreview, type LiveSource, PlaybackSimulator } from "./Playback.tsx";
 import { ResizeHandle, useStoredSize } from "./ResizeHandle.tsx";
 import { getNudgedDelta } from "../../shared/lane-edit.ts";
 import { type ExplicitCue, type MappingFile, getExplicitCues } from "../../shared/mapping.ts";
@@ -188,6 +188,12 @@ function getStreamUrl({ serverUrl, output }: Settings): string {
   const url = new URL(`/api/stream/${output}`, serverUrl);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.href;
+}
+
+function getLiveSource(settings: Settings): LiveSource {
+  return settings.outputMode === "local"
+    ? { type: "local" }
+    : { type: "server", url: getStreamUrl(settings) };
 }
 
 function getLibrarySelection(value: unknown): LibrarySelection | undefined {
@@ -387,7 +393,7 @@ function EditorContent({ settings }: { settings: Settings }) {
               cache={cache}
               source={source}
               preview={preview}
-              liveStreamUrl={isLiveView ? getStreamUrl(settings) : undefined}
+              live={isLiveView ? getLiveSource(settings) : undefined}
               onPreviewChange={setPreview}
               onLiveViewEnd={endLiveView}
             />

@@ -31,7 +31,8 @@ export type RenderMessage =
   | { type: "setAnimations"; animations: StoredAnimation[] }
   | { type: "setClip"; id: string; durations: readonly number[]; frames: string }
   | { type: "removeClip"; id: string }
-  | { type: "setBrightness"; brightness: number };
+  | { type: "setBrightness"; brightness: number }
+  | { type: "setFrameStream"; isEnabled: boolean };
 
 export type RenderDeviceState = LocalDeviceState;
 
@@ -48,4 +49,5 @@ export type RenderEvent =
   | { type: "state"; state: PlaybackState }
   | { type: "device"; state: RenderDeviceState }
   | { type: "log"; message: string }
-  | { type: "deviceLog"; text: string };
+  | { type: "deviceLog"; text: string }
+  | { type: "frame"; frame: string };

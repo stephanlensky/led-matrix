@@ -26,6 +26,8 @@ const blankFrame = createFrame();
 const FRAME_CLASS = "h-full min-h-0";
 export const DEFAULT_BPM = 120;
 
+export type LiveSource = { type: "server"; url: string } | { type: "local" };
+
 export type AnimationPreview = {
   animationId: string;
   section: number | undefined;
@@ -249,13 +251,19 @@ function LiveSimulator({ streamUrl }: { streamUrl: string }) {
   return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
 }
 
+function LocalLiveSimulator() {
+  const [frame, setFrame] = useState<Frame>(blankFrame);
+  useEffect(() => window.api.onLocalFrame(setFrame), []);
+  return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
+}
+
 export function PlaybackSimulator({
   player,
   mapping,
   cache,
   source,
   preview,
-  liveStreamUrl,
+  live,
   onPreviewChange,
   onLiveViewEnd,
 }: {
@@ -264,7 +272,7 @@ export function PlaybackSimulator({
   cache: TrackDataCache;
   source: AnimationSource;
   preview: AnimationPreview | undefined;
-  liveStreamUrl: string | undefined;
+  live: LiveSource | undefined;
   onPreviewChange: (preview: AnimationPreview | undefined) => void;
   onLiveViewEnd: () => void;
 }) {
@@ -291,8 +299,11 @@ export function PlaybackSimulator({
     }
   }, [isPlaying, onLiveViewEnd]);
 
-  if (liveStreamUrl !== undefined) {
-    return <LiveSimulator streamUrl={liveStreamUrl} />;
+  if (live?.type === "local") {
+    return <LocalLiveSimulator />;
+  }
+  if (live?.type === "server") {
+    return <LiveSimulator streamUrl={live.url} />;
   }
   if (preview && previewAnimation && !isActive) {
     return (

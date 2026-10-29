@@ -1,4 +1,4 @@
-import type { ClipInfo, PlaybackState, StoredAnimation } from "@led-matrix/core";
+import type { ClipInfo, Frame, PlaybackState, StoredAnimation } from "@led-matrix/core";
 import type { RenderClip, RenderDeviceState } from "./render-protocol.ts";
 import {
   type RenderProcess,
@@ -23,6 +23,7 @@ export type LocalRenderProcess = Pick<
   | "setClip"
   | "removeClip"
   | "setBrightness"
+  | "setFrameStream"
   | "getDeviceState"
   | "close"
 >;
@@ -37,11 +38,13 @@ export type LocalClientOptions = {
   onState?: (state: PlaybackState) => void;
   onDevice?: (state: RenderDeviceState) => void;
   onDeviceLog?: (text: string) => void;
+  onFrame?: (frame: Frame) => void;
 };
 
 export type LocalClient = ServerClient & {
   load(): Promise<StoredAnimation[]>;
   setBrightness(brightness: number): void;
+  setFrameStream(isEnabled: boolean): void;
   getDeviceState(): RenderDeviceState;
   close(): void;
 };
@@ -82,10 +85,12 @@ export function createLocalClient({
   onState,
   onDevice,
   onDeviceLog,
+  onFrame,
 }: LocalClientOptions): LocalClient {
   const clips = new Map<string, RenderClip>();
   let animations: StoredAnimation[] | undefined;
   let brightness: number | undefined;
+  let isFrameStreamEnabled = false;
   let loading: Promise<StoredAnimation[]> | undefined;
   let render: LocalRenderProcess;
   let startedAt = 0;
@@ -111,6 +116,7 @@ export function createLocalClient({
       onState,
       onDevice,
       onDeviceLog,
+      onFrame,
       onLog: log,
       onExit: setExited,
     });
@@ -122,6 +128,9 @@ export function createLocalClient({
     }
     if (brightness !== undefined) {
       render.setBrightness(brightness);
+    }
+    if (isFrameStreamEnabled) {
+      render.setFrameStream(true);
     }
   }
 
@@ -189,6 +198,10 @@ export function createLocalClient({
     setBrightness(value) {
       brightness = value;
       render.setBrightness(value);
+    },
+    setFrameStream(isEnabled) {
+      isFrameStreamEnabled = isEnabled;
+      render.setFrameStream(isEnabled);
     },
     getDeviceState: () => render.getDeviceState(),
     close(): void {

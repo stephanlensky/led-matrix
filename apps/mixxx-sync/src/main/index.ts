@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { getSerialDevices } from "@led-matrix/core/node-device";
-import { BrowserWindow, app, dialog, ipcMain, protocol } from "electron";
+import { BrowserWindow, type WebContents, app, dialog, ipcMain, protocol } from "electron";
 import { z } from "zod";
 import {
   type EditorOutput,
@@ -46,6 +46,7 @@ let settings: Settings = await getStoredSettings(
 );
 const uiState = await createUiStateFile(join(app.getPath("userData"), "ui-state.json"));
 const logEntries: LogEntry[] = [];
+const frameSubscribers = new Map<WebContents, number>();
 const boardLogEntries: LogEntry[] = [];
 
 function send(channel: string, value: unknown): void {
@@ -72,15 +73,49 @@ const content = createCachedContent({
   log,
 });
 const output = createOutput(settings, {
-  createLocal: (serialPort) =>
-    createLocalClient({
+  createLocal(serialPort) {
+    const local = createLocalClient({
       content,
       devicePath: serialPort ?? undefined,
       log,
       onDeviceLog: (text) => addLogEntry(boardLogEntries, text, BOARD_LOG_LIMIT),
-    }),
+      onFrame(frame) {
+        for (const webContents of frameSubscribers.keys()) {
+          webContents.send(channels.localFrame, frame);
+        }
+      },
+    });
+    if (frameSubscribers.size > 0) {
+      local.setFrameStream(true);
+    }
+    return local;
+  },
   log,
 });
+
+function setFrameSubscribers(update: () => void): void {
+  const wasEnabled = frameSubscribers.size > 0;
+  update();
+  if (wasEnabled !== frameSubscribers.size > 0) {
+    output.getLocal()?.setFrameStream(frameSubscribers.size > 0);
+  }
+}
+
+function setFrameSubscriber(webContents: WebContents, isEnabled: boolean): void {
+  setFrameSubscribers(() => {
+    const count = (frameSubscribers.get(webContents) ?? 0) + (isEnabled ? 1 : -1);
+    if (count <= 0) {
+      frameSubscribers.delete(webContents);
+      return;
+    }
+    if (!frameSubscribers.has(webContents)) {
+      webContents.once("destroyed", () =>
+        setFrameSubscribers(() => frameSubscribers.delete(webContents)),
+      );
+    }
+    frameSubscribers.set(webContents, count);
+  });
+}
 
 function getLocalDevice(): LocalDevice | undefined {
   const local = output.getLocal();
@@ -150,6 +185,9 @@ ipcMain.handle(channels.setLocalBrightness, (_event, brightness: number) => {
   const device = getLocalDevice();
   return device && { ...device, device: { ...device.device, brightness } };
 });
+ipcMain.on(channels.setLocalFrameStream, (event, isEnabled: boolean) =>
+  setFrameSubscriber(event.sender, isEnabled),
+);
 ipcMain.handle(channels.getStatus, () => daemon.getStatus());
 ipcMain.handle(channels.getLog, () => logEntries);
 ipcMain.handle(channels.start, () => daemon.start(settings));

@@ -68,6 +68,7 @@ const service = createRenderService({
   engine,
   clips,
   setBrightness: (brightness) => device.setBrightness(brightness),
+  getLatency: () => device.getLatency(),
   send,
 });
 function exit(): void {

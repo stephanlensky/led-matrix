@@ -1,4 +1,4 @@
-import type { DeviceState, Output, ParameterSelection } from "@led-matrix/core";
+import type { DeviceState, Frame, Output, ParameterSelection } from "@led-matrix/core";
 import type { Playlist, Track, TrackDetails, Waveform, WaveformType } from "./library.ts";
 import type { MappingFile, MappingState, ResolvedCue } from "./mapping.ts";
 
@@ -120,6 +120,7 @@ export type Api = {
   onLog(listener: (entry: LogEntry) => void): () => void;
   onPosition(listener: (position: LivePosition | undefined) => void): () => void;
   onMapping(listener: (state: MappingState) => void): () => void;
+  onLocalFrame(listener: (frame: Frame) => void): () => void;
 };
 
 export const channels = {
@@ -130,6 +131,8 @@ export const channels = {
   getSerialPorts: "local:get-serial-ports",
   getLocalDevice: "local:get-device",
   setLocalBrightness: "local:set-brightness",
+  setLocalFrameStream: "local:set-frame-stream",
+  localFrame: "local:frame",
   getStatus: "daemon:get-status",
   getLog: "daemon:get-log",
   start: "daemon:start",
