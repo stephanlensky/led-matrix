@@ -155,3 +155,14 @@ export function getHeartScreen(background: Color, heart: Color, kick: number): L
     return mix(heart, [255, 255, 255], 0.15 + 0.35 * kick + 0.3 * Math.max(0, y - 0.6));
   };
 }
+
+export function getSplitHeartScreen(
+  background: Color,
+  left: Color,
+  right: Color,
+  kick: number,
+): LaptopScreen {
+  const getLeft = getHeartScreen(background, left, kick);
+  const getRight = getHeartScreen(background, right, kick);
+  return (u, v) => (u < 0.5 ? getLeft(u, v) : getRight(u, v));
+}

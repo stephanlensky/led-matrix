@@ -1828,6 +1828,33 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       loveColorParameter,
     ],
   ),
+  "love-cat-laptop-duo": getLoop(
+    "Lovestruck cats laptop",
+    8,
+    [
+      {
+        effect: "cat-laptop-duo",
+        params: getReferences(["every", "eyes", "heartColor", "secondHeartColor", "swap"]),
+      },
+    ],
+    [
+      getParameter(
+        "Hearts",
+        Object.fromEntries(
+          Object.entries(MULTI_PALETTES)
+            .filter(([, palette]) => palette.length === 2)
+            .map(([name, [heartColor, secondHeartColor]]) => [
+              name,
+              { heartColor, secondHeartColor },
+            ]),
+        ),
+        "Pink/cyan",
+      ),
+      getValueParameter("Swap", "swap", { Off: false, On: true }, "Off"),
+      loveEyesParameter,
+      lovePulseParameter,
+    ],
+  ),
   "hero-laptop": getLoop(
     "Frieren and Himmel laptop love",
     8,

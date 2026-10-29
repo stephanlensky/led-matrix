@@ -45,7 +45,7 @@ const DESK_DEPTH = -40;
 const NOTE_SEED = 0x2073;
 const NOTE_LIFETIME = 2.2;
 const BAR_COUNT = 5;
-const CUP: Vector = [0.5, 0.6, 0.66];
+export const CUP: Vector = [0.5, 0.6, 0.66];
 const DESK: Color = [74, 44, 30];
 const WHITE: Color = [255, 255, 255];
 const NOTE_COLORS: Color[] = [
@@ -82,9 +82,9 @@ function createHeadphonesMesh() {
   return mesh;
 }
 
-const headphonesMesh = createHeadphonesMesh();
+export const headphonesMesh = createHeadphonesMesh();
 
-function getHeadphonesColor(color: Color) {
+export function getHeadphonesColor(color: Color) {
   const pad = mix(color, WHITE, 0.6);
   return (part: HeadphonePart, _position: Vector, shade: number, out: ColorBuffer): Color =>
     setScaledColor(out, part === "pad" ? pad : color, shade);
@@ -100,18 +100,20 @@ export function getLevels(beat: number): number[] {
   });
 }
 
-function getPose(phase: number, beat: number): CatPose {
+export function getLaptopPose(phase: number, beat: number, side = 1): CatPose {
   const nod = Math.exp(-phase * 5);
   const tap = Math.floor(beat) % 2 === 0 ? 1 : -1;
   const sway = Math.sin(beat * Math.PI);
   return {
     head: (vector) =>
-      UNSIT(getRotation(toRadians(-5 + 25 * nod), toRadians(25), toRadians(12 * sway))(vector)),
+      UNSIT(
+        getRotation(toRadians(-5 + 25 * nod), toRadians(25 * side), toRadians(12 * sway))(vector),
+      ),
     frontLeftLeg: getRotation(toRadians(-80 - 25 * Math.max(0, tap) * nod), 0, toRadians(-12)),
     frontRightLeg: getRotation(toRadians(-80 - 25 * Math.max(0, -tap) * nod), 0, toRadians(12)),
     backLeftLeg: TUCK,
     backRightLeg: TUCK,
-    tail: getRotation(toRadians(60), toRadians(30 * sway), 0),
+    tail: getRotation(toRadians(60), toRadians(30 * sway * side), 0),
   };
 }
 
@@ -278,7 +280,7 @@ export const catLaptop = defineEffect({
       size,
       rotate: getSquashedRotation((vector) => seated(SIT(vector)), squash, -0.8),
       depth: catDepth,
-      pose: getPose(phase, pulse),
+      pose: getLaptopPose(phase, pulse),
     };
     drawCat(raster, catPlacement, coat);
     drawCatProp(

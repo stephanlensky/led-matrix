@@ -67,6 +67,7 @@ import { catRacecar } from "./cat-racecar.ts";
 import { catWands } from "./cat-wands.ts";
 import { catSpace } from "./cat-space.ts";
 import { catLaptop } from "./cat-laptop.ts";
+import { catLaptopDuo } from "./cat-laptop-duo.ts";
 import { catBalloons } from "./cat-balloons.ts";
 import { catChase } from "./cat-chase.ts";
 import { catCyberspace, catLaptopPortal } from "./cat-cyberspace.ts";
@@ -183,6 +184,7 @@ export const effects: readonly Effect[] = [
   catWands,
   catSpace,
   catLaptop,
+  catLaptopDuo,
   catBalloons,
   catChase,
   catLaptopPortal,
