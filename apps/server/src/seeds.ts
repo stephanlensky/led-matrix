@@ -1960,7 +1960,11 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
       [
-        getLightColorParameter("Orange"),
+        getLightColorParameter("Orange", {
+          ...SINGLE_PALETTES,
+          Cyan: [CYAN],
+          ...MULTI_PALETTES,
+        }),
         getValueParameter("Speed", "flashesPerBeat", flashSpeeds, "Beat"),
         getParameter(
           "Style",
