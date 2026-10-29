@@ -1,4 +1,5 @@
 import type { Color } from "../frame.ts";
+import { isInsideHeart } from "./heart.ts";
 import { type Raster, type Vector, addBox, createMesh, drawMesh, getRotation } from "../mesh.ts";
 import { type CatPlacement, getCatProjector, getShade, mix, scale } from "./cat-model.ts";
 
@@ -10,6 +11,7 @@ export type Laptop = {
   getScreenColor: LaptopScreen;
   lid?: number;
   color?: Color;
+  logo?: Color;
 };
 
 const BASE_HALF: Vector = [0.85, 0.04, 0.55];
@@ -58,10 +60,17 @@ export function getLaptopScreenPoint(u: number, v: number, lid = 0.25): Vector {
 export function drawLaptop(
   raster: Raster,
   placement: CatPlacement,
-  { getScreenColor, lid = 0.25, color = LAPTOP_COLOR }: Laptop,
+  { getScreenColor, lid = 0.25, color = LAPTOP_COLOR, logo }: Laptop,
 ): void {
   const project = getCatProjector(placement);
-  const getColor = (part: LaptopPart, [x, y]: Vector, shade: number): Color => {
+  const getColor = (part: LaptopPart, [x, y, z]: Vector, shade: number): Color => {
+    if (logo && part === "case" && y > BASE_HALF[1] * 3 && z < -LID_HALF[2] * 1.5) {
+      const logoX = x / (LID_HALF[1] * 0.45);
+      const logoY = (y - LID_HALF[1]) / (LID_HALF[1] * 0.45) + 0.12;
+      if (isInsideHeart(logoX, logoY)) {
+        return mix(logo, [255, 255, 255], 0.3 * Math.max(0, logoY - 0.4));
+      }
+    }
     if (part === "screen") {
       return getScreenColor(
         (x / SCREEN_HALF[0] + 1) / 2,
@@ -109,5 +118,18 @@ export function getEqualizerScreen(
       return background;
     }
     return mix(bar, peak, (v - 0.1) / 0.8);
+  };
+}
+
+export function getHeartScreen(background: Color, heart: Color, kick: number): LaptopScreen {
+  const size = 0.75 * (1 + 0.25 * kick);
+  const aspect = SCREEN_HALF[0] / SCREEN_HALF[1];
+  return (u, v) => {
+    const x = ((u - 0.5) * 2 * aspect) / size;
+    const y = ((v - 0.5) * 2) / size + 0.12;
+    if (!isInsideHeart(x, y)) {
+      return scale(background, 0.35 + 0.25 * (1 - v));
+    }
+    return mix(heart, [255, 255, 255], 0.15 + 0.35 * kick + 0.3 * Math.max(0, y - 0.6));
   };
 }

@@ -16,7 +16,9 @@ import {
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import { TAU, catIds, furParams, getCoat, toRadians } from "./cat-duo.ts";
 import { getCycle } from "./cat-dance.ts";
-import { drawLaptop, getEqualizerScreen } from "./cat-laptop-props.ts";
+import { drawLaptop, getEqualizerScreen, getHeartScreen } from "./cat-laptop-props.ts";
+import { drawEyes, eyeStyles, getCatFace, getEyelessCoat } from "./cat-face.ts";
+import { drawFloatingHearts } from "./heart-particles.ts";
 import {
   type CatPlacement,
   type CatPose,
@@ -85,7 +87,7 @@ function getHeadphonesColor(color: Color) {
     part === "pad" ? scale(mix(color, WHITE, 0.6), shade) : scale(color, shade);
 }
 
-function getLevels(beat: number): number[] {
+export function getLevels(beat: number): number[] {
   const index = Math.floor(beat * 2);
   const since = getCycle(beat * 2);
   return Array.from({ length: BAR_COUNT }, (_, bar) => {
@@ -116,15 +118,23 @@ export function getSquashedRotation(rotate: Rotation, squash: number, groundY: n
     rotate([x * sideways, groundY + (y - groundY) * (1 - squash), depth * sideways]);
 }
 
-export function fillDesk(raster: Raster, top: number): void {
+export const deskStyles = ["fill", "edge"] as const;
+
+export function fillDesk(
+  raster: Raster,
+  top: number,
+  style: (typeof deskStyles)[number] = "fill",
+  color: Color = DESK,
+): void {
   const { samples, width, height } = raster;
   const edge = Math.round(top * samples);
-  for (let y = Math.max(0, edge); y < height; y++) {
-    const color = scale(DESK, y < edge + samples ? 1.3 : 0.75);
+  const bottom = style === "fill" ? height : edge + samples;
+  for (let y = Math.max(0, edge); y < bottom; y++) {
+    const shade = scale(color, y < edge + samples ? 1.3 : 0.75);
     for (let x = 0; x < width; x++) {
       const index = y * width + x;
       raster.depth[index] = DESK_DEPTH;
-      setRasterSample(raster, index, color);
+      setRasterSample(raster, index, shade);
     }
   }
 }
@@ -214,9 +224,15 @@ export const catLaptop = defineEffect({
     size: z.number().min(6).max(16).default(12),
     hop: z.number().min(0).max(6).default(4),
     zoom: z.number().min(0).max(0.4).default(0.08),
+    eyes: z.enum(eyeStyles).default("open"),
+    heartColor: colorSchema.default("#ff2a6d"),
+    screen: z.enum(["equalizer", "heart"]).default("equalizer"),
+    particles: z.enum(["notes", "hearts"]).default("notes"),
+    desk: z.enum(deskStyles).default("fill"),
   }),
   render(image, { params, beat }) {
-    const coat = getCoat(params);
+    const coat = params.eyes === "open" ? getCoat(params) : getEyelessCoat(getCoat(params));
+    const heart = parseColor(params.heartColor);
     const glow = parseColor(params.glowColor);
     const pulse = beat / params.every;
     const phase = getCycle(pulse);
@@ -228,7 +244,7 @@ export const catLaptop = defineEffect({
     const view = getRotation(VIEW_PITCH, 0, 0);
     const centerX = WIDTH / 2;
     const raster = createRaster();
-    fillDesk(raster, DESK_Y);
+    fillDesk(raster, DESK_Y, params.desk);
 
     const [laptopX, laptopY, laptopDepth] = getCatOffset(view, LAPTOP_POSITION, size);
     const laptopPlacement: CatPlacement = {
@@ -239,12 +255,15 @@ export const catLaptop = defineEffect({
       depth: laptopDepth,
     };
     drawLaptop(raster, laptopPlacement, {
-      getScreenColor: getEqualizerScreen(
-        getLevels(beat),
-        mix(glow, WHITE, 0.3 * kick),
-        parseColor(params.barColor),
-        parseColor(params.peakColor),
-      ),
+      getScreenColor:
+        params.screen === "heart"
+          ? getHeartScreen(glow, heart, kick)
+          : getEqualizerScreen(
+              getLevels(beat),
+              mix(glow, WHITE, 0.3 * kick),
+              parseColor(params.barColor),
+              parseColor(params.peakColor),
+            ),
     });
 
     const [catX, catY, catDepth] = getCatOffset(view, CAT_POSITION, size);
@@ -278,11 +297,25 @@ export const catLaptop = defineEffect({
       size * 1.4,
       scale(glow, 0.12 + 0.12 * kick),
     );
-    drawNotes(
-      image,
-      beat,
-      params.every,
-      getCatPoint(catPlacement, [CUP[0], CUP[1], CUP[2]], "head"),
-    );
+    if (params.eyes !== "open") {
+      drawEyes(
+        image,
+        getCatFace(catPlacement),
+        params.eyes,
+        parseColor(params.cat === "tabby" ? params.tabbyEyeColor : params.eyeColor),
+        heart,
+        1 + 0.3 * kick,
+        size * 0.32,
+      );
+    }
+    const [cupX, cupY] = getCatPoint(catPlacement, [CUP[0], CUP[1], CUP[2]], "head");
+    if (params.particles === "hearts") {
+      drawFloatingHearts(image, pulse, [cupX + 4, cupY], [heart, mix(heart, WHITE, 0.5)], 6, {
+        rise: 30,
+        sizes: [4, 7],
+      });
+    } else {
+      drawNotes(image, beat, params.every, [cupX, cupY, 0]);
+    }
   },
 });

@@ -44,3 +44,17 @@ export function getHsvColor(hue: number, saturation: number, value: number): Col
               : [chroma, 0, x];
   return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
 }
+
+export function getShiftedHue([r, g, b]: Color, shift: number): Color {
+  const max = Math.max(r, g, b);
+  const chroma = max - Math.min(r, g, b);
+  const hue =
+    chroma === 0
+      ? 0
+      : max === r
+        ? (g - b) / chroma / 6
+        : max === g
+          ? ((b - r) / chroma + 2) / 6
+          : ((r - g) / chroma + 4) / 6;
+  return getHsvColor(hue + shift, max === 0 ? 0 : chroma / max, max / 255);
+}

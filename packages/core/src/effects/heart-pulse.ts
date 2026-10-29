@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { colorSchema, getBackgroundColor, parseColor } from "../color.ts";
+import { colorSchema, getBackgroundColor, getShiftedHue, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { type Color, HEIGHT, WIDTH, setRgbaPixel } from "../frame.ts";
 import { easings } from "../keyframes.ts";
@@ -93,7 +93,7 @@ export const heartFloat = defineEffect({
       image,
       beat / params.every,
       [WIDTH / 2, params.y],
-      [color, mix(color, WHITE, 0.5), mix(color, [255, 90, 60], 0.6)],
+      [color, mix(color, WHITE, 0.5), getShiftedHue(color, 0.04)],
       WIDTH / 2,
       { count: params.count, lifetime: 3, rise: params.rise, gap: 0, sizes: [4, 8] },
     );

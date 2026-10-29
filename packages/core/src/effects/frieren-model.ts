@@ -64,7 +64,11 @@ export type HeroJoint =
 
 export type HeroPose = Partial<Record<HeroJoint, Rotation>>;
 
-export type HeroAttachment = { joint: HeroJoint; mesh: Mesh<PropPart> };
+export type HeroAttachment = {
+  joint: HeroJoint;
+  mesh: Mesh<PropPart>;
+  getColor?: (part: PropPart, shade: number) => Color;
+};
 
 export type HeroEyes = "open" | "closed" | "hidden";
 
@@ -411,13 +415,17 @@ export function drawHero(raster: Raster, hero: HeroId, placement: HeroPlacement)
       },
     });
   }
-  for (const { joint, mesh } of placement.attachments ?? []) {
+  for (const { joint, mesh, getColor } of placement.attachments ?? []) {
     const { position, normal } = getTransform(joint);
     drawMesh(raster, mesh, {
       project: (vector) => project(scene.position(position(vector))),
       getShade: (vector) => getShade(scene.normal(normal(vector))),
       getColor: (part, _vector, shade) =>
-        mix(scale(PROP_COLORS[part], shade), [255, 255, 255], flash),
+        mix(
+          getColor ? getColor(part, shade) : scale(PROP_COLORS[part], shade),
+          [255, 255, 255],
+          flash,
+        ),
     });
   }
 }

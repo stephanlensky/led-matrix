@@ -625,8 +625,51 @@ const loveColorParameter = getParameter(
     "Light pink": { heartColor: LIGHT_PINK, backgroundColor: "#2a0a18" },
     Red: { heartColor: "#ff1030", backgroundColor: "#240006" },
     Purple: { heartColor: "#d040ff", backgroundColor: "#16052a" },
+    Cyan: { heartColor: "#20e8ff", backgroundColor: "#021a20" },
+    Blue: { heartColor: "#3c70ff", backgroundColor: "#040a2a" },
+    Mint: { heartColor: "#40ffa8", backgroundColor: "#021a10" },
+    Gold: { heartColor: "#ffc828", backgroundColor: "#201402" },
+    Orange: { heartColor: "#ff7a1a", backgroundColor: "#200a02" },
+    White: { heartColor: "#f0f0ff", backgroundColor: "#141420" },
   },
   "Pink",
+);
+
+const catLoveMoveParameter = getValueParameter(
+  "Move",
+  "move",
+  {
+    Sway: "sway",
+    Hop: "hop",
+    "Paws up": "paws-up",
+    Wiggle: "wiggle",
+    Headbang: "headbang",
+    Twerk: "twerk",
+    "Front twerk": "front-twerk",
+    "Booty shake": "booty-shake",
+  },
+  "Sway",
+);
+
+const heroLoveMoveParameter = getValueParameter(
+  "Move",
+  "move",
+  {
+    Sway: "sway",
+    Twist: "twist",
+    Headbang: "headbang",
+    Twerk: "twerk",
+    "Front twerk": "front-twerk",
+    "Booty shake": "booty-shake",
+  },
+  "Sway",
+);
+
+const loveEyesParameter = getValueParameter(
+  "Eyes",
+  "eyes",
+  { Hearts: "hearts", Happy: "happy", Open: "open" },
+  "Hearts",
 );
 
 const bleedingColorParameter = getParameter(
@@ -1449,6 +1492,31 @@ const bassBloodAnimations: Record<string, AnimationInput> = {
   ),
 };
 
+function getHeroSolo(name: string, hero: string): AnimationInput {
+  return getLoop(
+    name,
+    16,
+    [
+      loveFloatLayer,
+      {
+        effect: "hero-dance",
+        params: {
+          ...getReferences(["move", "speed", "eyes", "heartColor"]),
+          dancers: hero,
+          size: 18,
+        },
+      },
+    ],
+    [
+      heroLoveMoveParameter,
+      danceSpeedParameter,
+      loveEyesParameter,
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  );
+}
+
 const loveAnimations: Readonly<Record<string, AnimationInput>> = {
   "love-hearts": getLoop(
     "Heart pulse",
@@ -1631,28 +1699,9 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       },
     ],
     [
-      getValueParameter(
-        "Move",
-        "move",
-        {
-          Sway: "sway",
-          Hop: "hop",
-          "Paws up": "paws-up",
-          Wiggle: "wiggle",
-          Headbang: "headbang",
-          Twerk: "twerk",
-          "Front twerk": "front-twerk",
-          "Booty shake": "booty-shake",
-        },
-        "Sway",
-      ),
+      catLoveMoveParameter,
       danceSpeedParameter,
-      getValueParameter(
-        "Eyes",
-        "eyes",
-        { Hearts: "hearts", Happy: "happy", Open: "open" },
-        "Hearts",
-      ),
+      loveEyesParameter,
       getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
       lovePulseParameter,
       loveColorParameter,
@@ -1703,27 +1752,113 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       },
     ],
     [
-      getValueParameter(
-        "Move",
-        "move",
-        {
-          Sway: "sway",
-          Twist: "twist",
-          Headbang: "headbang",
-          Twerk: "twerk",
-          "Front twerk": "front-twerk",
-          "Booty shake": "booty-shake",
-        },
-        "Sway",
-      ),
+      heroLoveMoveParameter,
       danceSpeedParameter,
+      loveEyesParameter,
+      heroSyncParameter,
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+  "love-cat-laptop": getLoop(
+    "Lovestruck cat laptop",
+    8,
+    [
+      {
+        effect: "cat-laptop",
+        params: {
+          ...getReferences(["every", "cat", "eyes", "heartColor", "screen"]),
+          headphonesColor: { param: "heartColor" },
+          particles: "hearts",
+          desk: "edge",
+        },
+      },
+    ],
+    [
+      getValueParameter("Cat", "cat", { Black: "black", Tabby: "tabby" }, "Black"),
+      getValueParameter("Screen", "screen", { Heart: "heart", Equalizer: "equalizer" }, "Heart"),
+      loveEyesParameter,
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+  "hero-laptop": getLoop(
+    "Frieren and Himmel laptop love",
+    8,
+    [
+      {
+        effect: "hero-laptop",
+        params: getReferences(["hero", "view", "screen", "every", "eyes", "heartColor"]),
+      },
+    ],
+    [
+      getValueParameter("Character", "hero", { Frieren: "frieren", Himmel: "himmel" }, "Frieren"),
+      getValueParameter("View", "view", { Front: "front", Side: "side" }, "Front"),
+      getValueParameter("Screen", "screen", { Heart: "heart", Equalizer: "equalizer" }, "Heart"),
+      loveEyesParameter,
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+  "hero-slow-dance": getLoop(
+    "Frieren and Himmel slow dance",
+    16,
+    [{ effect: "hero-slow-dance", params: getReferences(["turn", "every", "heartColor"]) }],
+    [
+      getValueParameter("Turn", "turn", { "2 bars": 8, "4 bars": 16 }, "2 bars"),
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+  "frieren-heart-magic": getLoop(
+    "Frieren heart magic",
+    16,
+    [
+      {
+        effect: "frieren-heart-magic",
+        params: { ...getReferences(["every", "eyes", "heartColor", "flowers"]), loop: 16 },
+      },
+    ],
+    [
+      getValueParameter("Flowers", "flowers", { On: true, Off: false }, "On"),
       getValueParameter(
         "Eyes",
         "eyes",
-        { Hearts: "hearts", Happy: "happy", Open: "open" },
-        "Hearts",
+        { Happy: "happy", Hearts: "hearts", Open: "open" },
+        "Happy",
       ),
-      heroSyncParameter,
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+  "cat-balloons": getLoop(
+    "Cat heart balloons",
+    16,
+    [{ effect: "cat-balloons", params: getReferences(["cat", "every", "eyes", "heartColor"]) }],
+    [
+      getValueParameter("Cat", "cat", { Black: "black", Tabby: "tabby" }, "Black"),
+      loveEyesParameter,
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+  ),
+  "frieren-love-solo": getHeroSolo("Frieren love solo", "frieren"),
+  "himmel-love-solo": getHeroSolo("Himmel love solo", "himmel"),
+  "love-cat-solo": getLoop(
+    "Lovestruck cat solo",
+    16,
+    [
+      loveFloatLayer,
+      {
+        effect: "cat-dance",
+        params: { ...getReferences(["move", "speed", "eyes", "heartColor", "dancers"]), size: 14 },
+      },
+    ],
+    [
+      catLoveMoveParameter,
+      getValueParameter("Cat", "dancers", { Black: "black", Tabby: "tabby" }, "Black"),
+      danceSpeedParameter,
+      loveEyesParameter,
       lovePulseParameter,
       loveColorParameter,
     ],
@@ -2089,6 +2224,27 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
       [getValueParameter("Speed", "slamsPerBeat", { Hype: 1, Hyper: 2, Frenzy: 4 }, "Hyper")],
+    ),
+    "cat-chase": getLoop(
+      "Cat chase",
+      16,
+      [
+        {
+          effect: "cat-chase",
+          params: getReferences(["heartColor", "every", "laps", "reverse"]),
+        },
+      ],
+      [
+        loveColorParameter,
+        lovePulseParameter,
+        getValueParameter("Speed", "laps", { Slow: 1, Normal: 2, Fast: 3 }, "Normal"),
+        getValueParameter(
+          "Reverse",
+          "reverse",
+          { "Every 2 bars": true, Off: false },
+          "Every 2 bars",
+        ),
+      ],
     ),
     "cat-racecar": getLoop(
       "Cat racecar",

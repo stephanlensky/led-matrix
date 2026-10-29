@@ -17,6 +17,8 @@ const syncPhases = {
 
 export const heroSyncs = ["together", "alternate", "offbeat"] as const;
 
+export const heroDancers = ["both", ...heroIds] as const;
+
 export const heroDance = defineEffect({
   id: "hero-dance",
   name: "Frieren and Himmel dance",
@@ -25,6 +27,7 @@ export const heroDance = defineEffect({
     move: z.enum(hunterMoves).default("headbang"),
     speed: z.number().min(0.25).max(4).default(1),
     sync: z.enum(heroSyncs).default("together"),
+    dancers: z.enum(heroDancers).default("both"),
     size: z.number().min(4).max(20).default(15),
     spacing: z.number().min(0).max(30).default(15),
     eyes: z.enum(eyeStyles).default("open"),
@@ -33,10 +36,14 @@ export const heroDance = defineEffect({
   render(image, { params, beat }) {
     const raster = createRaster();
     const faces: [HeroId, CatFace][] = [];
+    const isSolo = params.dancers !== "both";
     for (const [index, hero] of heroIds.entries()) {
+      if (isSolo && hero !== params.dancers) {
+        continue;
+      }
       const side = index === 0 ? 1 : -1;
       const dancer: Dancer = {
-        x: WIDTH / 2 - side * params.spacing,
+        x: isSolo ? WIDTH / 2 : WIDTH / 2 - side * params.spacing,
         phase: syncPhases[params.sync][index] ?? 0,
         side,
       };

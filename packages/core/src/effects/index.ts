@@ -67,6 +67,8 @@ import { catRacecar } from "./cat-racecar.ts";
 import { catWands } from "./cat-wands.ts";
 import { catSpace } from "./cat-space.ts";
 import { catLaptop } from "./cat-laptop.ts";
+import { catBalloons } from "./cat-balloons.ts";
+import { catChase } from "./cat-chase.ts";
 import { catCyberspace, catLaptopPortal } from "./cat-cyberspace.ts";
 import { catPhone, heartWipe } from "./cat-phone.ts";
 import { heartFloat, heartPulse } from "./heart-pulse.ts";
@@ -93,6 +95,7 @@ import { hunterDance } from "./hunter-dance.ts";
 import { hunterHyperspace } from "./hunter-hyperspace.ts";
 import { heroDance } from "./frieren-dance.ts";
 import { heroHeartHands, heroKiss } from "./hero-love.ts";
+import { frierenHeartMagic, heroLaptop, heroSlowDance } from "./hero-activities.ts";
 import { frierenMimic } from "./frieren-mimic.ts";
 import { himmelBench, himmelSquat } from "./himmel-lift.ts";
 import { himmelSleep } from "./himmel-sleep.ts";
@@ -175,6 +178,8 @@ export const effects: readonly Effect[] = [
   catWands,
   catSpace,
   catLaptop,
+  catBalloons,
+  catChase,
   catLaptopPortal,
   catCyberspace,
   catPhone,
@@ -224,6 +229,9 @@ export const effects: readonly Effect[] = [
   heroDance,
   heroHeartHands,
   heroKiss,
+  heroLaptop,
+  heroSlowDance,
+  frierenHeartMagic,
   frierenMimic,
   himmelBench,
   himmelSquat,

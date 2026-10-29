@@ -11,7 +11,7 @@ import {
   getRotation,
   resolveRaster,
 } from "../mesh.ts";
-import { TAU, coatParams, getCoats, toRadians } from "./cat-duo.ts";
+import { TAU, catIds, coatParams, getCoats, toRadians } from "./cat-duo.ts";
 import { type CatFace, drawEyes, eyeStyles, getCatFace, getEyelessCoat } from "./cat-face.ts";
 import { type CatPose, drawCat } from "./cat-model.ts";
 
@@ -29,6 +29,8 @@ export const danceMoves = [
 ] as const;
 
 type DanceMove = (typeof danceMoves)[number];
+
+export const catDancers = ["both", ...catIds] as const;
 
 type DancerFrame = {
   x: number;
@@ -308,6 +310,7 @@ export const catDance = defineEffect({
     speed: z.number().min(0.25).max(4).default(1),
     size: z.number().min(4).max(16).default(10),
     offbeat: z.boolean().default(false),
+    dancers: z.enum(catDancers).default("both"),
     spacing: z.number().min(0).max(40).default(28),
     eyes: z.enum(eyeStyles).default("open"),
     heartColor: colorSchema.default("#ff2a6d"),
@@ -315,26 +318,37 @@ export const catDance = defineEffect({
   render(image, { params, beat, progress }) {
     const [tabbyCoat, blackCoat] = getCoats(params);
     const offset = params.offbeat ? 0.5 : 0;
-    const dancers: [Dancer, typeof tabbyCoat][] = [
-      [{ x: WIDTH / 2 - params.spacing / 2, phase: offset, side: 1 }, tabbyCoat],
-      [{ x: WIDTH / 2 + params.spacing / 2, phase: 0, side: -1 }, blackCoat],
-    ];
+    const isSolo = params.dancers !== "both";
+    const spacing = isSolo ? 0 : params.spacing;
+    const dancers: [Dancer, typeof tabbyCoat, string][] = (
+      [
+        [
+          "tabby",
+          { x: WIDTH / 2 - spacing / 2, phase: offset, side: 1 },
+          tabbyCoat,
+          params.tabbyEyeColor,
+        ],
+        ["black", { x: WIDTH / 2 + spacing / 2, phase: 0, side: -1 }, blackCoat, params.eyeColor],
+      ] as const
+    )
+      .filter(([cat]) => !isSolo || cat === params.dancers)
+      .map(([, dancer, coat, eyeColor]) => [dancer, coat, eyeColor]);
     const raster = createRaster();
-    const faces: CatFace[] = [];
-    for (const [dancer, coat] of dancers) {
+    const faces: [CatFace, string][] = [];
+    for (const [dancer, coat, eyeColor] of dancers) {
       const frame = moveFrames[params.move](beat * params.speed, dancer, params.size, progress);
       drawCat(raster, frame, params.eyes === "open" ? coat : getEyelessCoat(coat));
-      faces.push(getCatFace(frame));
+      faces.push([getCatFace(frame), eyeColor]);
     }
     resolveRaster(raster, image);
     if (params.eyes !== "open") {
       const pop = 1 + 0.3 * Math.exp(-getCycle(beat) * 6);
-      for (const face of faces) {
+      for (const [face, eyeColor] of faces) {
         drawEyes(
           image,
           face,
           params.eyes,
-          parseColor(params.eyeColor),
+          parseColor(eyeColor),
           parseColor(params.heartColor),
           pop,
           params.size * 0.32,
