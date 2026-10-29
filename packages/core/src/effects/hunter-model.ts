@@ -1,6 +1,8 @@
 import { parseColor } from "../color.ts";
 import type { Color } from "../frame.ts";
 import {
+  IDENTITY_MATRIX,
+  type Matrix,
   type Mesh,
   type Raster,
   type Rotation,
@@ -8,9 +10,13 @@ import {
   addEllipsoid,
   createMesh,
   drawMesh,
-  subtract,
+  getLinearMatrix,
+  getMatrix,
+  getModelMatrix,
+  getTranslationMatrix,
+  multiplyMatrices,
 } from "../mesh.ts";
-import { getShade, mix, scale } from "./cat-model.ts";
+import { getNormalShader, mix, scale } from "./cat-model.ts";
 
 type HunterPart = "skin" | "eye" | "hair" | "top" | "sleeve" | "arm" | "bottoms" | "leg" | "shoe";
 
@@ -43,8 +49,6 @@ export type HunterPlacement = ModelPlacement & { pose?: HunterPose };
 type HunterGroup = { joint?: HunterJoint; mesh: Mesh<HunterPart> };
 
 type HunterModel = { pivots: Record<HunterJoint, Vector>; groups: HunterGroup[] };
-
-export type JointTransform = { position: Rotation; normal: Rotation };
 
 const CAMERA_DISTANCE = 6;
 const MODEL_CENTER: Vector = [0, 0.4, 0];
@@ -268,43 +272,51 @@ const hunters: Readonly<Record<HunterId, { model: HunterModel; outfit: Outfit }>
   mira: { model: createHunterModel("ponytail", false, true), outfit: MIRA_OUTFIT },
 };
 
-export function getJointTransforms<J extends string>(
+export function getJointMatrices<J extends string>(
   parents: readonly (readonly [joint: J, parent?: J])[],
   pivots: Record<J, Vector>,
   pose: Partial<Record<J, Rotation>>,
-): Map<J, JointTransform> {
-  const transforms = new Map<J, JointTransform>();
+): Map<J, Readonly<Matrix>> {
+  const matrices = new Map<J, Readonly<Matrix>>();
   for (const [joint, parentJoint] of parents) {
-    const parent = parentJoint ? transforms.get(parentJoint) : undefined;
-    const parentPosition = parent?.position ?? ((vector: Vector) => vector);
-    const parentNormal = parent?.normal ?? ((vector: Vector) => vector);
-    const rotation = pose[joint] ?? ((vector: Vector) => vector);
-    const origin = rotation([0, 0, 0]);
-    const pivot = pivots[joint];
-    transforms.set(joint, {
-      position: (vector) => {
-        const [x, y, z] = rotation(subtract(vector, pivot));
-        return parentPosition([x + pivot[0], y + pivot[1], z + pivot[2]]);
-      },
-      normal: (vector) => parentNormal(subtract(rotation(vector), origin)),
-    });
+    const parent = (parentJoint ? matrices.get(parentJoint) : undefined) ?? IDENTITY_MATRIX;
+    const rotation = pose[joint];
+    const [x, y, z] = pivots[joint];
+    matrices.set(
+      joint,
+      rotation
+        ? multiplyMatrices(
+            parent,
+            getTranslationMatrix([x, y, z]),
+            getMatrix(rotation),
+            getTranslationMatrix([-x, -y, -z]),
+          )
+        : parent,
+    );
   }
-  return transforms;
+  return matrices;
+}
+
+export function getProjector(
+  [m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23]: Readonly<Matrix>,
+  { x: centerX, y: centerY, size, depth: depthOffset = 0 }: ModelPlacement,
+): (vector: Vector) => Vector {
+  return ([x, y, z]) => {
+    const depth = m20 * x + m21 * y + m22 * z + m23;
+    const perspective = CAMERA_DISTANCE / (CAMERA_DISTANCE - depth);
+    return [
+      centerX + size * (m00 * x + m01 * y + m02 * z + m03) * perspective,
+      centerY - size * (m10 * x + m11 * y + m12 * z + m13) * perspective,
+      depth + depthOffset,
+    ];
+  };
 }
 
 export function getModelProjector(
   center: Vector,
-  { x: centerX, y: centerY, size, rotate, depth: depthOffset = 0 }: ModelPlacement,
+  placement: ModelPlacement,
 ): (vector: Vector) => Vector {
-  return (vector) => {
-    const [x, y, depth] = rotate(subtract(vector, center));
-    const perspective = CAMERA_DISTANCE / (CAMERA_DISTANCE - depth);
-    return [
-      centerX + size * x * perspective,
-      centerY - size * y * perspective,
-      depth + depthOffset,
-    ];
-  };
+  return getProjector(getModelMatrix(center, placement.rotate), placement);
 }
 
 export function drawHunter(
@@ -314,15 +326,14 @@ export function drawHunter(
   flash = 0,
 ): void {
   const { model, outfit } = hunters[hunter];
-  const project = getModelProjector(MODEL_CENTER, placement);
-  const transforms = getJointTransforms(JOINT_PARENTS, model.pivots, placement.pose ?? {});
+  const modelMatrix = getModelMatrix(MODEL_CENTER, placement.rotate);
+  const rotateMatrix = getMatrix(placement.rotate);
+  const jointMatrices = getJointMatrices(JOINT_PARENTS, model.pivots, placement.pose ?? {});
   for (const { joint, mesh } of model.groups) {
-    const transform = joint ? transforms.get(joint) : undefined;
-    const position = transform?.position ?? ((vector: Vector) => vector);
-    const normal = transform?.normal ?? ((vector: Vector) => vector);
+    const jointMatrix = (joint ? jointMatrices.get(joint) : undefined) ?? IDENTITY_MATRIX;
     drawMesh(raster, mesh, {
-      project: (vector) => project(position(vector)),
-      getShade: (vector) => getShade(placement.rotate(normal(vector))),
+      project: getProjector(multiplyMatrices(modelMatrix, jointMatrix), placement),
+      getShade: getNormalShader(multiplyMatrices(rotateMatrix, getLinearMatrix(jointMatrix))),
       getColor: (part, vector, shade) => {
         const color = outfit(part, vector);
         return mix(part === "eye" ? color : scale(color, shade), [255, 255, 255], flash);

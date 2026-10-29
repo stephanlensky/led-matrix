@@ -20,6 +20,7 @@ import {
   createMesh,
   createRaster,
   drawMesh,
+  getMatrix,
   getRotation,
 } from "../mesh.ts";
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
@@ -36,7 +37,7 @@ import {
   drawCat,
   getCatPoint,
   getCatProjector,
-  getShade,
+  getNormalShader,
   mix,
   scale,
 } from "./cat-model.ts";
@@ -149,7 +150,7 @@ function getAngles({ pitch, yaw = 0, roll = 0 }: Angles, side: number): Rotation
 function drawPhone(raster: Raster, placement: CatPlacement, color: Color, screen: PhoneScreen) {
   drawMesh(raster, phoneMesh, {
     project: getCatProjector(placement),
-    getShade: (normal) => getShade(placement.rotate(normal)),
+    getShade: getNormalShader(getMatrix(placement.rotate)),
     getColor: (part, [x, y], shade) =>
       part === "screen"
         ? screen((x / SCREEN_HALF[0] + 1) / 2, 1 - ((y - 0.2) / SCREEN_HALF[1] + 1) / 2)

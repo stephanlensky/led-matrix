@@ -1,6 +1,8 @@
 import { parseColor } from "../color.ts";
 import type { Color } from "../frame.ts";
 import {
+  IDENTITY_MATRIX,
+  type Matrix,
   type Mesh,
   type Raster,
   type Rotation,
@@ -8,9 +10,14 @@ import {
   addEllipsoid,
   createMesh,
   drawMesh,
+  getLinearMatrix,
+  getMatrix,
+  getModelMatrix,
+  getTranslationMatrix,
+  multiplyMatrices,
 } from "../mesh.ts";
-import { getShade, mix, scale } from "./cat-model.ts";
-import { type ModelPlacement, getJointTransforms, getModelProjector } from "./hunter-model.ts";
+import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { type ModelPlacement, getJointMatrices, getProjector } from "./hunter-model.ts";
 
 type HeroPart =
   | "skin"
@@ -372,18 +379,18 @@ function identity(vector: Vector): Vector {
   return vector;
 }
 
-function getSceneTransform(placement: HeroPlacement): {
-  position: Rotation;
-  normal: Rotation;
+function getSceneMatrices(placement: HeroPlacement): {
+  position: Matrix;
+  normal: Matrix;
 } {
-  const orient = placement.orient ?? identity;
-  const [ox, oy, oz] = placement.offset ?? [0, 0, 0];
+  const orient = getMatrix(placement.orient ?? identity);
   return {
-    position: (vector) => {
-      const [x, y, z] = orient(vector);
-      return [x + ox, y + oy, z + oz];
-    },
-    normal: (vector) => placement.rotate(orient(vector)),
+    position: multiplyMatrices(
+      getModelMatrix(HERO_CENTER, placement.rotate),
+      getTranslationMatrix(placement.offset ?? [0, 0, 0]),
+      orient,
+    ),
+    normal: multiplyMatrices(getMatrix(placement.rotate), orient),
   };
 }
 
@@ -395,11 +402,10 @@ export function drawProp(
   orient: Rotation = identity,
   offset: Vector = [0, 0, 0],
 ): void {
-  const project = getModelProjector(HERO_CENTER, placement);
-  const scene = getSceneTransform({ ...placement, orient, offset });
+  const scene = getSceneMatrices({ ...placement, orient, offset });
   drawMesh(raster, mesh, {
-    project: (vector) => project(scene.position(vector)),
-    getShade: (vector) => getShade(scene.normal(vector)),
+    project: getProjector(scene.position, placement),
+    getShade: getNormalShader(scene.normal),
     getColor: (part, _vector, shade) =>
       mix(scale(PROP_COLORS[part], shade), [255, 255, 255], flash),
   });
@@ -412,34 +418,31 @@ export function getHeroPoint(
   joint?: HeroJoint,
 ): Vector {
   const model = getHeroModel(hero, placement.eyes ?? "open");
-  const transforms = getJointTransforms(JOINT_PARENTS, model.pivots, placement.pose ?? {});
-  const position = (joint ? transforms.get(joint)?.position : undefined) ?? identity;
-  const project = getModelProjector(HERO_CENTER, placement);
-  return project(getSceneTransform(placement).position(position(point)));
+  const jointMatrices = getJointMatrices(JOINT_PARENTS, model.pivots, placement.pose ?? {});
+  const jointMatrix = (joint ? jointMatrices.get(joint) : undefined) ?? IDENTITY_MATRIX;
+  const scene = getSceneMatrices(placement);
+  return getProjector(multiplyMatrices(scene.position, jointMatrix), placement)(point);
 }
 
 export function drawHero(raster: Raster, hero: HeroId, placement: HeroPlacement): void {
   const model = getHeroModel(hero, placement.eyes ?? "open");
   const outfit = outfits[hero];
   const flash = placement.flash ?? 0;
-  const project = getModelProjector(HERO_CENTER, placement);
-  const scene = getSceneTransform(placement);
-  const transforms = getJointTransforms(JOINT_PARENTS, model.pivots, placement.pose ?? {});
-  const getTransform = (joint?: HeroJoint) => {
-    const transform = joint ? transforms.get(joint) : undefined;
+  const scene = getSceneMatrices(placement);
+  const jointMatrices = getJointMatrices(JOINT_PARENTS, model.pivots, placement.pose ?? {});
+  const getDrawing = (joint?: HeroJoint) => {
+    const jointMatrix = (joint ? jointMatrices.get(joint) : undefined) ?? IDENTITY_MATRIX;
     return {
-      position: transform?.position ?? identity,
-      normal: transform?.normal ?? identity,
+      project: getProjector(multiplyMatrices(scene.position, jointMatrix), placement),
+      getShade: getNormalShader(multiplyMatrices(scene.normal, getLinearMatrix(jointMatrix))),
     };
   };
   for (const { joint, mesh } of model.groups) {
     if (joint && placement.hidden?.includes(joint)) {
       continue;
     }
-    const { position, normal } = getTransform(joint);
     drawMesh(raster, mesh, {
-      project: (vector) => project(scene.position(position(vector))),
-      getShade: (vector) => getShade(scene.normal(normal(vector))),
+      ...getDrawing(joint),
       getColor: (part, vector, shade) => {
         const color = outfit(part, vector);
         return mix(part === "eye" ? color : scale(color, shade), [255, 255, 255], flash);
@@ -447,10 +450,8 @@ export function drawHero(raster: Raster, hero: HeroId, placement: HeroPlacement)
     });
   }
   for (const { joint, mesh, getColor } of placement.attachments ?? []) {
-    const { position, normal } = getTransform(joint);
     drawMesh(raster, mesh, {
-      project: (vector) => project(scene.position(position(vector))),
-      getShade: (vector) => getShade(scene.normal(normal(vector))),
+      ...getDrawing(joint),
       getColor: (part, _vector, shade) =>
         mix(
           getColor ? getColor(part, shade) : scale(PROP_COLORS[part], shade),

@@ -1,5 +1,6 @@
 import type { Color } from "../frame.ts";
 import {
+  IDENTITY_MATRIX,
   type Mesh,
   type Raster,
   type Rotation,
@@ -8,9 +9,13 @@ import {
   addEllipsoid,
   createMesh,
   drawMesh,
+  getLinearMatrix,
+  getMatrix,
+  getModelMatrix,
+  multiplyMatrices,
 } from "../mesh.ts";
-import { getShade, mix, scale } from "./cat-model.ts";
-import { type ModelPlacement, getJointTransforms, getModelProjector } from "./hunter-model.ts";
+import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { type ModelPlacement, getJointMatrices, getProjector } from "./hunter-model.ts";
 
 type PumpkinPart = "pumpkin" | "stem" | "body" | "hand" | "shoe";
 
@@ -201,17 +206,16 @@ export function drawPumpkin(
   placement: PumpkinPlacement,
   colors: PumpkinColors,
 ): void {
-  const project = getModelProjector(MODEL_CENTER, placement);
-  const transforms = getJointTransforms(JOINT_PARENTS, PIVOTS, placement.pose ?? {});
+  const modelMatrix = getModelMatrix(MODEL_CENTER, placement.rotate);
+  const rotateMatrix = getMatrix(placement.rotate);
+  const jointMatrices = getJointMatrices(JOINT_PARENTS, PIVOTS, placement.pose ?? {});
   const glow = placement.glow ?? 1;
   const flash = placement.flash ?? 0;
   for (const { joint, mesh } of pumpkinGroups) {
-    const transform = transforms.get(joint);
-    const position = transform?.position ?? ((vector: Vector) => vector);
-    const normal = transform?.normal ?? ((vector: Vector) => vector);
+    const jointMatrix = jointMatrices.get(joint) ?? IDENTITY_MATRIX;
     drawMesh(raster, mesh, {
-      project: (vector) => project(position(vector)),
-      getShade: (vector) => getShade(placement.rotate(normal(vector))),
+      project: getProjector(multiplyMatrices(modelMatrix, jointMatrix), placement),
+      getShade: getNormalShader(multiplyMatrices(rotateMatrix, getLinearMatrix(jointMatrix))),
       getColor: (part, vector, shade) =>
         mix(getPartColor(part, vector, shade, colors, glow), colors.glow, flash),
     });

@@ -1,5 +1,6 @@
 import type { Color } from "../frame.ts";
 import {
+  type Matrix,
   type Mesh,
   type Raster,
   type Rotation,
@@ -7,11 +8,15 @@ import {
   addEllipsoid,
   createMesh,
   drawMesh,
+  getMatrix,
+  getModelMatrix,
   getRotation,
+  getTranslationMatrix,
+  multiplyMatrices,
   subtract,
 } from "../mesh.ts";
-import { getShade, mix, scale } from "./cat-model.ts";
-import { type ModelPlacement, getModelProjector } from "./hunter-model.ts";
+import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { type ModelPlacement, getModelProjector, getProjector } from "./hunter-model.ts";
 
 type SkullPart = "bone" | "jaw";
 type TrumpetPart = "brass" | "valve" | "bell";
@@ -33,6 +38,7 @@ const MODEL_CENTER: Vector = [0, 0.05, 0.6];
 const JAW_PIVOT: Vector = [0, -0.12, 0.02];
 const MOUTH: Vector = [0, -0.24, 0.5];
 const TRUMPET_ROTATION = getRotation(0.18, 0, 0);
+const TRUMPET_MATRIX = getMatrix(TRUMPET_ROTATION);
 const BELL_START = 1.5;
 const BELL_END = 2.05;
 const BELL_RADIUS = 0.3;
@@ -171,12 +177,13 @@ function getBrassColor(part: TrumpetPart, [x, y, z]: Vector, shade: number, bras
   return mix(base, WHITE, Math.min(0.6, Math.max(0, shade - 1.05) * 1.5));
 }
 
-function getJawRotation(open: number): Rotation {
-  const rotation = getRotation(open * 0.35, 0, 0);
-  return (vector) => {
-    const [x, y, z] = rotation(subtract(vector, JAW_PIVOT));
-    return [x + JAW_PIVOT[0], y + JAW_PIVOT[1], z + JAW_PIVOT[2]];
-  };
+function getJawMatrix(open: number): Matrix {
+  const [x, y, z] = JAW_PIVOT;
+  return multiplyMatrices(
+    getTranslationMatrix([x, y, z]),
+    getMatrix(getRotation(open * 0.35, 0, 0)),
+    getTranslationMatrix([-x, -y, -z]),
+  );
 }
 
 function getFlare(flare: number): Rotation {
@@ -195,19 +202,19 @@ export function getBellPoint(placement: SkullPlacement, ahead = 0): Vector {
 
 export function drawSkullHead(
   raster: Raster,
-  project: (vector: Vector) => Vector,
-  getNormalShade: (normal: Vector) => number,
+  placement: ModelPlacement,
+  matrix: Readonly<Matrix>,
+  normalMatrix: Readonly<Matrix>,
   colors: SkullHeadColors,
   { jaw = 0, glow = 0, flash = 0 }: SkullHeadOptions = {},
 ): void {
-  const jawRotation = getJawRotation(jaw);
   for (const [mesh, transform] of [
-    [skullMesh, (vector: Vector) => vector],
-    [jawMesh, jawRotation],
+    [skullMesh, matrix],
+    [jawMesh, multiplyMatrices(matrix, getJawMatrix(jaw))],
   ] as const) {
     drawMesh(raster, mesh, {
-      project: (vector) => project(transform(vector)),
-      getShade: getNormalShade,
+      project: getProjector(transform, placement),
+      getShade: getNormalShader(normalMatrix),
       getColor: (_part, position, shade) =>
         mix(getBoneColor(position, shade, colors, glow), WHITE, flash),
     });
@@ -215,16 +222,17 @@ export function drawSkullHead(
 }
 
 export function drawSkull(raster: Raster, placement: SkullPlacement, colors: SkullColors): void {
-  const project = getModelProjector(MODEL_CENTER, placement);
+  const modelMatrix = getModelMatrix(MODEL_CENTER, placement.rotate);
+  const rotateMatrix = getMatrix(placement.rotate);
+  drawSkullHead(raster, placement, modelMatrix, rotateMatrix, colors, placement);
+  const project = getProjector(
+    multiplyMatrices(modelMatrix, getTranslationMatrix(MOUTH), TRUMPET_MATRIX),
+    placement,
+  );
   const flare = getFlare(placement.flare ?? 0);
-  const getNormalShade = (normal: Vector) => getShade(placement.rotate(normal));
-  drawSkullHead(raster, project, getNormalShade, colors, placement);
   drawMesh(raster, trumpetMesh, {
-    project: (vector) => {
-      const [x, y, z] = TRUMPET_ROTATION(flare(vector));
-      return project([x + MOUTH[0], y + MOUTH[1], z + MOUTH[2]]);
-    },
-    getShade: (normal) => getNormalShade(TRUMPET_ROTATION(normal)),
+    project: (vector) => project(flare(vector)),
+    getShade: getNormalShader(multiplyMatrices(rotateMatrix, TRUMPET_MATRIX)),
     getColor: (part, position, shade) => getBrassColor(part, position, shade, colors.brass),
   });
 }

@@ -1,5 +1,7 @@
 import type { Color } from "../frame.ts";
 import {
+  IDENTITY_MATRIX,
+  type Matrix,
   type Mesh,
   type Raster,
   type Rotation,
@@ -7,10 +9,14 @@ import {
   addEllipsoid,
   createMesh,
   drawMesh,
+  getLinearMatrix,
+  getMatrix,
+  getModelMatrix,
+  multiplyMatrices,
   subtract,
 } from "../mesh.ts";
-import { getShade, mix, scale } from "./cat-model.ts";
-import { type ModelPlacement, getJointTransforms, getModelProjector } from "./hunter-model.ts";
+import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { type ModelPlacement, getJointMatrices, getProjector } from "./hunter-model.ts";
 import { type SkullHeadColors, drawSkullHead } from "./skull-model.ts";
 
 type SkeletonPart = "bone" | "joint";
@@ -168,39 +174,46 @@ function createSkeletonGroups(): SkeletonGroup[] {
 
 const skeletonGroups = createSkeletonGroups();
 
-function getSkullPosition([x, y, z]: Vector): Vector {
-  return [
-    x * SKULL_SCALE + SKULL_OFFSET[0],
-    y * SKULL_SCALE + SKULL_OFFSET[1],
-    z * SKULL_SCALE + SKULL_OFFSET[2],
-  ];
-}
+const SKULL_MATRIX: Matrix = [
+  SKULL_SCALE,
+  0,
+  0,
+  SKULL_OFFSET[0],
+  0,
+  SKULL_SCALE,
+  0,
+  SKULL_OFFSET[1],
+  0,
+  0,
+  SKULL_SCALE,
+  SKULL_OFFSET[2],
+];
 
 export function drawSkeleton(
   raster: Raster,
   placement: SkeletonPlacement,
   colors: SkullHeadColors,
 ): void {
-  const project = getModelProjector(MODEL_CENTER, placement);
-  const transforms = getJointTransforms(JOINT_PARENTS, PIVOTS, placement.pose ?? {});
+  const modelMatrix = getModelMatrix(MODEL_CENTER, placement.rotate);
+  const rotateMatrix = getMatrix(placement.rotate);
+  const jointMatrices = getJointMatrices(JOINT_PARENTS, PIVOTS, placement.pose ?? {});
   const flash = placement.flash ?? 0;
   for (const { joint, mesh } of skeletonGroups) {
-    const transform = transforms.get(joint);
-    const position = transform?.position ?? ((vector: Vector) => vector);
-    const normal = transform?.normal ?? ((vector: Vector) => vector);
+    const jointMatrix = jointMatrices.get(joint) ?? IDENTITY_MATRIX;
     drawMesh(raster, mesh, {
-      project: (vector) => project(position(vector)),
-      getShade: (vector) => getShade(placement.rotate(normal(vector))),
+      project: getProjector(multiplyMatrices(modelMatrix, jointMatrix), placement),
+      getShade: getNormalShader(multiplyMatrices(rotateMatrix, getLinearMatrix(jointMatrix))),
       getColor: (part, _vector, shade) =>
         mix(scale(colors.bone, part === "joint" ? shade * 0.85 : shade), WHITE, flash),
     });
   }
-  const head = transforms.get("head");
+  const head = jointMatrices.get("head");
   if (head) {
     drawSkullHead(
       raster,
-      (vector) => project(head.position(getSkullPosition(vector))),
-      (normal) => getShade(placement.rotate(head.normal(normal))),
+      placement,
+      multiplyMatrices(modelMatrix, head, SKULL_MATRIX),
+      multiplyMatrices(rotateMatrix, getLinearMatrix(head)),
       colors,
       placement,
     );

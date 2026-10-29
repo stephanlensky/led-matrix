@@ -50,6 +50,103 @@ export function getRotation(pitch: number, yaw: number, roll: number): Rotation 
   };
 }
 
+export type Matrix = [
+  m00: number,
+  m01: number,
+  m02: number,
+  m03: number,
+  m10: number,
+  m11: number,
+  m12: number,
+  m13: number,
+  m20: number,
+  m21: number,
+  m22: number,
+  m23: number,
+];
+
+export const IDENTITY_MATRIX: Readonly<Matrix> = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+
+export function getTranslationMatrix([x, y, z]: Vector): Matrix {
+  return [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z];
+}
+
+// Rotations are affine, so their images of the origin and the unit axes define them fully.
+export function getMatrix(rotation: Rotation): Matrix {
+  const [tx, ty, tz] = rotation([0, 0, 0]);
+  const [ax, ay, az] = rotation([1, 0, 0]);
+  const [bx, by, bz] = rotation([0, 1, 0]);
+  const [cx, cy, cz] = rotation([0, 0, 1]);
+  return [
+    ax - tx,
+    bx - tx,
+    cx - tx,
+    tx,
+    ay - ty,
+    by - ty,
+    cy - ty,
+    ty,
+    az - tz,
+    bz - tz,
+    cz - tz,
+    tz,
+  ];
+}
+
+export function getLinearMatrix([
+  m00,
+  m01,
+  m02,
+  ,
+  m10,
+  m11,
+  m12,
+  ,
+  m20,
+  m21,
+  m22,
+]: Readonly<Matrix>): Matrix {
+  return [m00, m01, m02, 0, m10, m11, m12, 0, m20, m21, m22, 0];
+}
+
+export function multiplyMatrices(...matrices: Readonly<Matrix>[]): Matrix {
+  return matrices.reduce<Matrix>(
+    (
+      [a00, a01, a02, a03, a10, a11, a12, a13, a20, a21, a22, a23],
+      [b00, b01, b02, b03, b10, b11, b12, b13, b20, b21, b22, b23],
+    ) => [
+      a00 * b00 + a01 * b10 + a02 * b20,
+      a00 * b01 + a01 * b11 + a02 * b21,
+      a00 * b02 + a01 * b12 + a02 * b22,
+      a00 * b03 + a01 * b13 + a02 * b23 + a03,
+      a10 * b00 + a11 * b10 + a12 * b20,
+      a10 * b01 + a11 * b11 + a12 * b21,
+      a10 * b02 + a11 * b12 + a12 * b22,
+      a10 * b03 + a11 * b13 + a12 * b23 + a13,
+      a20 * b00 + a21 * b10 + a22 * b20,
+      a20 * b01 + a21 * b11 + a22 * b21,
+      a20 * b02 + a21 * b12 + a22 * b22,
+      a20 * b03 + a21 * b13 + a22 * b23 + a23,
+    ],
+    [...IDENTITY_MATRIX],
+  );
+}
+
+export function getModelMatrix([x, y, z]: Vector, rotate: Rotation): Matrix {
+  return multiplyMatrices(getMatrix(rotate), getTranslationMatrix([-x, -y, -z]));
+}
+
+export function applyMatrix(
+  [m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23]: Readonly<Matrix>,
+  [x, y, z]: Vector,
+): Vector {
+  return [
+    m00 * x + m01 * y + m02 * z + m03,
+    m10 * x + m11 * y + m12 * z + m13,
+    m20 * x + m21 * y + m22 * z + m23,
+  ];
+}
+
 export function createMesh<M extends string>(): Mesh<M> {
   return { positions: [], normals: [], triangles: [] };
 }

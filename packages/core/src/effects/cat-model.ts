@@ -1,16 +1,22 @@
 import type { Color } from "../frame.ts";
 import {
+  IDENTITY_MATRIX,
+  type Matrix,
   type Mesh,
   type Raster,
   type Rotation,
   type Vector,
   addCone,
   addEllipsoid,
+  applyMatrix,
   createMesh,
   drawMesh,
+  getMatrix,
+  getModelMatrix,
   getRotation,
+  getTranslationMatrix,
+  multiplyMatrices,
   normalize,
-  subtract,
 } from "../mesh.ts";
 
 type CatPart = "body" | "head" | "muzzle" | "ear" | "leg" | "tail" | "eye";
@@ -161,37 +167,57 @@ export function getTabbyCoat(fur: Color, stripe: Color, light: Color, eye: Color
   };
 }
 
-export function getCatProjector({
-  x: centerX,
-  y: centerY,
-  size,
-  rotate,
-  zoom = 1,
-  zoomProgress = 0,
-  depth: depthOffset = 0,
-}: CatPlacement): (vector: Vector) => Vector {
-  const project = (vector: Vector): Vector => {
-    const [x, y, depth] = rotate(subtract(vector, MODEL_CENTER));
+export function getCatProjector(
+  {
+    x: centerX,
+    y: centerY,
+    size,
+    rotate,
+    zoom = 1,
+    zoomProgress = 0,
+    depth: depthOffset = 0,
+  }: CatPlacement,
+  matrix: Readonly<Matrix> = IDENTITY_MATRIX,
+): (vector: Vector) => Vector {
+  const modelMatrix = getModelMatrix(MODEL_CENTER, rotate);
+  const getScreenPoint = ([x, y, depth]: Vector): [x: number, y: number] => {
     const perspective = CAMERA_DISTANCE / (CAMERA_DISTANCE - depth);
-    return [centerX + size * x * perspective, centerY - size * y * perspective, depth];
+    return [centerX + size * x * perspective, centerY - size * y * perspective];
   };
-  const [focusX, focusY] = project(EYES_CENTER);
+  const [focusX, focusY] = getScreenPoint(applyMatrix(modelMatrix, EYES_CENTER));
   const zoomX = focusX + (centerX - focusX) * zoomProgress;
   const zoomY = focusY + (centerY - focusY) * zoomProgress;
-  return (vector) => {
-    const [x, y, depth] = project(vector);
-    return [zoomX + (x - focusX) * zoom, zoomY + (y - focusY) * zoom, depth + depthOffset];
+  const [m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23] = multiplyMatrices(
+    modelMatrix,
+    matrix,
+  );
+  return ([x, y, z]) => {
+    const depth = m20 * x + m21 * y + m22 * z + m23;
+    const perspective = CAMERA_DISTANCE / (CAMERA_DISTANCE - depth);
+    const screenX = centerX + size * (m00 * x + m01 * y + m02 * z + m03) * perspective;
+    const screenY = centerY - size * (m10 * x + m11 * y + m12 * z + m13) * perspective;
+    return [
+      zoomX + (screenX - focusX) * zoom,
+      zoomY + (screenY - focusY) * zoom,
+      depth + depthOffset,
+    ];
   };
 }
 
-function getJointTransform(pivot: Vector, rotation: Rotation | undefined): Rotation {
+export function getNormalShader(matrix: Readonly<Matrix>): (normal: Vector) => number {
+  return (normal) => getShade(applyMatrix(matrix, normal));
+}
+
+function getJointMatrix(pivot: Vector, rotation: Rotation | undefined): Readonly<Matrix> {
   if (!rotation) {
-    return (vector) => vector;
+    return IDENTITY_MATRIX;
   }
-  return (vector) => {
-    const [x, y, depth] = rotation(subtract(vector, pivot));
-    return [x + pivot[0], y + pivot[1], depth + pivot[2]];
-  };
+  const [x, y, z] = pivot;
+  return multiplyMatrices(
+    getTranslationMatrix([x, y, z]),
+    getMatrix(rotation),
+    getTranslationMatrix([-x, -y, -z]),
+  );
 }
 
 export function getShade(normal: Vector): number {
@@ -204,13 +230,14 @@ export function getShade(normal: Vector): number {
 export function drawCat(raster: Raster, placement: CatPlacement, coat: Coat): void {
   const flash = placement.flash ?? 0;
   const flashColor = placement.flashColor ?? [255, 255, 255];
-  const project = getCatProjector(placement);
+  const rotateMatrix = getMatrix(placement.rotate);
   for (const { joint, pivot, mesh } of catGroups) {
     const rotation = joint ? placement.pose?.[joint] : undefined;
-    const transform = getJointTransform(pivot, rotation);
     drawMesh(raster, mesh, {
-      project: (vector) => project(transform(vector)),
-      getShade: (normal) => getShade(placement.rotate(rotation ? rotation(normal) : normal)),
+      project: getCatProjector(placement, getJointMatrix(pivot, rotation)),
+      getShade: getNormalShader(
+        rotation ? multiplyMatrices(rotateMatrix, getMatrix(rotation)) : rotateMatrix,
+      ),
       getColor: (part, position, shade) => mix(coat(part, position, shade), flashColor, flash),
     });
   }
@@ -223,20 +250,26 @@ export function drawCatProp<M extends string>(
   getColor: (material: M, position: Vector, shade: number) => Color,
   joint?: CatJoint,
 ): void {
-  const project = getCatProjector(placement);
   const rotation = joint ? placement.pose?.[joint] : undefined;
-  const transform = joint ? getJointTransform(getJointPivot(joint), rotation) : undefined;
+  const rotateMatrix = getMatrix(placement.rotate);
   drawMesh(raster, mesh, {
-    project: transform ? (vector) => project(transform(vector)) : project,
-    getShade: (normal) => getShade(placement.rotate(rotation ? rotation(normal) : normal)),
+    project: getCatProjector(
+      placement,
+      joint ? getJointMatrix(getJointPivot(joint), rotation) : IDENTITY_MATRIX,
+    ),
+    getShade: getNormalShader(
+      rotation ? multiplyMatrices(rotateMatrix, getMatrix(rotation)) : rotateMatrix,
+    ),
     getColor,
   });
 }
 
 export function getCatPoint(placement: CatPlacement, point: Vector, joint?: CatJoint): Vector {
   const rotation = joint ? placement.pose?.[joint] : undefined;
-  const transform = joint ? getJointTransform(getJointPivot(joint), rotation) : undefined;
-  return getCatProjector(placement)(transform ? transform(point) : point);
+  return getCatProjector(
+    placement,
+    joint ? getJointMatrix(getJointPivot(joint), rotation) : IDENTITY_MATRIX,
+  )(point);
 }
 
 export function getCatOffset(rotate: Rotation, offset: Vector, size: number): Vector {

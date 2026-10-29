@@ -1,7 +1,17 @@
 import type { Color } from "../frame.ts";
 import { isInsideHeart } from "./heart.ts";
-import { type Raster, type Vector, addBox, createMesh, drawMesh, getRotation } from "../mesh.ts";
-import { type CatPlacement, getCatProjector, getShade, mix, scale } from "./cat-model.ts";
+import {
+  type Raster,
+  type Vector,
+  addBox,
+  createMesh,
+  drawMesh,
+  getMatrix,
+  getRotation,
+  getTranslationMatrix,
+  multiplyMatrices,
+} from "../mesh.ts";
+import { type CatPlacement, getCatProjector, getNormalShader, mix, scale } from "./cat-model.ts";
 
 type LaptopPart = "case" | "keys" | "pad" | "bezel" | "screen";
 
@@ -62,7 +72,6 @@ export function drawLaptop(
   placement: CatPlacement,
   { getScreenColor, lid = 0.25, color = LAPTOP_COLOR, logo }: Laptop,
 ): void {
-  const project = getCatProjector(placement);
   const getColor = (part: LaptopPart, [x, y, z]: Vector, shade: number): Color => {
     if (logo && part === "case" && y > BASE_HALF[1] * 3 && z < -LID_HALF[2] * 1.5) {
       const logoX = x / (LID_HALF[1] * 0.45);
@@ -88,16 +97,16 @@ export function drawLaptop(
     }
     return scale(color, shade);
   };
+  const rotateMatrix = getMatrix(placement.rotate);
   drawMesh(raster, baseMesh, {
-    project,
-    getShade: (normal) => getShade(placement.rotate(normal)),
+    project: getCatProjector(placement),
+    getShade: getNormalShader(rotateMatrix),
     getColor,
   });
-  const tilt = getRotation(-lid, 0, 0);
-  const transform = getLidRotation(lid);
+  const tilt = getMatrix(getRotation(-lid, 0, 0));
   drawMesh(raster, lidMesh, {
-    project: (vector) => project(transform(vector)),
-    getShade: (normal) => getShade(placement.rotate(tilt(normal))),
+    project: getCatProjector(placement, multiplyMatrices(getTranslationMatrix(HINGE), tilt)),
+    getShade: getNormalShader(multiplyMatrices(rotateMatrix, tilt)),
     getColor,
   });
 }
