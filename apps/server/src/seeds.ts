@@ -2337,14 +2337,43 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     ),
     "cat-hype": getLoop(
       "Cat hype",
-      8,
+      16,
       [
         {
           effect: "cat-hype",
-          params: getReferences(["slamsPerBeat"]),
+          params: getReferences([
+            "slamsPerBeat",
+            "counterColor",
+            "pulse",
+            "objects",
+            "objectColor",
+            "objectSpeed",
+          ]),
         },
       ],
-      [getValueParameter("Speed", "slamsPerBeat", { Hype: 1, Hyper: 2, Frenzy: 4 }, "Hyper")],
+      [
+        getValueParameter("Speed", "slamsPerBeat", { Hype: 1, Hyper: 2, Frenzy: 4 }, "Hyper"),
+        getValueParameter(
+          "Table color",
+          "counterColor",
+          { Teal: "#2a8c8c", ...SINGLE_COLORS },
+          "Teal",
+        ),
+        getValueParameter(
+          "Table pulse",
+          "pulse",
+          { Off: 0, Soft: 0.3, Pulse: 0.6, Hard: 1 },
+          "Pulse",
+        ),
+        getValueParameter(
+          "Objects",
+          "objects",
+          { None: "none", Hearts: "hearts", Notes: "notes", Stars: "stars", Mixed: "mixed" },
+          "None",
+        ),
+        getValueParameter("Object color", "objectColor", SINGLE_COLORS, "Hot pink"),
+        getValueParameter("Object speed", "objectSpeed", { Slow: 8, Fast: 16 }, "Slow"),
+      ],
     ),
     "cat-chase": getLoop(
       "Cat chase",

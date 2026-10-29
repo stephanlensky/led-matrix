@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
-import { type Color, WIDTH } from "../frame.ts";
+import { type Color, HEIGHT, WIDTH } from "../frame.ts";
 import { easings } from "../keyframes.ts";
 import {
   type Raster,
@@ -14,12 +14,32 @@ import {
 } from "../mesh.ts";
 import { TAU, coatParams, getCoats, toRadians } from "./cat-duo.ts";
 import { VIEW_PITCH, getCycle } from "./cat-dance.ts";
-import { type Coat, drawCat, scale } from "./cat-model.ts";
+import { type Coat, drawCat, mix, scale } from "./cat-model.ts";
+
+const WHITE: Color = [255, 255, 255];
 
 const STAND = toRadians(-62);
 const STAR_LIFETIME = 0.45;
 const COUNTER_DEPTH = 0.3;
 const CAT_DEPTH = -0.5;
+const OBJECT_DEPTH = 0.35;
+
+const OBJECT_SHAPES = {
+  heart: [".##.##.", "#######", "#######", ".#####.", "..###..", "...#..."],
+  note: ["..#..", "..##.", "..#.#", "..#..", "###..", "###..", ".#..."],
+  beamedNote: [".####", ".#..#", ".#..#", ".#..#", "##.##", "##.##"],
+  star: ["...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#."],
+} satisfies Record<string, readonly string[]>;
+
+type ObjectShape = keyof typeof OBJECT_SHAPES;
+
+const OBJECT_SETS: Record<string, readonly ObjectShape[]> = {
+  none: [],
+  hearts: ["heart"],
+  notes: ["note", "beamedNote"],
+  stars: ["star"],
+  mixed: ["heart", "note", "star", "beamedNote"],
+};
 
 function getLift(time: number): number {
   const phase = getCycle(time);
@@ -34,11 +54,17 @@ function getPaw(lift: number, side: number): Rotation {
   return (vector) => reach(spread(vector));
 }
 
-function fillCounter(raster: Raster, top: number, color: Color): void {
+function getKick(beat: number): number {
+  return (1 - getCycle(beat)) ** 2;
+}
+
+function fillCounter(raster: Raster, top: number, color: Color, glow: number): void {
   const { samples, width, height } = raster;
-  const edge = Math.round(top * samples);
+  const edge = Math.round((top - 1.5 * glow) * samples);
+  const lip = mix(color, WHITE, 0.6 * glow);
+  const face = scale(color, 0.55 + 0.45 * glow);
   for (let y = Math.max(0, edge); y < height; y++) {
-    const shaded = scale(color, y < edge + samples * 2 ? 1 : 0.55);
+    const shaded = y < edge + samples * 2 ? lip : face;
     for (let x = 0; x < width; x++) {
       const index = y * width + x;
       raster.depth[index] = COUNTER_DEPTH;
@@ -68,6 +94,67 @@ function drawStar(raster: Raster, x: number, y: number, age: number, color: Colo
   }
 }
 
+function fillObject(
+  raster: Raster,
+  shape: readonly string[],
+  centerX: number,
+  centerY: number,
+  size: number,
+  color: Color,
+): void {
+  const { samples, width, height } = raster;
+  const columns = Math.max(...shape.map((line) => line.length));
+  const halfWidth = (columns * size) / 2;
+  const halfHeight = (shape.length * size) / 2;
+  const minX = Math.max(0, Math.floor((centerX - halfWidth) * samples));
+  const maxX = Math.min(width - 1, Math.ceil((centerX + halfWidth) * samples));
+  const minY = Math.max(0, Math.floor((centerY - halfHeight) * samples));
+  const maxY = Math.min(height - 1, Math.ceil((centerY + halfHeight) * samples));
+  for (let y = minY; y <= maxY; y++) {
+    const row = Math.floor(((y + 0.5) / samples - centerY + halfHeight) / size);
+    const line = shape[row];
+    if (line === undefined) {
+      continue;
+    }
+    for (let x = minX; x <= maxX; x++) {
+      const column = Math.floor(((x + 0.5) / samples - centerX + halfWidth) / size);
+      const index = y * width + x;
+      if (line[column] === "#" && (raster.depth[index] ?? Infinity) <= OBJECT_DEPTH) {
+        raster.depth[index] = OBJECT_DEPTH;
+        setRasterSample(raster, index, color);
+      }
+    }
+  }
+}
+
+function drawObjects(
+  raster: Raster,
+  shapes: readonly ObjectShape[],
+  beat: number,
+  counter: number,
+  spacing: number,
+  speed: number,
+  color: Color,
+): void {
+  if (shapes.length === 0) {
+    return;
+  }
+  const scroll = beat * speed;
+  const first = Math.floor(scroll / spacing);
+  const kick = getKick(beat);
+  const middle = (counter + HEIGHT) / 2 - Math.round(2 * kick);
+  const size = 1 + 0.3 * kick;
+  const flash = mix(color, WHITE, 0.35 * kick);
+  for (let slot = first; slot * spacing - scroll < WIDTH + spacing; slot++) {
+    const shape =
+      OBJECT_SHAPES[shapes[((slot % shapes.length) + shapes.length) % shapes.length] ?? "heart"];
+    const columns = Math.max(...shape.map((line) => line.length));
+    const left = Math.round(slot * spacing - scroll + (spacing - columns) / 2);
+    const top = Math.round(middle - shape.length / 2);
+    fillObject(raster, shape, left + columns / 2, top + shape.length / 2, size, flash);
+  }
+}
+
 export const catHype = defineEffect({
   id: "cat-hype",
   name: "Cat hype",
@@ -79,12 +166,31 @@ export const catHype = defineEffect({
     size: z.number().min(4).max(20).default(15),
     slamsPerBeat: z.number().int().min(1).max(4).default(2),
     counter: z.number().min(32).max(60).default(48),
+    pulse: z.number().min(0).max(1).default(0.6),
+    objects: z.enum(["none", "hearts", "notes", "stars", "mixed"]).default("none"),
+    objectColor: colorSchema.default("#ff3fa4"),
+    objectSpacing: z.number().min(8).max(64).default(16),
+    objectSpeed: z.number().min(0).max(32).default(8),
   }),
   render(image, { params, beat }) {
     const [tabbyCoat, blackCoat] = getCoats(params);
     const spark = parseColor(params.sparkColor);
     const raster = createRaster();
-    fillCounter(raster, params.counter, parseColor(params.counterColor));
+    fillCounter(
+      raster,
+      params.counter,
+      parseColor(params.counterColor),
+      params.pulse * getKick(beat),
+    );
+    drawObjects(
+      raster,
+      OBJECT_SETS[params.objects] ?? [],
+      beat,
+      params.counter,
+      params.objectSpacing,
+      params.objectSpeed,
+      parseColor(params.objectColor),
+    );
     const time = beat * params.slamsPerBeat;
     const cats: [x: number, side: number, offset: number, coat: Coat][] = [
       [WIDTH / 2 - params.size, 1, 0.5, tabbyCoat],
