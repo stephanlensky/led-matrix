@@ -96,6 +96,8 @@ import { demonHunters } from "./demon-hunters/index.ts";
 import { hunterDance } from "./hunter-dance.ts";
 import { hunterHyperspace } from "./hunter-hyperspace.ts";
 import { heroDance } from "./frieren-dance.ts";
+import { himmelSpawn } from "./himmel-spawn.ts";
+import { spotlights } from "./spotlights.ts";
 import { heroHeartHands, heroKiss } from "./hero-love.ts";
 import { frierenHeartMagic, heroLaptop, heroSlowDance } from "./hero-activities.ts";
 import { frierenMimic } from "./frieren-mimic.ts";
@@ -235,6 +237,8 @@ export const effects: readonly Effect[] = [
   hunterDance,
   hunterHyperspace,
   heroDance,
+  himmelSpawn,
+  spotlights,
   heroHeartHands,
   heroKiss,
   heroLaptop,

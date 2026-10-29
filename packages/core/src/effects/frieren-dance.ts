@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
-import { WIDTH } from "../frame.ts";
+import { HEIGHT, type RgbaImage, WIDTH, setRgbaPixel } from "../frame.ts";
 import { createRaster, resolveRaster } from "../mesh.ts";
 import { type Dancer, hunterMoveFrames, hunterMoves } from "./hunter-dance.ts";
 import { type CatFace, drawEyes, eyeStyles } from "./cat-face.ts";
@@ -14,6 +14,37 @@ const syncPhases = {
   alternate: [0, 0.5],
   offbeat: [0, 0.25],
 } as const;
+
+const OUTLINE_ALPHA = 128;
+
+function drawOutline(image: RgbaImage): void {
+  const isSolid = (x: number, y: number) =>
+    x >= 0 &&
+    y >= 0 &&
+    x < WIDTH &&
+    y < HEIGHT &&
+    (image[(y * WIDTH + x) * 4 + 3] ?? 0) >= OUTLINE_ALPHA;
+  const outline: [number, number][] = [];
+  for (let y = 0; y < HEIGHT; y++) {
+    for (let x = 0; x < WIDTH; x++) {
+      if (
+        !isSolid(x, y) &&
+        (isSolid(x - 1, y) || isSolid(x + 1, y) || isSolid(x, y - 1) || isSolid(x, y + 1))
+      ) {
+        outline.push([x, y]);
+      }
+    }
+  }
+  for (const [x, y] of outline) {
+    const offset = (y * WIDTH + x) * 4;
+    const alpha = (image[offset + 3] ?? 0) / 255;
+    setRgbaPixel(image, x, y, [
+      (image[offset] ?? 0) * alpha,
+      (image[offset + 1] ?? 0) * alpha,
+      (image[offset + 2] ?? 0) * alpha,
+    ]);
+  }
+}
 
 export const heroSyncs = ["together", "alternate", "offbeat"] as const;
 
@@ -33,6 +64,7 @@ export const heroDance = defineEffect({
     spacing: z.number().min(0).max(30).default(15),
     eyes: z.enum(eyeStyles).default("open"),
     heartColor: colorSchema.default("#ff2a6d"),
+    outline: z.boolean().default(false),
   }),
   render(image, { params, beat }) {
     const raster = createRaster();
@@ -58,6 +90,9 @@ export const heroDance = defineEffect({
       faces.push([hero, getHeroFace(hero, placement)]);
     }
     resolveRaster(raster, image);
+    if (params.outline) {
+      drawOutline(image);
+    }
     const pop = 1 + 0.3 * Math.exp(-getCycle(beat) * 6);
     for (const [hero, face] of faces) {
       drawEyes(

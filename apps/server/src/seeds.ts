@@ -209,6 +209,13 @@ function getFlashColorParameters(defaultColor: string): Parameter[] {
 
 const flashColorParams = getReferences(FLASH_COLOR_KEYS.map((key) => `color${key}`));
 
+const VEIN_COLORS: Readonly<Record<string, string>> = {
+  Blood: "#7a0614",
+  Cyan: "#0080b4",
+  Blue: "#2646b4",
+  Green: "#269800",
+};
+
 const danceSpeedParameter = getValueParameter(
   "Speed",
   "speed",
@@ -1101,14 +1108,7 @@ const bloodAnimations: Record<string, AnimationInput> = {
   ),
   veins: {
     name: "Veins",
-    parameters: [
-      getColorParameter("Blood", {
-        Blood: "#7a0614",
-        Cyan: "#0080b4",
-        Blue: "#2646b4",
-        Green: "#269800",
-      }),
-    ],
+    parameters: [getColorParameter("Blood", VEIN_COLORS)],
     sections: [
       {
         name: "Creep",
@@ -1499,6 +1499,33 @@ const bassBloodAnimations: Record<string, AnimationInput> = {
     [{ effect: "blood-chainsaw", params: { period: 8, ...getReferences(["rate"]) } }],
     [getValueParameter("Rate", "rate", { "1/8": 2, "1/16": 4 }, "1/8")],
   ),
+};
+
+const heroMoveParameter = getValueParameter(
+  "Move",
+  "move",
+  {
+    Sway: "sway",
+    Headbang: "headbang",
+    Jump: "jump",
+    "Fist pump": "pump",
+    Twist: "twist",
+    Point: "point",
+    Twerk: "twerk",
+    "Front twerk": "front-twerk",
+    "Booty shake": "booty-shake",
+  },
+  "Sway",
+);
+
+const SPOTLIGHT_PALETTES: Readonly<Record<string, Palette>> = {
+  Blues: [BLUE, CYAN, ICE],
+  "Blue/ice": [BLUE, ICE],
+  "Cyan/blue": [CYAN, BLUE],
+  "Deep blue": ["#2646b4", BLUE],
+  "Blue/white": [BLUE, WHITE],
+  "Blue/purple": [BLUE, PURPLE],
+  ...PALETTES,
 };
 
 function getHeroSolo(name: string, hero: string): AnimationInput {
@@ -2776,25 +2803,74 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       "Frieren and Himmel dance",
       16,
       [{ effect: "hero-dance", params: getReferences(["move", "speed", "sync"]) }],
+      [heroMoveParameter, danceSpeedParameter, heroSyncParameter],
+    ),
+    "himmel-spawn": {
+      name: "Himmel spawn",
+      parameters: [getColorParameter("Blue", VEIN_COLORS), heroMoveParameter, danceSpeedParameter],
+      sections: [
+        {
+          name: "Spawn",
+          mode: { type: "once", beats: 12 },
+          layers: [
+            {
+              effect: "blood-veins",
+              params: {
+                color: { param: "color" },
+                drain: {
+                  keyframes: [
+                    { at: 0, value: 0 },
+                    { at: 1 / 12, value: 0, easing: "easeInQuad" },
+                    { at: 7 / 12, value: 1 },
+                  ],
+                },
+              },
+            },
+            { effect: "himmel-spawn", params: { color: { param: "color" } } },
+          ],
+        },
+        {
+          name: "Dance",
+          mode: { type: "loop", beats: 16 },
+          layers: [
+            {
+              effect: "hero-dance",
+              params: { ...getReferences(["move", "speed"]), dancers: "himmel", size: 18 },
+            },
+          ],
+        },
+      ],
+    },
+    "himmel-spotlight-dance": getLoop(
+      "Himmel spotlight dance",
+      16,
       [
-        getValueParameter(
-          "Move",
-          "move",
-          {
-            Sway: "sway",
-            Headbang: "headbang",
-            Jump: "jump",
-            "Fist pump": "pump",
-            Twist: "twist",
-            Point: "point",
-            Twerk: "twerk",
-            "Front twerk": "front-twerk",
-            "Booty shake": "booty-shake",
+        {
+          effect: "spotlights",
+          params: { ...paletteParams, ...getReferences(["origin", "every", "count"]) },
+        },
+        {
+          effect: "hero-dance",
+          params: {
+            ...getReferences(["move", "speed"]),
+            dancers: "himmel",
+            size: 18,
+            outline: true,
           },
-          "Sway",
-        ),
+        },
+      ],
+      [
+        heroMoveParameter,
         danceSpeedParameter,
-        heroSyncParameter,
+        getLightColorParameter("Blues", SPOTLIGHT_PALETTES),
+        getValueParameter(
+          "Lights",
+          "origin",
+          { Above: "top", Below: "bottom", Both: "both" },
+          "Above",
+        ),
+        getValueParameter("Sweep", "every", { "1 bar": 4, "2 bars": 8, "4 bars": 16 }, "2 bars"),
+        getValueParameter("Beams", "count", { "3": 3, "4": 4, "6": 6 }, "4"),
       ],
     ),
   }),
