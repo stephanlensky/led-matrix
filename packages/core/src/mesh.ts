@@ -18,10 +18,14 @@ export type Raster = {
   depth: Float32Array;
 };
 
+export type ColorBuffer = [r: number, g: number, b: number];
+
+export type Projector = (position: Vector, out?: Vector) => Vector;
+
 export type MeshDrawing<M extends string> = {
-  project: (position: Vector) => Vector;
+  project: Projector;
   getShade: (normal: Vector) => number;
-  getColor: (material: M, position: Vector, shade: number) => Color;
+  getColor: (material: M, position: Vector, shade: number, out: ColorBuffer) => Color;
 };
 
 export function normalize([x, y, depth]: Vector): Vector {
@@ -289,59 +293,132 @@ export function setRasterSample(raster: Raster, index: number, [r, g, b]: Color)
   raster.color[offset + 3] = 1;
 }
 
+let projectedBuffer = new Float64Array(0);
+let shadeBuffer = new Float64Array(0);
+const projectedVector: Vector = [0, 0, 0];
+const samplePosition: Vector = [0, 0, 0];
+const sampleColor: ColorBuffer = [0, 0, 0];
+const ORIGIN: Vector = [0, 0, 0];
+
+function getSpanStart(weight: number, step: number): number {
+  return step > 0 ? Math.ceil(-weight / step) - 1 : -Infinity;
+}
+
+function getSpanEnd(weight: number, step: number): number {
+  return step < 0 ? Math.floor(weight / -step) + 1 : Infinity;
+}
+
 export function drawMesh<M extends string>(
   raster: Raster,
-  mesh: Mesh<M>,
+  { positions, normals, triangles }: Mesh<M>,
   { project, getShade, getColor }: MeshDrawing<M>,
 ): void {
-  const projected = mesh.positions.map((position): Vector => {
-    const [x, y, depth] = project(position);
-    return [x * raster.samples, y * raster.samples, depth];
-  });
-  const shades = mesh.normals.map(getShade);
+  const { samples, width, height, color: colorBuffer, depth: depthBuffer } = raster;
+  if (projectedBuffer.length < positions.length * 3) {
+    projectedBuffer = new Float64Array(positions.length * 3);
+  }
+  if (shadeBuffer.length < normals.length) {
+    shadeBuffer = new Float64Array(normals.length);
+  }
+  const projected = projectedBuffer;
+  const shades = shadeBuffer;
+  for (let index = 0; index < positions.length; index++) {
+    const point = project(positions[index] ?? ORIGIN, projectedVector);
+    projected[index * 3] = point[0] * samples;
+    projected[index * 3 + 1] = point[1] * samples;
+    projected[index * 3 + 2] = point[2];
+  }
+  for (let index = 0; index < normals.length; index++) {
+    shades[index] = getShade(normals[index] ?? ORIGIN);
+  }
 
-  for (const [a, b, c, material, isDoubleSided] of mesh.triangles) {
-    const [ax, ay, az] = projected[a] ?? [0, 0, 0];
-    const [bx, by, bz] = projected[b] ?? [0, 0, 0];
-    const [cx, cy, cz] = projected[c] ?? [0, 0, 0];
+  for (const triangle of triangles) {
+    const a = triangle[0];
+    const b = triangle[1];
+    const c = triangle[2];
+    const ax = projected[a * 3] ?? 0;
+    const ay = projected[a * 3 + 1] ?? 0;
+    const az = projected[a * 3 + 2] ?? 0;
+    const bx = projected[b * 3] ?? 0;
+    const by = projected[b * 3 + 1] ?? 0;
+    const bz = projected[b * 3 + 2] ?? 0;
+    const cx = projected[c * 3] ?? 0;
+    const cy = projected[c * 3 + 1] ?? 0;
+    const cz = projected[c * 3 + 2] ?? 0;
     const area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-    if (Math.abs(area) < 1e-9 || (area > 0 && !isDoubleSided)) {
+    if (Math.abs(area) < 1e-9 || (area > 0 && !triangle[4])) {
       continue;
     }
-    const origin: Vector = [0, 0, 0];
-    const positionA = mesh.positions[a] ?? origin;
-    const positionB = mesh.positions[b] ?? origin;
-    const positionC = mesh.positions[c] ?? origin;
+    const material = triangle[3];
+    const positionA = positions[a] ?? ORIGIN;
+    const positionB = positions[b] ?? ORIGIN;
+    const positionC = positions[c] ?? ORIGIN;
+    const pax = positionA[0];
+    const pay = positionA[1];
+    const paz = positionA[2];
+    const pbx = positionB[0];
+    const pby = positionB[1];
+    const pbz = positionB[2];
+    const pcx = positionC[0];
+    const pcy = positionC[1];
+    const pcz = positionC[2];
     const shadeA = shades[a] ?? 0;
     const shadeB = shades[b] ?? 0;
     const shadeC = shades[c] ?? 0;
     const minX = Math.max(0, Math.floor(Math.min(ax, bx, cx)));
-    const maxX = Math.min(raster.width - 1, Math.ceil(Math.max(ax, bx, cx)));
+    const maxX = Math.min(width - 1, Math.ceil(Math.max(ax, bx, cx)));
     const minY = Math.max(0, Math.floor(Math.min(ay, by, cy)));
-    const maxY = Math.min(raster.height - 1, Math.ceil(Math.max(ay, by, cy)));
+    const maxY = Math.min(height - 1, Math.ceil(Math.max(ay, by, cy)));
+    const stepA = (by - cy) / area;
+    const stepB = (cy - ay) / area;
+    const stepC = -stepA - stepB;
+    const centerX = minX + 0.5;
     for (let y = minY; y <= maxY; y++) {
       const py = y + 0.5;
-      for (let x = minX; x <= maxX; x++) {
-        const px = x + 0.5;
-        const weightA = ((bx - px) * (cy - py) - (by - py) * (cx - px)) / area;
-        const weightB = ((cx - px) * (ay - py) - (cy - py) * (ax - px)) / area;
+      const rowA = ((bx - centerX) * (cy - py) - (by - py) * (cx - centerX)) / area;
+      const rowB = ((cx - centerX) * (ay - py) - (cy - py) * (ax - centerX)) / area;
+      const rowC = 1 - rowA - rowB;
+      const startX = Math.max(
+        minX,
+        minX + getSpanStart(rowA, stepA),
+        minX + getSpanStart(rowB, stepB),
+        minX + getSpanStart(rowC, stepC),
+      );
+      const endX = Math.min(
+        maxX,
+        minX + getSpanEnd(rowA, stepA),
+        minX + getSpanEnd(rowB, stepB),
+        minX + getSpanEnd(rowC, stepC),
+      );
+      const px = startX + 0.5;
+      let weightA = ((bx - px) * (cy - py) - (by - py) * (cx - px)) / area;
+      let weightB = ((cx - px) * (ay - py) - (cy - py) * (ax - px)) / area;
+      let isInside = false;
+      for (let x = startX; x <= endX; x++, weightA += stepA, weightB += stepB) {
         const weightC = 1 - weightA - weightB;
         if (weightA < 0 || weightB < 0 || weightC < 0) {
+          if (isInside) {
+            break;
+          }
           continue;
         }
+        isInside = true;
         const depth = weightA * az + weightB * bz + weightC * cz;
-        const index = y * raster.width + x;
-        if (depth <= (raster.depth[index] ?? Infinity)) {
+        const index = y * width + x;
+        if (depth <= (depthBuffer[index] ?? Infinity)) {
           continue;
         }
-        raster.depth[index] = depth;
-        const position: Vector = [
-          weightA * positionA[0] + weightB * positionB[0] + weightC * positionC[0],
-          weightA * positionA[1] + weightB * positionB[1] + weightC * positionC[1],
-          weightA * positionA[2] + weightB * positionB[2] + weightC * positionC[2],
-        ];
+        depthBuffer[index] = depth;
+        samplePosition[0] = weightA * pax + weightB * pbx + weightC * pcx;
+        samplePosition[1] = weightA * pay + weightB * pby + weightC * pcy;
+        samplePosition[2] = weightA * paz + weightB * pbz + weightC * pcz;
         const shade = weightA * shadeA + weightB * shadeB + weightC * shadeC;
-        setRasterSample(raster, index, getColor(material, position, shade));
+        const color = getColor(material, samplePosition, shade, sampleColor);
+        const offset = index * RGBA_CHANNELS;
+        colorBuffer[offset] = color[0];
+        colorBuffer[offset + 1] = color[1];
+        colorBuffer[offset + 2] = color[2];
+        colorBuffer[offset + 3] = 1;
       }
     }
   }

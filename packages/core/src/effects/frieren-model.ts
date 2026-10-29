@@ -1,6 +1,7 @@
 import { parseColor } from "../color.ts";
 import type { Color } from "../frame.ts";
 import {
+  type ColorBuffer,
   IDENTITY_MATRIX,
   type Matrix,
   type Mesh,
@@ -16,7 +17,7 @@ import {
   getTranslationMatrix,
   multiplyMatrices,
 } from "../mesh.ts";
-import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { WHITE, getNormalShader, setMixedColor, setScaledColor } from "./cat-model.ts";
 import { type ModelPlacement, getJointMatrices, getProjector } from "./hunter-model.ts";
 
 type HeroPart =
@@ -74,7 +75,7 @@ export type HeroPose = Partial<Record<HeroJoint, Rotation>>;
 export type HeroAttachment = {
   joint: HeroJoint;
   mesh: Mesh<PropPart>;
-  getColor?: (part: PropPart, shade: number) => Color;
+  getColor?: (part: PropPart, shade: number, out: ColorBuffer) => Color;
 };
 
 export type HeroEyes = "open" | "closed" | "hidden";
@@ -406,8 +407,8 @@ export function drawProp(
   drawMesh(raster, mesh, {
     project: getProjector(scene.position, placement),
     getShade: getNormalShader(scene.normal),
-    getColor: (part, _vector, shade) =>
-      mix(scale(PROP_COLORS[part], shade), [255, 255, 255], flash),
+    getColor: (part, _vector, shade, out) =>
+      setMixedColor(out, setScaledColor(out, PROP_COLORS[part], shade), WHITE, flash),
   });
 }
 
@@ -443,19 +444,23 @@ export function drawHero(raster: Raster, hero: HeroId, placement: HeroPlacement)
     }
     drawMesh(raster, mesh, {
       ...getDrawing(joint),
-      getColor: (part, vector, shade) => {
-        const color = outfit(part, vector);
-        return mix(part === "eye" ? color : scale(color, shade), [255, 255, 255], flash);
-      },
+      getColor: (part, vector, shade, out) =>
+        setMixedColor(
+          out,
+          setScaledColor(out, outfit(part, vector), part === "eye" ? 1 : shade),
+          WHITE,
+          flash,
+        ),
     });
   }
   for (const { joint, mesh, getColor } of placement.attachments ?? []) {
     drawMesh(raster, mesh, {
       ...getDrawing(joint),
-      getColor: (part, _vector, shade) =>
-        mix(
-          getColor ? getColor(part, shade) : scale(PROP_COLORS[part], shade),
-          [255, 255, 255],
+      getColor: (part, _vector, shade, out) =>
+        setMixedColor(
+          out,
+          getColor ? getColor(part, shade, out) : setScaledColor(out, PROP_COLORS[part], shade),
+          WHITE,
           flash,
         ),
     });

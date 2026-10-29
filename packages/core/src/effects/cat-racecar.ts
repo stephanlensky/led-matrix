@@ -13,6 +13,7 @@ import {
   fillRasterCircle,
   getRotation,
   resolveRaster,
+  type ColorBuffer,
 } from "../mesh.ts";
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import { TAU, coatParams, getCoats, toRadians } from "./cat-duo.ts";
@@ -27,6 +28,8 @@ import {
   getCatOffset,
   mix,
   scale,
+  setMixedColor,
+  setScaledColor,
 } from "./cat-model.ts";
 
 type CarPart = "body" | "wing" | "tire" | "seat" | "light" | "pipe" | "flame";
@@ -48,6 +51,8 @@ const SEAT: Color = [24, 24, 28];
 const LIGHT: Color = [255, 240, 170];
 const PIPE: Color = [120, 120, 130];
 const FLAME: Color = [255, 150, 30];
+const FLAME_TIP: Color = [255, 240, 140];
+const BLACK: Color = [0, 0, 0];
 
 function getCarMesh() {
   const mesh = createMesh<CarPart>();
@@ -83,7 +88,8 @@ function getFlameMesh(length: number) {
 const carMesh = getCarMesh();
 
 function getCarColor(car: Color, stripe: Color, spin: number) {
-  return (part: CarPart, [x, y, depth]: Vector, shade: number): Color => {
+  const wing = mix(car, BLACK, 0.35);
+  return (part: CarPart, [x, y, depth]: Vector, shade: number, out: ColorBuffer): Color => {
     if (part === "tire") {
       const dy = y - WHEEL_Y;
       const dz = depth - Math.sign(depth) * WHEEL_Z;
@@ -91,28 +97,28 @@ function getCarColor(car: Color, stripe: Color, spin: number) {
       const isFace = Math.abs(x) > WHEEL_X + 0.08;
       if (isFace && radius < HUB_RADIUS) {
         const spoke = getCycle(((Math.atan2(dy, dz) + spin) / TAU) * 4) < 0.35;
-        return scale(spoke ? TIRE : RIM, Math.max(shade, 0.9));
+        return setScaledColor(out, spoke ? TIRE : RIM, Math.max(shade, 0.9));
       }
-      return scale(TIRE, shade);
+      return setScaledColor(out, TIRE, shade);
     }
     if (part === "body") {
       const isStripe = Math.abs(x) < 0.14 && y > -0.5;
       const roundel = Math.hypot(y + 0.6, depth - 1.05) < 0.24 && Math.abs(x) > 0.45;
-      return scale(isStripe || roundel ? stripe : car, shade);
+      return setScaledColor(out, isStripe || roundel ? stripe : car, shade);
     }
     if (part === "wing") {
-      return scale(mix(car, [0, 0, 0], 0.35), shade);
+      return setScaledColor(out, wing, shade);
     }
     if (part === "seat") {
-      return scale(SEAT, shade);
+      return setScaledColor(out, SEAT, shade);
     }
     if (part === "light") {
       return LIGHT;
     }
     if (part === "pipe") {
-      return scale(PIPE, shade);
+      return setScaledColor(out, PIPE, shade);
     }
-    return mix(FLAME, [255, 240, 140], Math.max(0, shade - 0.6));
+    return setMixedColor(out, FLAME, FLAME_TIP, Math.max(0, shade - 0.6));
   };
 }
 

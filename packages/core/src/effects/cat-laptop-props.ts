@@ -10,8 +10,18 @@ import {
   getRotation,
   getTranslationMatrix,
   multiplyMatrices,
+  type ColorBuffer,
 } from "../mesh.ts";
-import { type CatPlacement, getCatProjector, getNormalShader, mix, scale } from "./cat-model.ts";
+import {
+  type CatPlacement,
+  getCatProjector,
+  getNormalShader,
+  mix,
+  scale,
+  WHITE,
+  setMixedColor,
+  setScaledColor,
+} from "./cat-model.ts";
 
 type LaptopPart = "case" | "keys" | "pad" | "bezel" | "screen";
 
@@ -72,12 +82,18 @@ export function drawLaptop(
   placement: CatPlacement,
   { getScreenColor, lid = 0.25, color = LAPTOP_COLOR, logo }: Laptop,
 ): void {
-  const getColor = (part: LaptopPart, [x, y, z]: Vector, shade: number): Color => {
+  const pad = mix(color, KEYS, 0.3);
+  const getColor = (
+    part: LaptopPart,
+    [x, y, z]: Vector,
+    shade: number,
+    out: ColorBuffer,
+  ): Color => {
     if (logo && part === "case" && y > BASE_HALF[1] * 3 && z < -LID_HALF[2] * 1.5) {
       const logoX = x / (LID_HALF[1] * 0.45);
       const logoY = (y - LID_HALF[1]) / (LID_HALF[1] * 0.45) + 0.12;
       if (isInsideHeart(logoX, logoY)) {
-        return mix(logo, [255, 255, 255], 0.3 * Math.max(0, logoY - 0.4));
+        return setMixedColor(out, logo, WHITE, 0.3 * Math.max(0, logoY - 0.4));
       }
     }
     if (part === "screen") {
@@ -87,15 +103,12 @@ export function drawLaptop(
       );
     }
     if (part === "keys") {
-      return scale(KEYS, shade);
+      return setScaledColor(out, KEYS, shade);
     }
     if (part === "bezel") {
       return BEZEL;
     }
-    if (part === "pad") {
-      return scale(mix(color, KEYS, 0.3), shade);
-    }
-    return scale(color, shade);
+    return setScaledColor(out, part === "pad" ? pad : color, shade);
   };
   const rotateMatrix = getMatrix(placement.rotate);
   drawMesh(raster, baseMesh, {

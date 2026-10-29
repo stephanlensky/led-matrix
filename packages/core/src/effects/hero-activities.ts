@@ -11,6 +11,7 @@ import {
   createRaster,
   getRotation,
   resolveRaster,
+  type ColorBuffer,
 } from "../mesh.ts";
 import { TAU, clamp, toRadians } from "./cat-duo.ts";
 import { drawBurst } from "./cat-love.ts";
@@ -21,7 +22,7 @@ import { VIEW_PITCH, getCycle } from "./cat-dance.ts";
 import { drawEyes, eyeStyles } from "./cat-face.ts";
 import { type Laptop, drawLaptop, getEqualizerScreen, getHeartScreen } from "./cat-laptop-props.ts";
 import { fillDesk, getLevels } from "./cat-laptop.ts";
-import { type CatPlacement, getCatOffset, mix, scale } from "./cat-model.ts";
+import { type CatPlacement, getCatOffset, mix, setScaledColor } from "./cat-model.ts";
 import {
   type HeroPlacement,
   type PropPart,
@@ -169,8 +170,9 @@ function createHeadphonesMesh() {
 const headphonesMesh = createHeadphonesMesh();
 
 export function getHeadphonesColor(color: Color) {
-  return (part: PropPart, shade: number): Color =>
-    part === "cushion" ? scale(mix(color, WHITE, 0.6), shade) : scale(color, shade);
+  const cushion = mix(color, WHITE, 0.6);
+  return (part: PropPart, shade: number, out: ColorBuffer): Color =>
+    setScaledColor(out, part === "cushion" ? cushion : color, shade);
 }
 
 export const heroLaptop = defineEffect({

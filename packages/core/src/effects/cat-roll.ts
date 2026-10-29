@@ -42,12 +42,13 @@ function getNeonCoat(glow: Color, isTabby: boolean): Coat {
     ? getTabbyCoat(body, scale(glow, 0.45), body, glow)
     : getSolidCoat(body, glow);
   const tail = getTabbyCoat(body, glow, body, glow);
-  return (part, position, shade) =>
+  const ear = scale(glow, 0.8);
+  return (part, position, shade, out) =>
     part === "ear"
-      ? scale(glow, 0.8)
+      ? ear
       : part === "tail" && isTabby
-        ? tail(part, position, shade)
-        : fur(part, position, shade);
+        ? tail(part, position, shade, out)
+        : fur(part, position, shade, out);
 }
 
 function isEmpty(image: RgbaImage, x: number, y: number): boolean {

@@ -15,11 +15,21 @@ import {
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import { type Palette, drawSprite, getAnimationFrame } from "../sprite.ts";
 import { TAU, coatParams, getCoats, toRadians } from "./cat-duo.ts";
-import { type CatPose, drawCat, drawCatProp, getCatOffset, getGhostCoat } from "./cat-model.ts";
+import {
+  type CatPose,
+  drawCat,
+  drawCatProp,
+  getCatOffset,
+  getGhostCoat,
+  setScaledColor,
+} from "./cat-model.ts";
 import { batFrames } from "./demon-hunters/sprites.ts";
 
 type BroomPart = "handle" | "bristles" | "band";
 type HatPart = "hat" | "brim" | "ribbon";
+
+const BRISTLES: Color = [190, 140, 60];
+const HANDLE: Color = [110, 70, 40];
 
 function getCycle(value: number): number {
   return ((value % 1) + 1) % 1;
@@ -178,12 +188,12 @@ export const catBroom = defineEffect({
       { offset: [0, 0.15, -0.95] as Vector, coat: tabbyCoat, hasHat: false },
       { offset: [0, 0.15, 0.85] as Vector, coat: blackCoat, hasHat: true },
     ];
-    drawCatProp(raster, { x, y, size, rotate }, broomMesh, (part, [, , depth], shade) => {
+    drawCatProp(raster, { x, y, size, rotate }, broomMesh, (part, [, , depth], shade, out) => {
       if (part === "bristles") {
         const straw = 0.75 + 0.25 * Math.sin(depth * 40);
-        return getScaled([190, 140, 60], shade * straw);
+        return setScaledColor(out, BRISTLES, shade * straw);
       }
-      return part === "band" ? getScaled(ribbon, shade) : getScaled([110, 70, 40], shade);
+      return setScaledColor(out, part === "band" ? ribbon : HANDLE, shade);
     });
     for (const { offset, coat, hasHat } of riders) {
       const [offsetX, offsetY, depth] = getCatOffset(rotate, offset, size);
@@ -194,7 +204,8 @@ export const catBroom = defineEffect({
           raster,
           { ...placement, rotate: (vector) => rotate(getHatPosition(vector)) },
           hatMesh,
-          (part, _position, shade) => getScaled(part === "ribbon" ? ribbon : hat, shade * 1.3),
+          (part, _position, shade, out) =>
+            setScaledColor(out, part === "ribbon" ? ribbon : hat, shade * 1.3),
         );
       }
     }

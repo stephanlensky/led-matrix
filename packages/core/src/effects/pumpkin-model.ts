@@ -1,5 +1,6 @@
 import type { Color } from "../frame.ts";
 import {
+  type ColorBuffer,
   IDENTITY_MATRIX,
   type Mesh,
   type Raster,
@@ -14,7 +15,7 @@ import {
   getModelMatrix,
   multiplyMatrices,
 } from "../mesh.ts";
-import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { WHITE, getNormalShader, setMixedColor, setScaledColor } from "./cat-model.ts";
 import { type ModelPlacement, getJointMatrices, getProjector } from "./hunter-model.ts";
 
 type PumpkinPart = "pumpkin" | "stem" | "body" | "hand" | "shoe";
@@ -42,6 +43,7 @@ const MODEL_CENTER: Vector = [0, 0.62, 0];
 const HEAD_CENTER: Vector = [0, 0.86, 0];
 const HEAD_RADIUS: Vector = [0.8, 0.54, 0.68];
 const RIBS = 8;
+const BLACK: Color = [0, 0, 0];
 
 const JOINT_PARENTS: readonly (readonly [joint: PumpkinJoint, parent?: PumpkinJoint])[] = [
   ["torso"],
@@ -181,24 +183,29 @@ function getPartColor(
   shade: number,
   colors: PumpkinColors,
   glow: number,
+  out: ColorBuffer,
 ): Color {
   if (part === "pumpkin") {
     const carve = getFaceCarve(position);
     if (carve === "carve") {
-      return scale(colors.glow, glow);
+      return setScaledColor(out, colors.glow, glow);
     }
-    return scale(colors.pumpkin, shade * getRib(position) * (carve === "rim" ? 0.35 : 1));
+    return setScaledColor(
+      out,
+      colors.pumpkin,
+      shade * getRib(position) * (carve === "rim" ? 0.35 : 1),
+    );
   }
   if (part === "stem") {
-    return scale(colors.stem, shade);
+    return setScaledColor(out, colors.stem, shade);
   }
   if (part === "hand") {
-    return scale(mix(colors.body, [255, 255, 255], 0.25), shade);
+    return setScaledColor(out, setMixedColor(out, colors.body, WHITE, 0.25), shade);
   }
   if (part === "shoe") {
-    return scale(mix(colors.body, [0, 0, 0], 0.6), shade);
+    return setScaledColor(out, setMixedColor(out, colors.body, BLACK, 0.6), shade);
   }
-  return scale(colors.body, shade);
+  return setScaledColor(out, colors.body, shade);
 }
 
 export function drawPumpkin(
@@ -216,8 +223,13 @@ export function drawPumpkin(
     drawMesh(raster, mesh, {
       project: getProjector(multiplyMatrices(modelMatrix, jointMatrix), placement),
       getShade: getNormalShader(multiplyMatrices(rotateMatrix, getLinearMatrix(jointMatrix))),
-      getColor: (part, vector, shade) =>
-        mix(getPartColor(part, vector, shade, colors, glow), colors.glow, flash),
+      getColor: (part, vector, shade, out) =>
+        setMixedColor(
+          out,
+          getPartColor(part, vector, shade, colors, glow, out),
+          colors.glow,
+          flash,
+        ),
     });
   }
 }

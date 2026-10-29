@@ -15,7 +15,7 @@ import {
   multiplyMatrices,
   subtract,
 } from "../mesh.ts";
-import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { getNormalShader, setMixedColor, setScaledColor } from "./cat-model.ts";
 import { type ModelPlacement, getJointMatrices, getProjector } from "./hunter-model.ts";
 import { type SkullHeadColors, drawSkullHead } from "./skull-model.ts";
 
@@ -203,8 +203,13 @@ export function drawSkeleton(
     drawMesh(raster, mesh, {
       project: getProjector(multiplyMatrices(modelMatrix, jointMatrix), placement),
       getShade: getNormalShader(multiplyMatrices(rotateMatrix, getLinearMatrix(jointMatrix))),
-      getColor: (part, _vector, shade) =>
-        mix(scale(colors.bone, part === "joint" ? shade * 0.85 : shade), WHITE, flash),
+      getColor: (part, _vector, shade, out) =>
+        setMixedColor(
+          out,
+          setScaledColor(out, colors.bone, part === "joint" ? shade * 0.85 : shade),
+          WHITE,
+          flash,
+        ),
     });
   }
   const head = jointMatrices.get("head");

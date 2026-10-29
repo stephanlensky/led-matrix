@@ -1,8 +1,11 @@
 import type { Color } from "../frame.ts";
 import {
+  type ColorBuffer,
   IDENTITY_MATRIX,
   type Matrix,
   type Mesh,
+  type MeshDrawing,
+  type Projector,
   type Raster,
   type Rotation,
   type Vector,
@@ -21,7 +24,7 @@ import {
 
 type CatPart = "body" | "head" | "muzzle" | "ear" | "leg" | "tail" | "eye";
 
-export type Coat = (part: CatPart, position: Vector, shade: number) => Color;
+export type Coat = (part: CatPart, position: Vector, shade: number, out: ColorBuffer) => Color;
 
 export type CatPlacement = {
   x: number;
@@ -40,6 +43,7 @@ const CAMERA_DISTANCE = 6;
 const MODEL_CENTER: Vector = [0, 0.2, 0];
 const EYES_CENTER: Vector = [0, 0.68, 1.08];
 const LIGHT = normalize([-0.4, 0.6, 0.7]);
+export const WHITE: Color = [255, 255, 255];
 const SIT_ANGLE = (-62 * Math.PI) / 180;
 
 export const SIT = getRotation(SIT_ANGLE, 0, 0);
@@ -121,22 +125,45 @@ export function mix([ar, ag, ab]: Color, [br, bg, bb]: Color, amount: number): C
   return [ar + (br - ar) * amount, ag + (bg - ag) * amount, ab + (bb - ab) * amount];
 }
 
+export function setScaledColor(out: ColorBuffer, color: Color, amount: number): ColorBuffer {
+  out[0] = color[0] * amount;
+  out[1] = color[1] * amount;
+  out[2] = color[2] * amount;
+  return out;
+}
+
+export function setMixedColor(
+  out: ColorBuffer,
+  from: Color,
+  to: Color,
+  amount: number,
+): ColorBuffer {
+  const r = from[0];
+  const g = from[1];
+  const b = from[2];
+  out[0] = r + (to[0] - r) * amount;
+  out[1] = g + (to[1] - g) * amount;
+  out[2] = b + (to[2] - b) * amount;
+  return out;
+}
+
 function getStripe(phase: number, width: number): number {
   const distance = Math.abs((((phase % 1) + 1) % 1) - 0.5) * 2;
   return Math.min(1, Math.max(0, (width - distance) / 0.15 + 0.5));
 }
 
 export function getGhostCoat(glow: Color, eye: Color): Coat {
-  return (part, _position, shade) =>
-    part === "eye" ? eye : mix(scale(glow, 0.35), glow, Math.min(1, Math.max(0, shade - 0.4)));
+  const dim = scale(glow, 0.35);
+  return (part, _position, shade, out) =>
+    part === "eye" ? eye : setMixedColor(out, dim, glow, Math.min(1, Math.max(0, shade - 0.4)));
 }
 
 export function getSolidCoat(fur: Color, eye: Color): Coat {
-  return (part, _position, shade) => (part === "eye" ? eye : scale(fur, shade));
+  return (part, _position, shade, out) => (part === "eye" ? eye : setScaledColor(out, fur, shade));
 }
 
 export function getTabbyCoat(fur: Color, stripe: Color, light: Color, eye: Color): Coat {
-  return (part, [x, y, z], shade) => {
+  return (part, [x, y, z], shade, out) => {
     if (part === "eye") {
       return eye;
     }
@@ -146,7 +173,7 @@ export function getTabbyCoat(fur: Color, stripe: Color, light: Color, eye: Color
       const dorsal = Math.abs(x) < 0.13 && y > 0.25 ? 1 : 0;
       const sides = getStripe(z * 2.6 + (0.4 - y) * 0.35, 0.28) * Math.min(1, (y + 0.45) * 3);
       amount = Math.max(dorsal, sides);
-      base = mix(fur, light, Math.min(1, Math.max(0, (-0.35 - y) * 4)));
+      base = setMixedColor(out, fur, light, Math.min(1, Math.max(0, (-0.35 - y) * 4)));
     } else if (part === "head") {
       const isFront = z > 0.85 && y > 0.7;
       amount = isFront
@@ -163,7 +190,7 @@ export function getTabbyCoat(fur: Color, stripe: Color, light: Color, eye: Color
     } else if (part === "tail") {
       amount = y > 0.85 ? 1 : getStripe(y * 4, 0.35);
     }
-    return scale(mix(base, stripe, amount), shade);
+    return setScaledColor(setMixedColor(out, base, stripe, amount), out, shade);
   };
 }
 
@@ -178,7 +205,7 @@ export function getCatProjector(
     depth: depthOffset = 0,
   }: CatPlacement,
   matrix: Readonly<Matrix> = IDENTITY_MATRIX,
-): (vector: Vector) => Vector {
+): Projector {
   const modelMatrix = getModelMatrix(MODEL_CENTER, rotate);
   const getScreenPoint = ([x, y, depth]: Vector): [x: number, y: number] => {
     const perspective = CAMERA_DISTANCE / (CAMERA_DISTANCE - depth);
@@ -191,21 +218,45 @@ export function getCatProjector(
     modelMatrix,
     matrix,
   );
-  return ([x, y, z]) => {
+  return (position, out = [0, 0, 0]) => {
+    const x = position[0];
+    const y = position[1];
+    const z = position[2];
     const depth = m20 * x + m21 * y + m22 * z + m23;
     const perspective = CAMERA_DISTANCE / (CAMERA_DISTANCE - depth);
     const screenX = centerX + size * (m00 * x + m01 * y + m02 * z + m03) * perspective;
     const screenY = centerY - size * (m10 * x + m11 * y + m12 * z + m13) * perspective;
-    return [
-      zoomX + (screenX - focusX) * zoom,
-      zoomY + (screenY - focusY) * zoom,
-      depth + depthOffset,
-    ];
+    out[0] = zoomX + (screenX - focusX) * zoom;
+    out[1] = zoomY + (screenY - focusY) * zoom;
+    out[2] = depth + depthOffset;
+    return out;
   };
 }
 
-export function getNormalShader(matrix: Readonly<Matrix>): (normal: Vector) => number {
-  return (normal) => getShade(applyMatrix(matrix, normal));
+export function getNormalShader([
+  m00,
+  m01,
+  m02,
+  m03,
+  m10,
+  m11,
+  m12,
+  m13,
+  m20,
+  m21,
+  m22,
+  m23,
+]: Readonly<Matrix>): (normal: Vector) => number {
+  return (normal) => {
+    const x = normal[0];
+    const y = normal[1];
+    const z = normal[2];
+    return getShade(
+      m00 * x + m01 * y + m02 * z + m03,
+      m10 * x + m11 * y + m12 * z + m13,
+      m20 * x + m21 * y + m22 * z + m23,
+    );
+  };
 }
 
 function getJointMatrix(pivot: Vector, rotation: Rotation | undefined): Readonly<Matrix> {
@@ -220,8 +271,7 @@ function getJointMatrix(pivot: Vector, rotation: Rotation | undefined): Readonly
   );
 }
 
-export function getShade(normal: Vector): number {
-  const [x, y, depth] = normal;
+export function getShade(x: number, y: number, depth: number): number {
   const diffuse = Math.max(0, x * LIGHT[0] + y * LIGHT[1] + depth * LIGHT[2]);
   const rim = (1 - Math.abs(depth)) ** 3;
   return 0.3 + 0.8 * diffuse + 0.5 * rim;
@@ -229,7 +279,7 @@ export function getShade(normal: Vector): number {
 
 export function drawCat(raster: Raster, placement: CatPlacement, coat: Coat): void {
   const flash = placement.flash ?? 0;
-  const flashColor = placement.flashColor ?? [255, 255, 255];
+  const flashColor = placement.flashColor ?? WHITE;
   const rotateMatrix = getMatrix(placement.rotate);
   for (const { joint, pivot, mesh } of catGroups) {
     const rotation = joint ? placement.pose?.[joint] : undefined;
@@ -238,7 +288,8 @@ export function drawCat(raster: Raster, placement: CatPlacement, coat: Coat): vo
       getShade: getNormalShader(
         rotation ? multiplyMatrices(rotateMatrix, getMatrix(rotation)) : rotateMatrix,
       ),
-      getColor: (part, position, shade) => mix(coat(part, position, shade), flashColor, flash),
+      getColor: (part, position, shade, out) =>
+        setMixedColor(out, coat(part, position, shade, out), flashColor, flash),
     });
   }
 }
@@ -247,7 +298,7 @@ export function drawCatProp<M extends string>(
   raster: Raster,
   placement: CatPlacement,
   mesh: Mesh<M>,
-  getColor: (material: M, position: Vector, shade: number) => Color,
+  getColor: MeshDrawing<M>["getColor"],
   joint?: CatJoint,
 ): void {
   const rotation = joint ? placement.pose?.[joint] : undefined;

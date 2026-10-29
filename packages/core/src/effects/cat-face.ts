@@ -27,7 +27,7 @@ const SMALL_HAPPY_EYE = [
 ] as const;
 
 export function getEyelessCoat(coat: Coat): Coat {
-  return (part, position, shade) => coat(part === "eye" ? "head" : part, position, shade);
+  return (part, position, shade, out) => coat(part === "eye" ? "head" : part, position, shade, out);
 }
 
 export function getCatFace(placement: CatPlacement): CatFace {

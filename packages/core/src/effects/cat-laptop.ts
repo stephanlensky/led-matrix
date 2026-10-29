@@ -12,6 +12,7 @@ import {
   getRotation,
   resolveRaster,
   setRasterSample,
+  type ColorBuffer,
 } from "../mesh.ts";
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import { TAU, catIds, furParams, getCoat, toRadians } from "./cat-duo.ts";
@@ -31,6 +32,7 @@ import {
   getCatPoint,
   mix,
   scale,
+  setScaledColor,
 } from "./cat-model.ts";
 
 const VIEW_PITCH = toRadians(14);
@@ -83,8 +85,9 @@ function createHeadphonesMesh() {
 const headphonesMesh = createHeadphonesMesh();
 
 function getHeadphonesColor(color: Color) {
-  return (part: HeadphonePart, _position: Vector, shade: number): Color =>
-    part === "pad" ? scale(mix(color, WHITE, 0.6), shade) : scale(color, shade);
+  const pad = mix(color, WHITE, 0.6);
+  return (part: HeadphonePart, _position: Vector, shade: number, out: ColorBuffer): Color =>
+    setScaledColor(out, part === "pad" ? pad : color, shade);
 }
 
 export function getLevels(beat: number): number[] {

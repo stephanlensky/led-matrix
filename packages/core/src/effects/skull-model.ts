@@ -1,5 +1,6 @@
 import type { Color } from "../frame.ts";
 import {
+  type ColorBuffer,
   type Matrix,
   type Mesh,
   type Raster,
@@ -15,7 +16,7 @@ import {
   multiplyMatrices,
   subtract,
 } from "../mesh.ts";
-import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { getNormalShader, setMixedColor, setScaledColor } from "./cat-model.ts";
 import { type ModelPlacement, getModelProjector, getProjector } from "./hunter-model.ts";
 
 type SkullPart = "bone" | "jaw";
@@ -159,22 +160,29 @@ function getBoneColor(
   shade: number,
   colors: SkullHeadColors,
   glow: number,
+  out: ColorBuffer,
 ): Color {
   if (isEye(position) && glow > 0) {
-    return mix(SOCKET, colors.eye, glow);
+    return setMixedColor(out, SOCKET, colors.eye, glow);
   }
   if (isSocket(position) || isToothGap(position, -0.2, -0.32)) {
     return SOCKET;
   }
-  return scale(colors.bone, shade);
+  return setScaledColor(out, colors.bone, shade);
 }
 
-function getBrassColor(part: TrumpetPart, [x, y, z]: Vector, shade: number, brass: Color): Color {
+function getBrassColor(
+  part: TrumpetPart,
+  [x, y, z]: Vector,
+  shade: number,
+  brass: Color,
+  out: ColorBuffer,
+): Color {
   if (part === "bell" && z > BELL_END - 0.03 && Math.hypot(x, y) < BELL_RADIUS * 0.75) {
-    return scale(brass, 0.3);
+    return setScaledColor(out, brass, 0.3);
   }
-  const base = scale(brass, part === "valve" ? shade * 0.8 : shade);
-  return mix(base, WHITE, Math.min(0.6, Math.max(0, shade - 1.05) * 1.5));
+  const base = setScaledColor(out, brass, part === "valve" ? shade * 0.8 : shade);
+  return setMixedColor(out, base, WHITE, Math.min(0.6, Math.max(0, shade - 1.05) * 1.5));
 }
 
 function getJawMatrix(open: number): Matrix {
@@ -215,8 +223,8 @@ export function drawSkullHead(
     drawMesh(raster, mesh, {
       project: getProjector(transform, placement),
       getShade: getNormalShader(normalMatrix),
-      getColor: (_part, position, shade) =>
-        mix(getBoneColor(position, shade, colors, glow), WHITE, flash),
+      getColor: (_part, position, shade, out) =>
+        setMixedColor(out, getBoneColor(position, shade, colors, glow, out), WHITE, flash),
     });
   }
 }
@@ -231,8 +239,9 @@ export function drawSkull(raster: Raster, placement: SkullPlacement, colors: Sku
   );
   const flare = getFlare(placement.flare ?? 0);
   drawMesh(raster, trumpetMesh, {
-    project: (vector) => project(flare(vector)),
+    project: (vector, out) => project(flare(vector), out),
     getShade: getNormalShader(multiplyMatrices(rotateMatrix, TRUMPET_MATRIX)),
-    getColor: (part, position, shade) => getBrassColor(part, position, shade, colors.brass),
+    getColor: (part, position, shade, out) =>
+      getBrassColor(part, position, shade, colors.brass, out),
   });
 }

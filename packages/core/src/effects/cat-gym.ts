@@ -9,6 +9,7 @@ import {
   getRotation,
   resolveRaster,
   subtract,
+  type ColorBuffer,
 } from "../mesh.ts";
 import { type CatId, catIds, furParams, getCoat, toRadians } from "./cat-duo.ts";
 import {
@@ -17,7 +18,7 @@ import {
   drawCat,
   drawCatProp,
   getCatOffset,
-  scale,
+  setScaledColor,
 } from "./cat-model.ts";
 import { getSquashedRotation } from "./cat-laptop.ts";
 import { HERO_CENTER, PROP_COLORS, type PropPart, drawProp } from "./frieren-model.ts";
@@ -50,8 +51,8 @@ const VIEW_PITCH = toRadians(18);
 const VIEW_YAW = toRadians(-28);
 const TURN = getRotation(0, Math.PI, 0);
 
-function getPropColor(part: PropPart, _position: Vector, shade: number) {
-  return scale(PROP_COLORS[part], shade);
+function getPropColor(part: PropPart, _position: Vector, shade: number, out: ColorBuffer) {
+  return setScaledColor(out, PROP_COLORS[part], shade);
 }
 
 function getCatPlacement(

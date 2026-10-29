@@ -3,7 +3,14 @@ import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { type Color, HEIGHT, type RgbaImage, WIDTH } from "../frame.ts";
 import { easings } from "../keyframes.ts";
-import { type Rotation, type Vector, createRaster, getRotation, resolveRaster } from "../mesh.ts";
+import {
+  type ColorBuffer,
+  type Rotation,
+  type Vector,
+  createRaster,
+  getRotation,
+  resolveRaster,
+} from "../mesh.ts";
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import { TAU, catIds, clamp, furParams, getCoat, getSpan, toRadians } from "./cat-duo.ts";
 import { getCycle } from "./cat-dance.ts";
@@ -21,6 +28,8 @@ import {
   getCatProjector,
   mix,
   scale,
+  setMixedColor,
+  setScaledColor,
 } from "./cat-model.ts";
 
 const VIEW_PITCH = toRadians(14);
@@ -200,13 +209,15 @@ function drawCubes(image: RgbaImage, beat: number, color: Color, kick: number): 
 
 function getNeonCoat(coat: Coat, fur: Color, neon: Color, kick: number): Coat {
   const brightness = 230 / Math.max(1, ...fur);
-  return (part, position, shade) => {
-    const color = coat(part, position, 1);
+  const light: ColorBuffer = [0, 0, 0];
+  return (part, position, shade, out) => {
+    const color = coat(part, position, 1, out);
     if (part === "eye") {
-      return mix(color, WHITE, 0.3 + 0.5 * kick);
+      return setMixedColor(out, color, WHITE, 0.3 + 0.5 * kick);
     }
-    const base = mix(scale(color, brightness), neon, 0.1);
-    return mix(scale(base, 0.35), mix(base, WHITE, 0.3), clamp(shade - 0.35));
+    const base = setMixedColor(out, setScaledColor(out, color, brightness), neon, 0.1);
+    setMixedColor(light, base, WHITE, 0.3);
+    return setMixedColor(out, setScaledColor(out, base, 0.35), light, clamp(shade - 0.35));
   };
 }
 

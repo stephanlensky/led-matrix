@@ -21,7 +21,7 @@ import {
   drawCatProp,
   getCatPoint,
   mix,
-  scale,
+  setScaledColor,
 } from "./cat-model.ts";
 
 type Astronaut = {
@@ -217,7 +217,7 @@ export const catSpace = defineEffect({
         raster,
         placement,
         collarMesh,
-        (_part, _position, shade) => scale(COLLAR, shade),
+        (_part, _position, shade, out) => setScaledColor(out, COLLAR, shade),
         "head",
       );
       compositeRaster(raster, image);

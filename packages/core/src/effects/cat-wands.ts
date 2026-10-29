@@ -24,6 +24,8 @@ import {
   getCatPoint,
   mix,
   scale,
+  setMixedColor,
+  setScaledColor,
 } from "./cat-model.ts";
 
 type WandPart = "stick" | "tip";
@@ -112,7 +114,8 @@ function drawWizard(
     raster,
     placement,
     paw === -1 ? leftWandMesh : rightWandMesh,
-    (part, _position, shade) => (part === "tip" ? mix(magic, WHITE, 0.5) : scale(STICK, shade)),
+    (part, _position, shade, out) =>
+      part === "tip" ? setMixedColor(out, magic, WHITE, 0.5) : setScaledColor(out, STICK, shade),
     joint,
   );
   return getCatPoint(placement, getWandTip(paw), joint);

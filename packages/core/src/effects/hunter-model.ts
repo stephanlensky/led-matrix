@@ -4,6 +4,7 @@ import {
   IDENTITY_MATRIX,
   type Matrix,
   type Mesh,
+  type Projector,
   type Raster,
   type Rotation,
   type Vector,
@@ -16,7 +17,7 @@ import {
   getTranslationMatrix,
   multiplyMatrices,
 } from "../mesh.ts";
-import { getNormalShader, mix, scale } from "./cat-model.ts";
+import { WHITE, getNormalShader, setMixedColor, setScaledColor } from "./cat-model.ts";
 
 type HunterPart = "skin" | "eye" | "hair" | "top" | "sleeve" | "arm" | "bottoms" | "leg" | "shoe";
 
@@ -300,22 +301,21 @@ export function getJointMatrices<J extends string>(
 export function getProjector(
   [m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23]: Readonly<Matrix>,
   { x: centerX, y: centerY, size, depth: depthOffset = 0 }: ModelPlacement,
-): (vector: Vector) => Vector {
-  return ([x, y, z]) => {
+): Projector {
+  return (position, out = [0, 0, 0]) => {
+    const x = position[0];
+    const y = position[1];
+    const z = position[2];
     const depth = m20 * x + m21 * y + m22 * z + m23;
     const perspective = CAMERA_DISTANCE / (CAMERA_DISTANCE - depth);
-    return [
-      centerX + size * (m00 * x + m01 * y + m02 * z + m03) * perspective,
-      centerY - size * (m10 * x + m11 * y + m12 * z + m13) * perspective,
-      depth + depthOffset,
-    ];
+    out[0] = centerX + size * (m00 * x + m01 * y + m02 * z + m03) * perspective;
+    out[1] = centerY - size * (m10 * x + m11 * y + m12 * z + m13) * perspective;
+    out[2] = depth + depthOffset;
+    return out;
   };
 }
 
-export function getModelProjector(
-  center: Vector,
-  placement: ModelPlacement,
-): (vector: Vector) => Vector {
+export function getModelProjector(center: Vector, placement: ModelPlacement): Projector {
   return getProjector(getModelMatrix(center, placement.rotate), placement);
 }
 
@@ -334,10 +334,13 @@ export function drawHunter(
     drawMesh(raster, mesh, {
       project: getProjector(multiplyMatrices(modelMatrix, jointMatrix), placement),
       getShade: getNormalShader(multiplyMatrices(rotateMatrix, getLinearMatrix(jointMatrix))),
-      getColor: (part, vector, shade) => {
-        const color = outfit(part, vector);
-        return mix(part === "eye" ? color : scale(color, shade), [255, 255, 255], flash);
-      },
+      getColor: (part, vector, shade, out) =>
+        setMixedColor(
+          out,
+          setScaledColor(out, outfit(part, vector), part === "eye" ? 1 : shade),
+          WHITE,
+          flash,
+        ),
     });
   }
 }

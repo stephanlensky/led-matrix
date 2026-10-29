@@ -40,6 +40,7 @@ import {
   getNormalShader,
   mix,
   scale,
+  setScaledColor,
 } from "./cat-model.ts";
 import { getOvershoot } from "./cat-wands.ts";
 import {
@@ -151,10 +152,10 @@ function drawPhone(raster: Raster, placement: CatPlacement, color: Color, screen
   drawMesh(raster, phoneMesh, {
     project: getCatProjector(placement),
     getShade: getNormalShader(getMatrix(placement.rotate)),
-    getColor: (part, [x, y], shade) =>
+    getColor: (part, [x, y], shade, out) =>
       part === "screen"
         ? screen((x / SCREEN_HALF[0] + 1) / 2, 1 - ((y - 0.2) / SCREEN_HALF[1] + 1) / 2)
-        : scale(color, shade),
+        : setScaledColor(out, color, shade),
   });
 }
 
