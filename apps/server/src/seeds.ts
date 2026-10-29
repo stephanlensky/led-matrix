@@ -2873,6 +2873,12 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         getValueParameter("Beams", "count", { "3": 3, "4": 4, "6": 6 }, "4"),
       ],
     ),
+    "himmel-cyberspace": getLoop(
+      "Himmel cyberspace",
+      8,
+      [{ effect: "himmel-cyberspace", params: getReferences(["every"]) }],
+      [getValueParameter("Pulse", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat")],
+    ),
   }),
   ...getFolder("Halloween", {
     "vampire-lips": {

@@ -97,6 +97,7 @@ import { hunterDance } from "./hunter-dance.ts";
 import { hunterHyperspace } from "./hunter-hyperspace.ts";
 import { heroDance } from "./frieren-dance.ts";
 import { himmelSpawn } from "./himmel-spawn.ts";
+import { himmelCyberspace } from "./himmel-cyberspace.ts";
 import { spotlights } from "./spotlights.ts";
 import { heroHeartHands, heroKiss } from "./hero-love.ts";
 import { frierenHeartMagic, heroLaptop, heroSlowDance } from "./hero-activities.ts";
@@ -238,6 +239,7 @@ export const effects: readonly Effect[] = [
   hunterHyperspace,
   heroDance,
   himmelSpawn,
+  himmelCyberspace,
   spotlights,
   heroHeartHands,
   heroKiss,

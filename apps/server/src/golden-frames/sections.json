@@ -299,6 +299,26 @@
       "section": 0
     },
     {
+      "name": "himmel-spawn#0",
+      "id": "himmel-spawn",
+      "section": 0
+    },
+    {
+      "name": "himmel-spawn#1",
+      "id": "himmel-spawn",
+      "section": 1
+    },
+    {
+      "name": "himmel-spotlight-dance#0",
+      "id": "himmel-spotlight-dance",
+      "section": 0
+    },
+    {
+      "name": "himmel-cyberspace#0",
+      "id": "himmel-cyberspace",
+      "section": 0
+    },
+    {
       "name": "pumpkin-dance#0",
       "id": "pumpkin-dance",
       "section": 0
