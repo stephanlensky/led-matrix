@@ -86,6 +86,7 @@ import {
   heartRain,
 } from "./heart-blood.ts";
 import { equalizer } from "./equalizer.ts";
+import { subDrop } from "./sub-drop.ts";
 import { catHeartHands, catKiss } from "./cat-love.ts";
 import { catGasp } from "./cat-gasp.ts";
 import { heartEcg, heartGrid, heartTunnel, heartZoom } from "./heart-patterns.ts";
@@ -231,6 +232,7 @@ export const effects: readonly Effect[] = [
   smpteBars,
   bloodDrips,
   equalizer,
+  subDrop,
   catBench,
   catSquat,
   catMimic,

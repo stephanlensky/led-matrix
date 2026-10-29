@@ -936,6 +936,17 @@ const explosionAnimations: Record<string, AnimationInput> = {
   ]),
 };
 
+const troubleWaveform: AnimationInput = {
+  name: "Trouble sub drop",
+  parameters: [getColorParameter("Red", SINGLE_COLORS)],
+  sections: [
+    {
+      mode: { type: "once", beats: 5 },
+      layers: [{ effect: "sub-drop", params: getReferences(["color"]) }],
+    },
+  ],
+};
+
 const smpteBars: AnimationInput = {
   name: "SMPTE bars",
   sections: [
@@ -3243,6 +3254,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("One-offs", {
     rumble,
     "smpte-bars": smpteBars,
+    "trouble-waveform": troubleWaveform,
     "vocal-planet-dying": vocalPlanetDying,
   }),
 };
