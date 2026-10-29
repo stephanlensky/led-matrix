@@ -50,6 +50,7 @@ import {
 } from "./frieren-model.ts";
 import { HAND, getArm, getHeroFace } from "./hero-love.ts";
 import { type CatFace, type EyeStyle, drawEyes, getCatFace, getEyelessCoat } from "./cat-face.ts";
+import { type CharacterHead, getCharacterHead } from "./character-heads.ts";
 import { blendPixel, drawHeart, getHeartCoverage } from "./heart.ts";
 import { HEART_SEED, drawFloatingHearts, drawSparkle, drawSparkles } from "./heart-particles.ts";
 
@@ -111,11 +112,22 @@ const SPLIT_DRAW = [14, 15] as const;
 const SPLIT_OPEN = [15, 16] as const;
 const SPLIT_CLOSE = [30, 31] as const;
 const SPLIT_ERASE = [31, 32] as const;
+const SENDER_THOUGHT = [3, 11.5] as const;
+const RECEIVER_THOUGHT = [19, 27] as const;
+const LIFT_MAX = 18;
+const LIFT_NUDGE = [16.5, 16.8] as const;
+const LIFT_SETTLE = [16.8, 17.3] as const;
+const LIFT_SHOVE = [17.6, 18.2] as const;
+const LIFT_DROP = [28, 29] as const;
+const HOP_NUDGE = [16.4, 17] as const;
+const HOP_SHOVE = [17.45, 18.2] as const;
+const DAYDREAM_VIEW: View = { x: -6, y: 5, zoom: 0.9 };
 const SENDER_SPLIT_VIEW: View = { x: 0, y: -9, zoom: 0.75 };
 const RECEIVER_SPLIT_VIEW: View = { x: -4, y: 24, zoom: 0.75 };
 const BUZZ_BEATS = 8;
 const SWOOSH_SLOPE = 0.45;
 const WHITE: Color = [255, 255, 255];
+const BLACK: Color = [0, 0, 0];
 const YELLOW: Color = [255, 220, 60];
 const DARK_PHONE: Color = [40, 40, 52];
 const LIGHT_PHONE: Color = [232, 222, 236];
@@ -472,6 +484,146 @@ function drawExclamation(image: RgbaImage, [x, y]: Vector, pop: number, amount: 
     }
     for (let column = -1; column <= 1; column++) {
       blendPixel(image, left + column, bottom - row, YELLOW, amount * (column === 1 ? 0.6 : 1));
+    }
+  }
+}
+
+type ThoughtMask = { width: number; height: number; cells: Uint8Array };
+
+const THOUGHT_PAD = [5, 4] as const;
+const THOUGHT_BUMP = 3.2;
+const thoughtMasks = new Map<string, ThoughtMask>();
+
+function isInsideCloud(x: number, y: number, width: number, height: number): boolean {
+  const [centerX, centerY] = [width / 2, height / 2];
+  const [radiusX, radiusY] = [centerX - THOUGHT_BUMP, centerY - THOUGHT_BUMP];
+  if (((x - centerX) / radiusX) ** 2 + ((y - centerY) / radiusY) ** 2 <= 1) {
+    return true;
+  }
+  const bumps = Math.round((Math.PI * (radiusX + radiusY)) / 5);
+  for (let bump = 0; bump < bumps; bump++) {
+    const angle = (bump / bumps) * TAU + 0.3;
+    const bumpX = centerX + Math.cos(angle) * radiusX;
+    const bumpY = centerY + Math.sin(angle) * radiusY;
+    if (Math.hypot(x - bumpX, y - bumpY) <= THOUGHT_BUMP) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getThoughtMask(head: CharacterHead): ThoughtMask {
+  const width = head.sprite.width + THOUGHT_PAD[0] * 2;
+  const height = head.sprite.height + THOUGHT_PAD[1] * 2;
+  const key = `${width}x${height}`;
+  const cached = thoughtMasks.get(key);
+  if (cached) {
+    return cached;
+  }
+  const isInside = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < width && y < height && isInsideCloud(x + 0.5, y + 0.5, width, height);
+  const cells = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (!isInside(x, y)) {
+        continue;
+      }
+      const isEdge = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ].some(([dx = 0, dy = 0]) => !isInside(x + dx, y + dy));
+      cells[y * width + x] = isEdge ? 2 : 1;
+    }
+  }
+  const mask = { width, height, cells };
+  thoughtMasks.set(key, mask);
+  return mask;
+}
+
+type ThoughtTiming = { dots: number; scale: number };
+
+type Thought = {
+  x: number;
+  y: number;
+  head: CharacterHead;
+  anchor: readonly [number, number];
+  timing: ThoughtTiming;
+  bob: number;
+};
+
+const THOUGHT_DOTS = [
+  { at: 0.3, rows: ["##", "##"] },
+  { at: 0.65, rows: [".##.", "####", "####", ".##."] },
+] as const;
+
+function getThoughtTiming(story: number, [start, end]: readonly [number, number]): ThoughtTiming {
+  const appear = story - start;
+  const leave = story - end;
+  if (appear < 0) {
+    return { dots: 0, scale: 0 };
+  }
+  if (leave < 0) {
+    return {
+      dots: appear < 0.25 ? 1 : 2,
+      scale: appear < 0.5 ? 0 : getOvershoot(getSpan(appear, 0.5, 1.1)),
+    };
+  }
+  return {
+    dots: leave < 0.45 ? 2 : leave < 0.6 ? 1 : 0,
+    scale: 1 - easings.easeInCubic(getSpan(leave, 0, 0.35)),
+  };
+}
+
+function getThoughtColor(
+  mask: ThoughtMask,
+  thought: Thought,
+  x: number,
+  y: number,
+): Color | undefined {
+  const cell = mask.cells[y * mask.width + x] ?? 0;
+  if (cell !== 1) {
+    return cell === 2 ? WHITE : undefined;
+  }
+  const { sprite, palette } = thought.head;
+  const row = sprite.rows[y - THOUGHT_PAD[1] + thought.bob];
+  return palette[row?.[x - THOUGHT_PAD[0]] ?? "."] ?? BLACK;
+}
+
+function drawThought(image: RgbaImage, thought: Thought): void {
+  const mask = getThoughtMask(thought.head);
+  const { dots, scale: size } = thought.timing;
+  const [anchorX, anchorY] = thought.anchor;
+  const targetX = anchorX < thought.x ? thought.x + 4 : thought.x + mask.width - 4;
+  const targetY = thought.y + mask.height - 3;
+  for (const { at, rows } of THOUGHT_DOTS.slice(0, dots)) {
+    const left = Math.round(anchorX + (targetX - anchorX) * at - rows.length / 2);
+    const top = Math.round(anchorY + (targetY - anchorY) * at - rows.length / 2);
+    for (const [row, line] of rows.entries()) {
+      for (let column = 0; column < line.length; column++) {
+        if (line[column] === "#") {
+          blendPixel(image, left + column, top + row, WHITE);
+        }
+      }
+    }
+  }
+  if (size <= 0.05) {
+    return;
+  }
+  const left = thought.x + (mask.width / 2) * (1 - size);
+  const top = thought.y + (mask.height / 2) * (1 - size);
+  for (let py = Math.floor(top); py <= top + mask.height * size; py++) {
+    for (let px = Math.floor(left); px <= left + mask.width * size; px++) {
+      const x = Math.floor((px + 0.5 - left) / size);
+      const y = Math.floor((py + 0.5 - top) / size);
+      if (x < 0 || y < 0 || x >= mask.width || y >= mask.height) {
+        continue;
+      }
+      const color = getThoughtColor(mask, thought, x, y);
+      if (color) {
+        blendPixel(image, px, py, color);
+      }
     }
   }
 }
@@ -977,30 +1129,34 @@ function getLockScreen(glow: Color, light: number): PhoneScreen {
   return (_u, v) => mix(SCREEN_OFF, scale(glow, 0.4 + 0.3 * v), light);
 }
 
+type Waiting = { hop: number; dream: number };
+
 function drawWaiting(
   image: RgbaImage,
   params: PhoneParams,
   character: Character,
   beat: number,
   view: View,
-): void {
+  { hop, dream }: Waiting,
+): PhoneCatPoints {
   const { pulse, kick } = getPulse(beat, params.every);
   const check = getCycle(beat / 8) * 8;
-  const look = easings.easeInOutSine(getSpan(check, 4, 5)) * (1 - getSpan(check, 6.5, 7.5));
-  const sigh = Math.sin(Math.PI * getSpan(check, 6.5, 8));
+  const look =
+    easings.easeInOutSine(getSpan(check, 4, 5)) * (1 - getSpan(check, 6.5, 7.5)) * (1 - dream);
+  const sigh = Math.sin(Math.PI * getSpan(check, 6.5, 8)) * (1 - dream);
   fillBackground(image, params, params.replyBackgroundColor, 1 + 0.5 * kick);
   const raster = createRaster();
-  drawPhoneCharacter(
+  const points = drawPhoneCharacter(
     raster,
     {
       character,
       side: -1,
       x: 40,
-      y: 42 - 1.2 * kick + sigh,
+      y: 42 - 1.2 * kick + sigh - hop,
       size: 19,
       squash: 0.04 * kick + 0.06 * sigh,
       head: {
-        pitch: 4 + 26 * look + 10 * sigh,
+        pitch: 4 + 26 * look + 10 * sigh - 16 * dream,
         yaw: -18 + 22 * look,
         roll: 8 * (1 - look) * Math.sin(pulse * Math.PI),
       },
@@ -1018,6 +1174,7 @@ function drawWaiting(
     view,
   );
   compositeRaster(raster, image);
+  return points;
 }
 
 function getView(from: View, to: View, amount: number): View {
@@ -1039,42 +1196,102 @@ function copyRows(image: RgbaImage, source: RgbaImage, top: number, left: number
   }
 }
 
-function drawDivider(image: RgbaImage, from: number, to: number): void {
+function drawDivider(image: RgbaImage, from: number, to: number, row: number): void {
   for (let x = Math.round(from); x < Math.round(to); x++) {
-    blendPixel(image, x, SPLIT_ROW, WHITE);
-    blendPixel(image, x, SPLIT_ROW + 1, WHITE);
+    blendPixel(image, x, row, WHITE);
+    blendPixel(image, x, row + 1, WHITE);
   }
 }
+
+function getBump(story: number, start: number, end: number): number {
+  return Math.sin(Math.PI * getSpan(story, start, end));
+}
+
+function getDividerLift(story: number): number {
+  const nudge =
+    5 * easings.easeOutCubic(getSpan(story, ...LIFT_NUDGE)) -
+    3 * easings.easeInOutSine(getSpan(story, ...LIFT_SETTLE));
+  const shove = (LIFT_MAX - 2) * getOvershoot(getSpan(story, ...LIFT_SHOVE));
+  const fall = getSpan(story, ...LIFT_DROP);
+  const drop =
+    fall < 0.6
+      ? easings.easeInQuad(fall / 0.6)
+      : 1 - 0.15 * Math.sin((Math.PI * (fall - 0.6)) / 0.4);
+  return Math.round((nudge + shove) * (1 - drop));
+}
+
+type Thinker = { character: Character; head: CharacterHead };
 
 function drawTyping(
   image: RgbaImage,
   params: PhoneParams,
-  senderCharacter: Character,
-  receiverCharacter: Character,
+  sender: Thinker,
+  receiver: Thinker,
   beat: number,
   story: number,
 ): void {
   const open =
     easings.easeOutCubic(getSpan(story, ...SPLIT_OPEN)) *
     (1 - easings.easeInCubic(getSpan(story, ...SPLIT_CLOSE)));
-  const typing = { story: 0, rate: 1, look: 0, recoil: 0 };
-  drawSender(
+  const bob = getPulse(beat, params.every).kick > 0.4 ? 1 : 0;
+  const daydream =
+    easings.easeInOutSine(getSpan(story, SENDER_THOUGHT[0], SENDER_THOUGHT[0] + 1)) *
+    (1 - easings.easeInOutSine(getSpan(story, SENDER_THOUGHT[1], SENDER_THOUGHT[1] + 1)));
+  const typing = { story: 0, rate: 1, look: 0.3 * daydream, recoil: 0 };
+  const senderPoints = drawSender(
     image,
     params,
-    senderCharacter,
+    sender.character,
     beat,
     typing,
-    getView(FULL_VIEW, SENDER_SPLIT_VIEW, open),
+    getView(getView(FULL_VIEW, DAYDREAM_VIEW, daydream), SENDER_SPLIT_VIEW, open),
   );
+  const senderThought = getThoughtTiming(story, SENDER_THOUGHT);
+  if (senderThought.dots > 0) {
+    drawThought(image, {
+      x: WIDTH - 2 - getThoughtMask(receiver.head).width,
+      y: 1,
+      head: receiver.head,
+      anchor: [senderPoints.top[0] + 10, senderPoints.top[1] + 2],
+      timing: senderThought,
+      bob,
+    });
+  }
+  const lift = getDividerLift(story);
+  const row = SPLIT_ROW - lift;
   if (open > 0) {
-    const receiver = createRgbaImage();
-    drawWaiting(receiver, params, receiverCharacter, beat, RECEIVER_SPLIT_VIEW);
-    copyRows(image, receiver, SPLIT_ROW, WIDTH * (1 - open));
+    const receiverImage = createRgbaImage();
+    const dream =
+      easings.easeInOutSine(getSpan(story, RECEIVER_THOUGHT[0] - 0.5, RECEIVER_THOUGHT[0] + 0.5)) *
+      (1 - easings.easeInOutSine(getSpan(story, RECEIVER_THOUGHT[1], RECEIVER_THOUGHT[1] + 1)));
+    const receiverPoints = drawWaiting(
+      receiverImage,
+      params,
+      receiver.character,
+      beat,
+      RECEIVER_SPLIT_VIEW,
+      {
+        hop: 8 * getBump(story, ...HOP_NUDGE) + 10 * getBump(story, ...HOP_SHOVE),
+        dream,
+      },
+    );
+    const receiverThought = getThoughtTiming(story, RECEIVER_THOUGHT);
+    if (receiverThought.dots > 0) {
+      drawThought(receiverImage, {
+        x: 1,
+        y: SPLIT_ROW - LIFT_MAX + 3,
+        head: sender.head,
+        anchor: [receiverPoints.top[0] - 5, receiverPoints.top[1] + 2],
+        timing: receiverThought,
+        bob,
+      });
+    }
+    copyRows(image, receiverImage, row, WIDTH * (1 - open));
   }
   const drawn = easings.easeInOutCubic(getSpan(story, ...SPLIT_DRAW));
   const erased = easings.easeInOutCubic(getSpan(story, ...SPLIT_ERASE));
   if (drawn > erased) {
-    drawDivider(image, WIDTH * erased, WIDTH * drawn);
+    drawDivider(image, WIDTH * erased, WIDTH * drawn, row);
   }
 }
 
@@ -1116,8 +1333,11 @@ export const catPhone = defineEffect({
       drawTyping(
         image,
         params,
-        sender.character,
-        receiver.character,
+        { character: sender.character, head: getCharacterHead(params.sender, params) },
+        {
+          character: receiver.character,
+          head: getCharacterHead(partners[params.sender], params),
+        },
         beat,
         progress * TYPING_BEATS,
       );
