@@ -20,7 +20,7 @@ export function getDefaultSettings(appPath: string): Settings {
     output: outputSchema.catch("device").parse(process.env["LED_MATRIX_OUTPUT"]),
     socketPath:
       process.env["MIXXX_SOCKET"] ??
-      join(process.env["XDG_RUNTIME_DIR"] ?? "/tmp", "mixxx-deck-state.sock"),
+      join(process.env["XDG_RUNTIME_DIR"] ?? "/tmp", "mixxx-control.sock"),
     mappingFile: join(appPath, "mapping.json"),
     mixxxDatabasePath: process.env["MIXXX_DATABASE"] ?? join(homedir(), ".mixxx", "mixxxdb.sqlite"),
     startDaemonOnLaunch: true,
