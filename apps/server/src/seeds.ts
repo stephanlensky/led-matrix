@@ -901,7 +901,7 @@ const vocalPlanetDying: AnimationInput = {
       mode: { type: "once", beats: 10 },
       layers: [
         {
-          effect: "cat-heart-hands",
+          effect: "hero-heart-hands",
           params: { every: 1, heartColor: HEART_PINK, beatOffset: -10 },
         },
         { effect: "vocal-scene", params: { ...vocalLayers, scene: "okay", hideAt: 9 } },

@@ -6,8 +6,8 @@ import { createRaster, resolveRaster } from "../mesh.ts";
 import { type Dancer, hunterMoveFrames, hunterMoves } from "./hunter-dance.ts";
 import { type CatFace, drawEyes, eyeStyles } from "./cat-face.ts";
 import { getCycle } from "./cat-dance.ts";
-import { drawHero, heroIds } from "./frieren-model.ts";
-import { getHeroFace } from "./hero-love.ts";
+import { type HeroId, drawHero, heroIds } from "./frieren-model.ts";
+import { HERO_EYE_COLORS, getHeroEyeModel, getHeroFace } from "./hero-love.ts";
 
 const syncPhases = {
   together: [0, 0],
@@ -32,7 +32,7 @@ export const heroDance = defineEffect({
   }),
   render(image, { params, beat }) {
     const raster = createRaster();
-    const faces: CatFace[] = [];
+    const faces: [HeroId, CatFace][] = [];
     for (const [index, hero] of heroIds.entries()) {
       const side = index === 0 ? 1 : -1;
       const dancer: Dancer = {
@@ -44,26 +44,23 @@ export const heroDance = defineEffect({
       const placement = {
         ...frame,
         pose: { ...frame.pose, cape: frame.pose.hair, skirt: frame.pose.hips },
-        eyesClosed: params.eyes !== "open",
         hidden: params.move === "twerk" ? ["cape" as const] : [],
       };
-      drawHero(raster, hero, placement);
-      faces.push(getHeroFace(hero, placement));
+      drawHero(raster, hero, { ...placement, eyes: getHeroEyeModel(hero, placement, params.eyes) });
+      faces.push([hero, getHeroFace(hero, placement)]);
     }
     resolveRaster(raster, image);
-    if (params.eyes === "hearts") {
-      const pop = 1 + 0.3 * Math.exp(-getCycle(beat) * 6);
-      for (const face of faces) {
-        drawEyes(
-          image,
-          face,
-          "hearts",
-          [0, 0, 0],
-          parseColor(params.heartColor),
-          pop,
-          params.size * 0.23,
-        );
-      }
+    const pop = 1 + 0.3 * Math.exp(-getCycle(beat) * 6);
+    for (const [hero, face] of faces) {
+      drawEyes(
+        image,
+        face,
+        params.eyes,
+        HERO_EYE_COLORS[hero],
+        parseColor(params.heartColor),
+        pop,
+        params.size * 0.23,
+      );
     }
   },
 });

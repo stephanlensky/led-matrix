@@ -48,7 +48,7 @@ import {
   getHeroPoint,
   heroIds,
 } from "./frieren-model.ts";
-import { HAND, getArm, getHeroFace } from "./hero-love.ts";
+import { HAND, HERO_EYE_COLORS, getArm, getHeroEyeModel, getHeroFace } from "./hero-love.ts";
 import { type CatFace, type EyeStyle, drawEyes, getCatFace, getEyelessCoat } from "./cat-face.ts";
 import { type CharacterHead, getCharacterHead } from "./character-heads.ts";
 import { blendPixel, drawHeart, getHeartCoverage } from "./heart.ts";
@@ -94,7 +94,7 @@ type PhoneCat = {
   eyes: EyeStyle;
 };
 
-type PhoneCatPoints = CatFace & { phone: Vector; hasClosedEyes: boolean; eyeSize: number };
+type PhoneCatPoints = CatFace & { phone: Vector; eyeSize: number };
 
 type View = { x: number; y: number; zoom: number };
 
@@ -208,7 +208,7 @@ function drawPhoneCat(raster: Raster, cat: PhoneCat, coat: Coat, view: View): Ph
     cat.phone.color,
     cat.phone.screen,
   );
-  return { ...getCatFace(placement), phone, hasClosedEyes: false, eyeSize: 5.5 };
+  return { ...getCatFace(placement), phone, eyeSize: 5.5 };
 }
 
 const HERO_SCALE = 0.8;
@@ -250,7 +250,6 @@ function drawPhoneHero(raster: Raster, cat: PhoneCat, hero: HeroId, view: View):
     y: (cat.y + 0.5 * cat.size) * view.zoom + view.y + HERO_GROUND * size,
     size,
     rotate: getSquashedRotation(camera, cat.squash ?? 0, HERO_GROUND),
-    eyesClosed: cat.eyes !== "open",
     pose: {
       head: getAngles({ ...cat.head, pitch: cat.head.pitch * 0.7 }, side),
       hair: getRotation(0, 0, toRadians(10 * cat.tail)),
@@ -259,7 +258,7 @@ function drawPhoneHero(raster: Raster, cat: PhoneCat, hero: HeroId, view: View):
       ...getArm(-side, free, [-side, -1, -0.3]),
     },
   };
-  drawHero(raster, hero, placement);
+  drawHero(raster, hero, { ...placement, eyes: getHeroEyeModel(hero, placement, cat.eyes) });
   const [handX, handY, handDepth] = getHeroPoint(
     hero,
     placement,
@@ -283,7 +282,6 @@ function drawPhoneHero(raster: Raster, cat: PhoneCat, hero: HeroId, view: View):
   return {
     ...getHeroFace(hero, placement),
     phone,
-    hasClosedEyes: true,
     eyeSize: 3,
   };
 }
@@ -670,7 +668,7 @@ type PhoneCharacter = { character: Character; eyeColor: Color };
 
 function getPhoneCharacter(params: PhoneParams, id: CharacterId): PhoneCharacter {
   if (id === "frieren" || id === "himmel") {
-    return { character: { type: "hero", hero: id }, eyeColor: WHITE };
+    return { character: { type: "hero", hero: id }, eyeColor: HERO_EYE_COLORS[id] };
   }
   return {
     character: { type: "cat", coat: getCoat({ ...params, cat: id }) },
@@ -686,9 +684,6 @@ function drawCharacterEyes(
   heart: Color,
   pop: number,
 ): void {
-  if (points.hasClosedEyes && style === "happy") {
-    return;
-  }
   drawEyes(image, points, style, eyeColor, heart, pop, points.eyeSize);
 }
 

@@ -6,12 +6,13 @@ import { easings } from "../keyframes.ts";
 import { type Vector, createRaster, getRotation, resolveRaster } from "../mesh.ts";
 import { TAU, clamp, toRadians } from "./cat-duo.ts";
 import { VIEW_PITCH, getCycle } from "./cat-dance.ts";
-import { type CatFace, drawEyes } from "./cat-face.ts";
+import { type CatFace, type EyeStyle, drawEyes } from "./cat-face.ts";
 import { drawBurst } from "./cat-love.ts";
 import { mix } from "./cat-model.ts";
 import { getOvershoot } from "./cat-wands.ts";
 import {
   ELBOW,
+  type HeroEyes,
   type HeroId,
   type HeroPlacement,
   SHOULDER,
@@ -33,7 +34,7 @@ const CHEEK: Vector = [0.3, 0.9, 0.36];
 const HEAD_CENTER: Vector = [0, 1.05, 0.02];
 const HEAD_TOP: Vector = [0, 1.62, 0];
 const KISS_BEATS = 4;
-const HERO_EYE_COLORS: Readonly<Record<HeroId, Color>> = {
+export const HERO_EYE_COLORS: Readonly<Record<HeroId, Color>> = {
   frieren: parseColor("#1e7860"),
   himmel: parseColor("#1c3c78"),
 };
@@ -79,14 +80,21 @@ export function getHeroFace(hero: HeroId, placement: HeroPlacement): CatFace {
   };
 }
 
+export function getHeroEyeModel(hero: HeroId, placement: HeroPlacement, style: EyeStyle): HeroEyes {
+  if (style === "open") {
+    return "open";
+  }
+  return getHeroFace(hero, placement).isFacing ? "hidden" : "closed";
+}
+
 export const heroHeartHands = defineEffect({
   id: "hero-heart-hands",
   name: "Frieren and Himmel heart hands",
   kind: "pixel",
-  params: z.object(loveParams),
+  params: z.object({ ...loveParams, beatOffset: z.number().min(-64).max(64).default(0) }),
   render(image, { params, beat }) {
     const heart = parseColor(params.heartColor);
-    const { pulse, kick } = getBeatKick(beat, params.every);
+    const { pulse, kick } = getBeatKick(beat + params.beatOffset, params.every);
     const phase = getCycle(pulse);
     const isPop = ((Math.floor(pulse) % 4) + 4) % 4 === 3;
     const pop = isPop ? kick : 0;
@@ -102,7 +110,7 @@ export const heroHeartHands = defineEffect({
         y: 41 - 1.5 * kick,
         size: params.size,
         rotate: getRotation(VIEW_PITCH, side * 0.35, side * toRadians(-4 + 3 * sway)),
-        eyesClosed: !isPop,
+        eyes: isPop ? "open" : "hidden",
         pose: {
           torso: getRotation(0, 0, side * toRadians(-6)),
           head: getRotation(toRadians(-6 - 6 * kick), 0, side * toRadians(-10 - 5 * sway)),
@@ -141,15 +149,16 @@ export const heroHeartHands = defineEffect({
     });
     if (isPop) {
       drawBurst(image, x, y, phase, heart);
-      for (const [hero, placement] of faces) {
-        const face = {
-          eyes: getHeroEyes(hero, placement),
-          isFacing: true,
-          isVisible: [true, true],
-          top: [0, 0, 0] as Vector,
-        };
-        drawEyes(image, face, "hearts", HERO_EYE_COLORS[hero], heart, 1 + 0.3 * kick, 2.5);
-      }
+    }
+    for (const [hero, placement] of faces) {
+      const face = {
+        eyes: getHeroEyes(hero, placement),
+        isFacing: true,
+        isVisible: [true, true],
+        top: [0, 0, 0] as Vector,
+      };
+      const style = isPop ? "hearts" : "happy";
+      drawEyes(image, face, style, HERO_EYE_COLORS[hero], heart, 1 + 0.3 * kick, 2.5);
     }
   },
 });
@@ -167,7 +176,7 @@ function getKissPlacement(
     y: 40,
     size,
     rotate: getRotation(VIEW_PITCH, side * toRadians(65), 0),
-    eyesClosed: lean > 0.5,
+    eyes: lean > 0.5 ? "closed" : "open",
     pose: {
       torso: getRotation(toRadians(14 * lean), 0, 0),
       head: getRotation(toRadians(-4 + 6 * lean), 0, side * toRadians(5 * bob * (1 - lean))),

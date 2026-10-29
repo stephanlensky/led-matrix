@@ -41,7 +41,7 @@ export const himmelSleep = defineEffect({
       ...placement,
       orient: getRotation(toRadians(-90), 0, 0),
       offset: [0, 0.3, 0.15],
-      eyesClosed: true,
+      eyes: "closed",
       hidden: [
         "cape",
         "leftArm",

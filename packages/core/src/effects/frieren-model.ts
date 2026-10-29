@@ -66,11 +66,13 @@ export type HeroPose = Partial<Record<HeroJoint, Rotation>>;
 
 export type HeroAttachment = { joint: HeroJoint; mesh: Mesh<PropPart> };
 
+export type HeroEyes = "open" | "closed" | "hidden";
+
 export type HeroPlacement = ModelPlacement & {
   pose?: HeroPose;
   orient?: Rotation;
   offset?: Vector;
-  eyesClosed?: boolean;
+  eyes?: HeroEyes;
   attachments?: readonly HeroAttachment[];
   hidden?: readonly HeroJoint[];
   flash?: number;
@@ -164,7 +166,7 @@ function addHimmelHair(head: Mesh<HeroPart>, hair: Mesh<HeroPart>): void {
   addEllipsoid(hair, [0, 0.98, -0.36], [0.32, 0.26, 0.16], "hair", 6, 10);
 }
 
-function createHeroModel(style: HeroStyle, eyesClosed: boolean): HeroModel {
+function createHeroModel(style: HeroStyle, eyes: HeroEyes): HeroModel {
   const isFrieren = style === "frieren";
   const hips = createMesh<HeroPart>();
   addEllipsoid(hips, [0, 0, 0], [0.3, 0.2, 0.24], "leg");
@@ -217,9 +219,9 @@ function createHeroModel(style: HeroStyle, eyesClosed: boolean): HeroModel {
     rightShin: KNEE,
   };
   for (const [side, armJoint, forearmJoint, legJoint, shinJoint] of SIDES) {
-    if (eyesClosed) {
+    if (eyes === "closed") {
       addEllipsoid(head, [side * 0.18, 1.0, 0.45], [0.1, 0.03, 0.03], "eye", 4, 8);
-    } else {
+    } else if (eyes === "open") {
       addEllipsoid(head, [side * 0.18, 1.04, 0.44], [0.09, 0.11, 0.04], "eye", 5, 8);
     }
     const arm = createMesh<HeroPart>();
@@ -320,13 +322,13 @@ const outfits: Readonly<Record<HeroId, Outfit>> = {
 
 const models = new Map<string, HeroModel>();
 
-function getHeroModel(hero: HeroId, eyesClosed: boolean): HeroModel {
-  const key = `${hero}:${eyesClosed}`;
+function getHeroModel(hero: HeroId, eyes: HeroEyes): HeroModel {
+  const key = `${hero}:${eyes}`;
   const cached = models.get(key);
   if (cached) {
     return cached;
   }
-  const model = createHeroModel(hero, eyesClosed);
+  const model = createHeroModel(hero, eyes);
   models.set(key, model);
   return model;
 }
@@ -374,7 +376,7 @@ export function getHeroPoint(
   point: Vector,
   joint?: HeroJoint,
 ): Vector {
-  const model = getHeroModel(hero, placement.eyesClosed ?? false);
+  const model = getHeroModel(hero, placement.eyes ?? "open");
   const transforms = getJointTransforms(JOINT_PARENTS, model.pivots, placement.pose ?? {});
   const position = (joint ? transforms.get(joint)?.position : undefined) ?? identity;
   const project = getModelProjector(HERO_CENTER, placement);
@@ -382,7 +384,7 @@ export function getHeroPoint(
 }
 
 export function drawHero(raster: Raster, hero: HeroId, placement: HeroPlacement): void {
-  const model = getHeroModel(hero, placement.eyesClosed ?? false);
+  const model = getHeroModel(hero, placement.eyes ?? "open");
   const outfit = outfits[hero];
   const flash = placement.flash ?? 0;
   const project = getModelProjector(HERO_CENTER, placement);
