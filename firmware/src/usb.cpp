@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <protocol.h>
+#include <tusb.h>
 
 #include <algorithm>
 #include <array>
@@ -11,7 +12,6 @@ namespace usb {
 
 namespace {
 
-constexpr size_t rxBufferSize = 16384;
 constexpr size_t txBufferSize = 4096;
 
 std::array<uint8_t, txBufferSize> pending;
@@ -36,18 +36,11 @@ bool reserve(size_t size) {
 }  // namespace
 
 void begin() {
-  Serial.setRxBufferSize(rxBufferSize);
   Serial.begin();
   Serial.setTxTimeoutMs(0);
 }
 
-size_t receive(uint8_t* buffer, size_t size) {
-  const int available = Serial.available();
-  if (available <= 0) {
-    return 0;
-  }
-  return Serial.read(buffer, std::min(size, static_cast<size_t>(available)));
-}
+size_t receive(uint8_t* buffer, size_t size) { return tud_cdc_n_read(0, buffer, size); }
 
 bool send(const uint8_t* data, size_t size) {
   const size_t delimiterSize = isAfterText ? 1 : 0;
