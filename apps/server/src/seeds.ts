@@ -69,14 +69,29 @@ const RED_SHADES: Readonly<Record<string, string>> = {
   "Dried blood": DRIED_BLOOD_COLOR,
 };
 
-const RED_STROBE_PALETTES: Readonly<Record<string, Palette>> = Object.fromEntries(
-  Object.entries(RED_SHADES).flatMap(([name, color]) => [
-    [`${name}/white`, [color, WHITE]],
-    [`${name}/black`, [color, BLACK]],
-    [`${name}/white/black`, [color, WHITE, BLACK]],
-    [`${name}/black/white/black`, [color, BLACK, WHITE, BLACK]],
-  ]),
-);
+const STROBE_SHADES: Readonly<Record<string, string>> = {
+  Orange: ORANGE,
+  Purple: PURPLE,
+  Green: GREEN,
+  Cyan: CYAN,
+  "Hot pink": PINK,
+  Pink: HEART_PINK,
+  "Light pink": LIGHT_PINK,
+  "Pastel pink": PASTEL_PINK,
+};
+
+function getShadeStrobePalettes(
+  shades: Readonly<Record<string, string>>,
+): Readonly<Record<string, Palette>> {
+  return Object.fromEntries(
+    Object.entries(shades).flatMap(([name, color]) => [
+      [`${name}/white`, [color, WHITE]],
+      [`${name}/black`, [color, BLACK]],
+      [`${name}/white/black`, [color, WHITE, BLACK]],
+      [`${name}/black/white/black`, [color, BLACK, WHITE, BLACK]],
+    ]),
+  );
+}
 
 const MIXED_RED_STROBE_PALETTES: Readonly<Record<string, Palette>> = {
   "Bloodbath/white": [DRIED_BLOOD_COLOR, BLOOD_COLOR, FRESH_BLOOD_COLOR, WHITE],
@@ -88,12 +103,26 @@ const MIXED_RED_STROBE_PALETTES: Readonly<Record<string, Palette>> = {
   "Blood/dried blood/black": [BLOOD_COLOR, DRIED_BLOOD_COLOR, BLACK],
 };
 
+const MIXED_PINK_STROBE_PALETTES: Readonly<Record<string, Palette>> = {
+  "Pinks/white": [PINK, HEART_PINK, LIGHT_PINK, WHITE],
+  "Pinks/black": [PINK, HEART_PINK, LIGHT_PINK, BLACK],
+  "Hot pink/light pink/white/black": [PINK, WHITE, LIGHT_PINK, BLACK],
+  "Pink/pastel pink/black/white": [HEART_PINK, BLACK, PASTEL_PINK, WHITE],
+  "Pink/cyan/white": [PINK, CYAN, WHITE],
+  "Pink/cyan/black": [PINK, CYAN, BLACK],
+  "Pink/white/cyan/black": [PINK, WHITE, CYAN, BLACK],
+  "Pink/black/cyan/white": [PINK, BLACK, CYAN, WHITE],
+};
+
 const STROBE_PALETTES: Readonly<Record<string, Palette>> = {
   Red: [RED],
+  Cyan: [CYAN],
   ...SINGLE_PALETTES,
   ...MULTI_PALETTES,
-  ...RED_STROBE_PALETTES,
+  ...getShadeStrobePalettes(RED_SHADES),
   ...MIXED_RED_STROBE_PALETTES,
+  ...getShadeStrobePalettes(STROBE_SHADES),
+  ...MIXED_PINK_STROBE_PALETTES,
 };
 
 const PALETTE_KEYS = ["color1", "color2", "color3", "color4", "colorCount"] as const;
