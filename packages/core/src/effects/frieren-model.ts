@@ -253,47 +253,79 @@ function getHemColor(x: number, y: number, z: number, hem: Color, inside: Color)
   return Math.hypot(x / 0.37, z / 0.31) > 0.62 ? hem : inside;
 }
 
+const FRIEREN_WHITE = parseColor("#f4f2ee");
+const FRIEREN_TIGHTS = parseColor("#3c4060");
+const FRIEREN_BOOT = parseColor("#8a6440");
+const FRIEREN_EYE = parseColor("#1e7860");
+const FRIEREN_HAIR = parseColor("#e4e0f4");
+const FRIEREN_COLLAR = parseColor("#303038");
+const FRIEREN_SKIRT_INSIDE = parseColor("#7a7c94");
+
 const FRIEREN_OUTFIT: Outfit = (part, [x, y, z]) => {
-  const white = parseColor("#f4f2ee");
-  const tights = parseColor("#3c4060");
-  const boot = parseColor("#8a6440");
-  const outfit: Record<HeroPart, Color> = {
-    skin: SKIN,
-    eye: parseColor("#1e7860"),
-    hair: parseColor("#e4e0f4"),
-    top: y > 0.5 ? parseColor("#303038") : white,
-    capelet: y < 0.36 || y > 0.6 ? GOLD : white,
-    skirt: y < -0.18 ? getHemColor(x, y, z, GOLD, parseColor("#7a7c94")) : white,
-    sleeve: white,
-    forearm: y < 0.08 ? GOLD : white,
-    leg: tights,
-    shin: y < -0.4 ? boot : tights,
-    shoe: boot,
-    cape: white,
-  };
-  return outfit[part];
+  switch (part) {
+    case "skin":
+      return SKIN;
+    case "eye":
+      return FRIEREN_EYE;
+    case "hair":
+      return FRIEREN_HAIR;
+    case "top":
+      return y > 0.5 ? FRIEREN_COLLAR : FRIEREN_WHITE;
+    case "capelet":
+      return y < 0.36 || y > 0.6 ? GOLD : FRIEREN_WHITE;
+    case "skirt":
+      return y < -0.18 ? getHemColor(x, y, z, GOLD, FRIEREN_SKIRT_INSIDE) : FRIEREN_WHITE;
+    case "forearm":
+      return y < 0.08 ? GOLD : FRIEREN_WHITE;
+    case "leg":
+      return FRIEREN_TIGHTS;
+    case "shin":
+      return y < -0.4 ? FRIEREN_BOOT : FRIEREN_TIGHTS;
+    case "shoe":
+      return FRIEREN_BOOT;
+    case "sleeve":
+    case "cape":
+      return FRIEREN_WHITE;
+  }
 };
 
+const HIMMEL_BLUE = parseColor("#2c48b0");
+const HIMMEL_WHITE = parseColor("#eeeef4");
+const HIMMEL_BOOT = parseColor("#262838");
+const HIMMEL_EYE = parseColor("#1c3c78");
+const HIMMEL_HAIR = parseColor("#8cc0ec");
+const HIMMEL_CAPELET = parseColor("#a8a8b8");
+const HIMMEL_CAPE = parseColor("#e6dcc0");
+
 const HIMMEL_OUTFIT: Outfit = (part, [x, y, z]) => {
-  const blue = parseColor("#2c48b0");
-  const white = parseColor("#eeeef4");
-  const boot = parseColor("#262838");
-  const isToggle = Math.abs(x) < 0.06 && z > 0.15 && y > 0.3;
-  const outfit: Record<HeroPart, Color> = {
-    skin: SKIN,
-    eye: parseColor("#1c3c78"),
-    hair: parseColor("#8cc0ec"),
-    top: isToggle ? white : y > 0.22 && y < 0.28 ? white : blue,
-    capelet: parseColor("#a8a8b8"),
-    skirt: y < -0.12 ? white : blue,
-    sleeve: blue,
-    forearm: y < 0.08 ? white : blue,
-    leg: white,
-    shin: y < -0.42 ? boot : white,
-    shoe: boot,
-    cape: parseColor("#e6dcc0"),
-  };
-  return outfit[part];
+  switch (part) {
+    case "skin":
+      return SKIN;
+    case "eye":
+      return HIMMEL_EYE;
+    case "hair":
+      return HIMMEL_HAIR;
+    case "top": {
+      const isToggle = Math.abs(x) < 0.06 && z > 0.15 && y > 0.3;
+      return isToggle || (y > 0.22 && y < 0.28) ? HIMMEL_WHITE : HIMMEL_BLUE;
+    }
+    case "capelet":
+      return HIMMEL_CAPELET;
+    case "skirt":
+      return y < -0.12 ? HIMMEL_WHITE : HIMMEL_BLUE;
+    case "sleeve":
+      return HIMMEL_BLUE;
+    case "forearm":
+      return y < 0.08 ? HIMMEL_WHITE : HIMMEL_BLUE;
+    case "leg":
+      return HIMMEL_WHITE;
+    case "shin":
+      return y < -0.42 ? HIMMEL_BOOT : HIMMEL_WHITE;
+    case "shoe":
+      return HIMMEL_BOOT;
+    case "cape":
+      return HIMMEL_CAPE;
+  }
 };
 
 export const PROP_COLORS: Readonly<Record<PropPart, Color>> = {

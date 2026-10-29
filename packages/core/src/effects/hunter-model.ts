@@ -177,51 +177,86 @@ function getLegSide(x: number): number {
   return x < 0 ? -1 : 1;
 }
 
+const ZOEY_PANTS = parseColor("#3848b8");
+const ZOEY_HAIR = parseColor("#4a2a8a");
+const ZOEY_TOP = parseColor("#30e070");
+
 const ZOEY_OUTFIT: Outfit = (part, [x, y]) => {
-  const pants = parseColor("#3848b8");
-  const outfit: Record<HunterPart, Color> = {
-    skin: SKIN,
-    eye: EYE,
-    hair: parseColor("#4a2a8a"),
-    top: parseColor("#30e070"),
-    sleeve: SKIN,
-    arm: SKIN,
-    bottoms: pants,
-    leg: y < -0.4 && x * getLegSide(x) > 0.2 ? YELLOW : pants,
-    shoe: y < -0.66 ? YELLOW : DARK,
-  };
-  return outfit[part];
+  switch (part) {
+    case "skin":
+    case "sleeve":
+    case "arm":
+      return SKIN;
+    case "eye":
+      return EYE;
+    case "hair":
+      return ZOEY_HAIR;
+    case "top":
+      return ZOEY_TOP;
+    case "bottoms":
+      return ZOEY_PANTS;
+    case "leg":
+      return y < -0.4 && x * getLegSide(x) > 0.2 ? YELLOW : ZOEY_PANTS;
+    case "shoe":
+      return y < -0.66 ? YELLOW : DARK;
+  }
 };
+
+const RUMI_HAIR = parseColor("#9a78f0");
+const RUMI_SHIRT = parseColor("#f4f0f0");
 
 const RUMI_OUTFIT: Outfit = (part, [x, y, z]) => {
-  const outfit: Record<HunterPart, Color> = {
-    skin: SKIN,
-    eye: EYE,
-    hair: parseColor("#9a78f0"),
-    top: Math.abs(x) < 0.12 && z > 0.1 ? parseColor("#f4f0f0") : YELLOW,
-    sleeve: YELLOW,
-    arm: YELLOW,
-    bottoms: y > 0.1 ? PINK : DARK,
-    leg: y > -0.42 ? SKIN : z > 0.05 && Math.abs(x - getLegSide(x) * 0.15) < 0.035 ? PINK : DARK,
-    shoe: DARK,
-  };
-  return outfit[part];
+  switch (part) {
+    case "skin":
+      return SKIN;
+    case "eye":
+      return EYE;
+    case "hair":
+      return RUMI_HAIR;
+    case "top":
+      return Math.abs(x) < 0.12 && z > 0.1 ? RUMI_SHIRT : YELLOW;
+    case "sleeve":
+    case "arm":
+      return YELLOW;
+    case "bottoms":
+      return y > 0.1 ? PINK : DARK;
+    case "leg":
+      if (y > -0.42) {
+        return SKIN;
+      }
+      return z > 0.05 && Math.abs(x - getLegSide(x) * 0.15) < 0.035 ? PINK : DARK;
+    case "shoe":
+      return DARK;
+  }
 };
 
+const MIRA_HAIR = parseColor("#ff4898");
+const MIRA_PRINT = parseColor("#80c8ff");
+
 const MIRA_OUTFIT: Outfit = (part, [x, y, z]) => {
-  const isPrint = z > 0.1 && Math.abs(x) < 0.18 && y > 0.36 && y < 0.56;
-  const outfit: Record<HunterPart, Color> = {
-    skin: SKIN,
-    eye: EYE,
-    hair: parseColor("#ff4898"),
-    top: isPrint ? parseColor("#80c8ff") : DARK,
-    sleeve: DARK,
-    arm: SKIN,
-    bottoms: YELLOW,
-    leg: y > -0.22 ? SKIN : z > 0.05 && y > -0.48 && y < -0.34 ? PINK : DARK,
-    shoe: DARK,
-  };
-  return outfit[part];
+  switch (part) {
+    case "skin":
+    case "arm":
+      return SKIN;
+    case "eye":
+      return EYE;
+    case "hair":
+      return MIRA_HAIR;
+    case "top": {
+      const isPrint = z > 0.1 && Math.abs(x) < 0.18 && y > 0.36 && y < 0.56;
+      return isPrint ? MIRA_PRINT : DARK;
+    }
+    case "sleeve":
+    case "shoe":
+      return DARK;
+    case "bottoms":
+      return YELLOW;
+    case "leg":
+      if (y > -0.22) {
+        return SKIN;
+      }
+      return z > 0.05 && y > -0.48 && y < -0.34 ? PINK : DARK;
+  }
 };
 
 export const hunterIds = ["zoey", "rumi", "mira"] as const;
