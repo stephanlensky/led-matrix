@@ -19,6 +19,7 @@
     "format:check": "oxfmt --check",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:golden:update": "UPDATE_GOLDEN_FRAMES=1 vitest run apps/server/src/golden-frames.test.ts && oxfmt apps/server/src/golden-frames",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
     "prepare": "lefthook install"
   },

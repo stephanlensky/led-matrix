@@ -1,0 +1,322 @@
+{
+  "fps": 30,
+  "bpm": 120,
+  "frames": [0, 13, 29, 47, 71, 97],
+  "sections": [
+    {
+      "name": "cat#0",
+      "id": "cat",
+      "section": 0
+    },
+    {
+      "name": "cat#1",
+      "id": "cat",
+      "section": 1
+    },
+    {
+      "name": "cat#2",
+      "id": "cat",
+      "section": 2
+    },
+    {
+      "name": "cat#3",
+      "id": "cat",
+      "section": 3
+    },
+    {
+      "name": "cat-hyperspace#0",
+      "id": "cat-hyperspace",
+      "section": 0
+    },
+    {
+      "name": "cat-hyperspace#1",
+      "id": "cat-hyperspace",
+      "section": 1
+    },
+    {
+      "name": "cat-explosion#0",
+      "id": "cat-explosion",
+      "section": 0
+    },
+    {
+      "name": "cat-explosion#1",
+      "id": "cat-explosion",
+      "section": 1
+    },
+    {
+      "name": "cat-dance#0",
+      "id": "cat-dance",
+      "section": 0
+    },
+    {
+      "name": "cat-hype#0",
+      "id": "cat-hype",
+      "section": 0
+    },
+    {
+      "name": "cat-chase#0",
+      "id": "cat-chase",
+      "section": 0
+    },
+    {
+      "name": "cat-racecar#0",
+      "id": "cat-racecar",
+      "section": 0
+    },
+    {
+      "name": "cat-wands#0",
+      "id": "cat-wands",
+      "section": 0
+    },
+    {
+      "name": "cat-space#0",
+      "id": "cat-space",
+      "section": 0
+    },
+    {
+      "name": "cat-laptop#0",
+      "id": "cat-laptop",
+      "section": 0
+    },
+    {
+      "name": "cat-cyberspace#0",
+      "id": "cat-cyberspace",
+      "section": 0
+    },
+    {
+      "name": "cat-cyberspace#1",
+      "id": "cat-cyberspace",
+      "section": 1
+    },
+    {
+      "name": "cat-call-me#0",
+      "id": "cat-call-me",
+      "section": 0
+    },
+    {
+      "name": "cat-call-me#1",
+      "id": "cat-call-me",
+      "section": 1
+    },
+    {
+      "name": "cat-call-me#2",
+      "id": "cat-call-me",
+      "section": 2
+    },
+    {
+      "name": "cat-call-me#3",
+      "id": "cat-call-me",
+      "section": 3
+    },
+    {
+      "name": "cat-call-me#4",
+      "id": "cat-call-me",
+      "section": 4
+    },
+    {
+      "name": "cat-call-me#5",
+      "id": "cat-call-me",
+      "section": 5
+    },
+    {
+      "name": "cat-mimic#0",
+      "id": "cat-mimic",
+      "section": 0
+    },
+    {
+      "name": "cat-bench#0",
+      "id": "cat-bench",
+      "section": 0
+    },
+    {
+      "name": "cat-squat#0",
+      "id": "cat-squat",
+      "section": 0
+    },
+    {
+      "name": "chrome-cat-roll#0",
+      "id": "chrome-cat-roll",
+      "section": 0
+    },
+    {
+      "name": "cat-hunters#0",
+      "id": "cat-hunters",
+      "section": 0
+    },
+    {
+      "name": "witch-cats#0",
+      "id": "witch-cats",
+      "section": 0
+    },
+    {
+      "name": "ghost-cats#0",
+      "id": "ghost-cats",
+      "section": 0
+    },
+    {
+      "name": "love-cat-dance#0",
+      "id": "love-cat-dance",
+      "section": 0
+    },
+    {
+      "name": "cat-heart-hands#0",
+      "id": "cat-heart-hands",
+      "section": 0
+    },
+    {
+      "name": "cat-kiss#0",
+      "id": "cat-kiss",
+      "section": 0
+    },
+    {
+      "name": "hero-heart-hands#0",
+      "id": "hero-heart-hands",
+      "section": 0
+    },
+    {
+      "name": "hero-kiss#0",
+      "id": "hero-kiss",
+      "section": 0
+    },
+    {
+      "name": "hero-love#0",
+      "id": "hero-love",
+      "section": 0
+    },
+    {
+      "name": "love-cat-laptop#0",
+      "id": "love-cat-laptop",
+      "section": 0
+    },
+    {
+      "name": "hero-laptop#0",
+      "id": "hero-laptop",
+      "section": 0
+    },
+    {
+      "name": "hero-slow-dance#0",
+      "id": "hero-slow-dance",
+      "section": 0
+    },
+    {
+      "name": "frieren-heart-magic#0",
+      "id": "frieren-heart-magic",
+      "section": 0
+    },
+    {
+      "name": "cat-balloons#0",
+      "id": "cat-balloons",
+      "section": 0
+    },
+    {
+      "name": "frieren-love-solo#0",
+      "id": "frieren-love-solo",
+      "section": 0
+    },
+    {
+      "name": "himmel-love-solo#0",
+      "id": "himmel-love-solo",
+      "section": 0
+    },
+    {
+      "name": "love-cat-solo#0",
+      "id": "love-cat-solo",
+      "section": 0
+    },
+    {
+      "name": "huntrix-dance#0",
+      "id": "huntrix-dance",
+      "section": 0
+    },
+    {
+      "name": "huntrix-hyperspace#0",
+      "id": "huntrix-hyperspace",
+      "section": 0
+    },
+    {
+      "name": "frieren-mimic#0",
+      "id": "frieren-mimic",
+      "section": 0
+    },
+    {
+      "name": "himmel-bench#0",
+      "id": "himmel-bench",
+      "section": 0
+    },
+    {
+      "name": "himmel-squat#0",
+      "id": "himmel-squat",
+      "section": 0
+    },
+    {
+      "name": "himmel-sleep#0",
+      "id": "himmel-sleep",
+      "section": 0
+    },
+    {
+      "name": "frieren-himmel-dance#0",
+      "id": "frieren-himmel-dance",
+      "section": 0
+    },
+    {
+      "name": "pumpkin-dance#0",
+      "id": "pumpkin-dance",
+      "section": 0
+    },
+    {
+      "name": "skeleton-dance#0",
+      "id": "skeleton-dance",
+      "section": 0
+    },
+    {
+      "name": "doot-doot#0",
+      "id": "doot-doot",
+      "section": 0
+    },
+    {
+      "name": "vocal-planet-dying#0",
+      "id": "vocal-planet-dying",
+      "section": 0
+    },
+    {
+      "name": "vocal-planet-dying#1",
+      "id": "vocal-planet-dying",
+      "section": 1
+    },
+    {
+      "name": "vocal-planet-dying#2",
+      "id": "vocal-planet-dying",
+      "section": 2
+    },
+    {
+      "name": "vocal-planet-dying#3",
+      "id": "vocal-planet-dying",
+      "section": 3
+    },
+    {
+      "name": "vocal-planet-dying#4",
+      "id": "vocal-planet-dying",
+      "section": 4
+    },
+    {
+      "name": "vocal-planet-dying#5",
+      "id": "vocal-planet-dying",
+      "section": 5
+    },
+    {
+      "name": "vocal-planet-dying#10",
+      "id": "vocal-planet-dying",
+      "section": 10
+    },
+    {
+      "name": "vocal-planet-dying#11",
+      "id": "vocal-planet-dying",
+      "section": 11
+    },
+    {
+      "name": "vocal-planet-dying#12",
+      "id": "vocal-planet-dying",
+      "section": 12
+    }
+  ]
+}
