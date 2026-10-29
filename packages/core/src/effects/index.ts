@@ -104,6 +104,15 @@ import { frierenHeartMagic, heroLaptop, heroSlowDance } from "./hero-activities.
 import { frierenMimic } from "./frieren-mimic.ts";
 import { himmelBench, himmelSquat } from "./himmel-lift.ts";
 import { himmelSleep } from "./himmel-sleep.ts";
+import {
+  getYourWish,
+  nurtureField,
+  nurtureTree,
+  scribble,
+  scribbleFlower,
+  snowBurst,
+  summerSky,
+} from "./nurture/index.ts";
 import { heroBand } from "./hero-band.ts";
 import { characterSelect } from "./character-select.ts";
 import { clubCrowd } from "./club-crowd.ts";
@@ -251,6 +260,13 @@ export const effects: readonly Effect[] = [
   himmelBench,
   himmelSquat,
   himmelSleep,
+  scribble,
+  scribbleFlower,
+  nurtureTree,
+  nurtureField,
+  summerSky,
+  snowBurst,
+  getYourWish,
   heroBand,
   characterSelect,
   clubCrowd,

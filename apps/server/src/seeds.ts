@@ -224,6 +224,32 @@ const danceSpeedParameter = getValueParameter(
   "Normal",
 );
 
+function getGustParameter(gust: number): Parameter {
+  return getParameter(
+    "Gust",
+    {
+      Off: { every: 1, gust: 0 },
+      Beat: { every: 1, gust },
+      "2 beats": { every: 2, gust },
+      "4 beats": { every: 4, gust },
+    },
+    "2 beats",
+  );
+}
+
+function getInkStyleParameter(defaultOption: string): Parameter {
+  return getParameter(
+    "Style",
+    {
+      "White on black": { ink: WHITE, paper: "none" },
+      "Black on white": { ink: BLACK, paper: WHITE },
+      "Green on black": { ink: "#40ff60", paper: "none" },
+      "Blue on white": { ink: "#1040ff", paper: WHITE },
+    },
+    defaultOption,
+  );
+}
+
 function getFolder(
   folder: string,
   animations: Readonly<Record<string, AnimationInput>>,
@@ -2924,6 +2950,90 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       8,
       [{ effect: "himmel-cyberspace", params: getReferences(["every"]) }],
       [getValueParameter("Pulse", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat")],
+    ),
+  }),
+  ...getFolder("Nurture", {
+    scribble: getLoop(
+      "Scribble",
+      32,
+      [
+        {
+          effect: "scribble",
+          params: getReferences(["ink", "paper", "style", "mode", "pens", "speed"]),
+        },
+      ],
+      [
+        getInkStyleParameter("White on black"),
+        getValueParameter("Line", "style", { Smooth: "smooth", Jagged: "jagged" }, "Smooth"),
+        getValueParameter("Mode", "mode", { Trail: "trail", Build: "build" }, "Trail"),
+        getValueParameter("Pens", "pens", { "1": 1, "2": 2, "3": 3 }, "1"),
+        danceSpeedParameter,
+      ],
+    ),
+    "scribble-flower": getLoop(
+      "Scribble flower",
+      32,
+      [{ effect: "scribble-flower", params: getReferences(["ink", "paper", "speed"]) }],
+      [getInkStyleParameter("Black on white"), danceSpeedParameter],
+    ),
+    "nurture-tree": getLoop(
+      "Nurture tree",
+      32,
+      [{ effect: "nurture-tree", params: getReferences(["ink", "paper", "speed"]) }],
+      [getInkStyleParameter("White on black"), danceSpeedParameter],
+    ),
+    "nurture-field": getLoop(
+      "Nurture field",
+      32,
+      [
+        {
+          effect: "nurture-field",
+          params: getReferences(["skyTop", "skyBottom", "line", "every", "gust", "speed"]),
+        },
+      ],
+      [
+        getParameter(
+          "Sky",
+          {
+            Overcast: { skyTop: "#d4e0e8", skyBottom: WHITE, line: BLACK },
+            Blue: { skyTop: "#1450e8", skyBottom: "#8cc8ff", line: WHITE },
+          },
+          "Overcast",
+        ),
+        getGustParameter(0.8),
+        danceSpeedParameter,
+      ],
+    ),
+    "summer-sky": getLoop(
+      "Summer sky",
+      32,
+      [{ effect: "summer-sky", params: getReferences(["every", "gust", "speed"]) }],
+      [getGustParameter(0.7), danceSpeedParameter],
+    ),
+    clouds: getLoop(
+      "Clouds",
+      32,
+      [{ effect: "summer-sky", params: { grass: false, ...getReferences(["speed"]) } }],
+      [danceSpeedParameter],
+    ),
+    "snow-burst": getLoop(
+      "Snow burst",
+      32,
+      [{ effect: "snow-burst", params: getReferences(["skyTop", "every", "speed"]) }],
+      [
+        getValueParameter("Background", "skyTop", { Blue: "#0446e0", Black: "none" }, "Blue"),
+        getValueParameter("Burst", "every", { Beat: 1, "2 beats": 2, "4 beats": 4 }, "Beat"),
+        danceSpeedParameter,
+      ],
+    ),
+    "get-your-wish": getLoop(
+      "Get your wish",
+      32,
+      [{ effect: "get-your-wish", params: getReferences(["style", "speed"]) }],
+      [
+        getValueParameter("Line", "style", { Smooth: "smooth", Jagged: "jagged" }, "Jagged"),
+        danceSpeedParameter,
+      ],
     ),
   }),
   ...getFolder("Halloween", {
