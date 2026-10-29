@@ -46,6 +46,11 @@ function getSequence(packets: Uint8Array[]): number | undefined {
   return message?.type === "frame" ? message.sequence : undefined;
 }
 
+function getDeflateSequence(packets: Uint8Array[]): number | undefined {
+  const message = packets[0] && decodeMessage(packets[0]);
+  return message?.type === "deflateFrame" ? message.sequence : undefined;
+}
+
 function createFakeTransport() {
   const listeners = new Set<DeviceTransportListener>();
   const packets: Uint8Array[] = [];
@@ -210,6 +215,25 @@ describe("device link", () => {
       status: { ...status, mode: DeviceMode.streaming, shownSequence: 1, shownAgeMs: 4 },
     });
     expect(link.getLatency()).toBe(30);
+  });
+
+  it("reuses the encoding of a repeated frame with a new sequence", () => {
+    const encode = vi.fn<(data: Uint8Array) => Uint8Array>(deflate);
+    const { clock, engine, frames, setMessage } = setup({ deflate: encode });
+    setMessage({ type: "status", status: { ...status, features: deflateFeatures } });
+    engine.play("red", red);
+    for (let tick = 0; tick < 3; tick++) {
+      clock.time = tick * 33;
+      engine.tick();
+    }
+    expect(encode).toHaveBeenCalledTimes(1);
+    expect(frames.map((packets) => decodeMessage(packets[0]!)?.type)).toEqual([
+      "deflateFrame",
+      "deflateFrame",
+      "deflateFrame",
+    ]);
+    expect(frames.map((packets) => getDeflateSequence(packets))).toEqual([0, 1, 2]);
+    expect(frames[2]?.[0]?.subarray(8)).toEqual(frames[0]?.[0]?.subarray(8));
   });
 
   it("disconnects as soon as the transport closes", () => {

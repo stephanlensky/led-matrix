@@ -64,6 +64,28 @@ export type DeviceLinkOptions = {
 
 export type DeviceLink = ReturnType<typeof createDeviceLink>;
 
+type EncodedFrame = { frame: Frame; features: number; packets: Uint8Array[] };
+
+function isSameFrame(a: Frame, b: Frame): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let index = 0; index < a.length; index++) {
+    if (a[index] !== b[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function getResequenced(packets: Uint8Array[], sequence: number): Uint8Array[] {
+  return packets.map((packet) => {
+    const copy = packet.slice();
+    new DataView(copy.buffer).setUint32(4, sequence >>> 0, true);
+    return copy;
+  });
+}
+
 function getSize(packets: Uint8Array[]): number {
   return packets.reduce((size, packet) => size + packet.length, 0);
 }
@@ -109,6 +131,7 @@ export function createDeviceLink({
   let lastSeen: number | undefined;
   let brightness: number | null = null;
   let sequence = 0;
+  let lastEncoded: EncodedFrame | undefined;
   let wasConnected = false;
   const sentFrames: Array<{ sequence: number; sentAt: number } | undefined> = [];
   const latencySamples: number[] = [];
@@ -155,8 +178,22 @@ export function createDeviceLink({
     }
   }
 
+  function getPackets(frame: Frame): Uint8Array[] {
+    const features = status?.features ?? 0;
+    if (lastEncoded?.features === features && isSameFrame(lastEncoded.frame, frame)) {
+      return getResequenced(lastEncoded.packets, sequence);
+    }
+    const packets = encodeSmallestFrame(frame, sequence, features, deflate);
+    lastEncoded = {
+      frame: frame.slice(),
+      features,
+      packets: packets.map((packet) => packet.slice()),
+    };
+    return packets;
+  }
+
   function sendFrame(frame: Frame): void {
-    const packets = encodeSmallestFrame(frame, sequence, status?.features ?? 0, deflate);
+    const packets = getPackets(frame);
     if (transport.sendFrame(packets)) {
       sentFrames[sequence % SENT_FRAME_HISTORY] = { sequence, sentAt: getTime() };
       sequence = (sequence + 1) >>> 0;
