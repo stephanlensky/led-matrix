@@ -16,9 +16,17 @@ export const colorFlash = defineEffect({
     duty: z.number().min(0).max(1).default(1),
     fade: z.number().min(0).max(1).default(0),
     background: colorSchema.default("#000000"),
+    reverse: z.boolean().default(false),
   }),
   render(image, { params, beat, bpm, fps }) {
-    const flash = getVisibleFlash(beat, params.flashesPerBeat, params.duty, bpm, fps);
+    const flash = getVisibleFlash(
+      beat,
+      params.flashesPerBeat,
+      params.duty,
+      bpm,
+      fps,
+      params.reverse,
+    );
     const background = parseColor(params.background);
     if (!flash) {
       fillRgbaImage(image, background);

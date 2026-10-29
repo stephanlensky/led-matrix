@@ -40,4 +40,16 @@ describe("getVisibleFlash", () => {
       progress: expect.closeTo(0.12),
     });
   });
+
+  it("plays the flash backwards from the end of the period when reversed", () => {
+    expect(getVisibleFlash(1.1, 1, 0.5, 120, 30, true)).toBeUndefined();
+    expect(getVisibleFlash(1.9, 1, 0.5, 120, 30, true)).toEqual({
+      index: 1,
+      progress: expect.closeTo(0.2),
+    });
+    expect(getVisibleFlash(1.25, 1, 1, 120, 30, true)).toEqual({
+      index: 1,
+      progress: expect.closeTo(0.75),
+    });
+  });
 });

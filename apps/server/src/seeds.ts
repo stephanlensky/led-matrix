@@ -1924,7 +1924,10 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       [
         {
           effect: "color-flash",
-          params: { ...paletteParams, ...getReferences(["flashesPerBeat", "duty", "fade"]) },
+          params: {
+            ...paletteParams,
+            ...getReferences(["flashesPerBeat", "duty", "fade", "reverse"]),
+          },
         },
       ],
       [
@@ -1939,6 +1942,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           },
           "Hard",
         ),
+        getValueParameter("Phase", "reverse", { Normal: false, Reverse: true }, "Normal"),
       ],
     ),
     "spinning-squares": getLoop(

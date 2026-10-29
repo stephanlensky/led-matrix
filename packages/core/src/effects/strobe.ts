@@ -12,9 +12,10 @@ export const strobe = defineEffect({
     color: colorSchema.default("#ffffff"),
     flashesPerBeat: z.number().positive().max(16).default(1),
     duty: z.number().min(0).max(1).default(0.25),
+    reverse: z.boolean().default(false),
   }),
   render(image, { params, beat, bpm, fps }) {
-    if (getVisibleFlash(beat, params.flashesPerBeat, params.duty, bpm, fps)) {
+    if (getVisibleFlash(beat, params.flashesPerBeat, params.duty, bpm, fps, params.reverse)) {
       fillRgbaImage(image, parseColor(params.color));
     }
   },
