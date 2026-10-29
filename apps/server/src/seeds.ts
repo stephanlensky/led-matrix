@@ -38,6 +38,7 @@ const ORCHID = "#d040ff";
 const AQUA = "#20e8ff";
 const TANGERINE = "#ff7a1a";
 const YELLOW = "#ffe600";
+const BRAT = "#8ace00";
 const MAGENTA = "#ff00ff";
 
 type Palette = readonly [string, ...string[]];
@@ -1528,6 +1529,18 @@ const SPOTLIGHT_PALETTES: Readonly<Record<string, Palette>> = {
   ...PALETTES,
 };
 
+const CLUB_PALETTES: Readonly<Record<string, Palette>> = {
+  Club: ["#ff2fd0", CYAN, GOLD, "#7a40ff"],
+  Brat: [BRAT],
+  "Brat/white": [BRAT, WHITE],
+  "Brat/pink": [BRAT, PINK],
+  "Brat/purple": [BRAT, PURPLE],
+  "Brat/cyan": [BRAT, CYAN],
+  "Brat/gold": [BRAT, GOLD],
+  "Brat greens": [BRAT, GREEN, MINT],
+  "Brat club": [BRAT, PINK, WHITE, GREEN],
+};
+
 function getHeroSolo(name: string, hero: string): AnimationInput {
   return getLoop(
     name,
@@ -2770,6 +2783,39 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
     },
+    "club-crowd": getLoop(
+      "Club crowd",
+      16,
+      [
+        {
+          effect: "club-crowd",
+          params: {
+            ...paletteParams,
+            ...getReferences(["move", "speed", "beams", "discoBall"]),
+          },
+        },
+      ],
+      [
+        getValueParameter(
+          "Move",
+          "move",
+          {
+            Mixed: "mixed",
+            Headbang: "headbang",
+            Sway: "sway",
+            Jump: "jump",
+            "Fist pump": "pump",
+            Twist: "twist",
+            Point: "point",
+          },
+          "Mixed",
+        ),
+        danceSpeedParameter,
+        getLightColorParameter("Club", { ...CLUB_PALETTES, ...SPOTLIGHT_PALETTES }),
+        getValueParameter("Beams", "beams", { "3": 3, "4": 4, "6": 6 }, "4"),
+        getValueParameter("Disco ball", "discoBall", { On: true, Off: false }, "On"),
+      ],
+    ),
     "hero-band": getLoop(
       "Frieren and Himmel band",
       16,

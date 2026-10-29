@@ -28,7 +28,7 @@ export const danceMoves = [
   "booty-shake",
 ] as const;
 
-type DanceMove = (typeof danceMoves)[number];
+export type DanceMove = (typeof danceMoves)[number];
 
 export const catDancers = ["both", ...catIds] as const;
 
@@ -43,7 +43,7 @@ type DancerFrame = {
 type Dancer = { x: number; phase: number; side: number };
 
 export const VIEW_PITCH = toRadians(12);
-const BASE_Y = HEIGHT / 2 + 6;
+export const BASE_Y = HEIGHT / 2 + 6;
 
 export function getCycle(value: number): number {
   return ((value % 1) + 1) % 1;
@@ -284,7 +284,7 @@ function getBootyShake(beat: number, dancer: Dancer, size: number): DancerFrame 
   });
 }
 
-const moveFrames: Record<
+export const catMoveFrames: Record<
   DanceMove,
   (beat: number, dancer: Dancer, size: number, progress: number) => DancerFrame
 > = {
@@ -337,7 +337,7 @@ export const catDance = defineEffect({
     const raster = createRaster();
     const faces: [CatFace, string][] = [];
     for (const [dancer, coat, eyeColor] of dancers) {
-      const frame = moveFrames[params.move](beat * params.speed, dancer, params.size, progress);
+      const frame = catMoveFrames[params.move](beat * params.speed, dancer, params.size, progress);
       drawCat(raster, frame, params.eyes === "open" ? coat : getEyelessCoat(coat));
       faces.push([getCatFace(frame), eyeColor]);
     }

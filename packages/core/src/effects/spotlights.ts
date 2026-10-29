@@ -14,7 +14,7 @@ const SPOT_DEPTH = 0.3;
 
 export const spotlightOrigins = ["bottom", "top", "both"] as const;
 
-type Beam = {
+export type Beam = {
   x: number;
   y: number;
   directionX: number;
@@ -24,7 +24,7 @@ type Beam = {
   spot?: { x: number; y: number; radiusX: number; radiusY: number };
 };
 
-function getBeams(
+export function getBeams(
   count: number,
   origin: (typeof spotlightOrigins)[number],
   beat: number,
@@ -73,7 +73,13 @@ function getSpotLight({ spot }: Beam, x: number, y: number): number {
   return distance < 1 ? 0.5 + 0.5 * (1 - distance) : 0;
 }
 
-function getBeamLight(beam: Beam, x: number, y: number, beat: number, index: number): number {
+export function getBeamLight(
+  beam: Beam,
+  x: number,
+  y: number,
+  beat: number,
+  index: number,
+): number {
   const spot = getSpotLight(beam, x, y);
   if (beam.spot && y > beam.spot.y) {
     return spot;
