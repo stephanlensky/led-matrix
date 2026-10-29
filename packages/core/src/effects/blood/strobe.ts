@@ -20,6 +20,7 @@ export const bloodStrobe = defineEffect({
   id: "blood-strobe",
   name: "Blood strobe",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     every: z.number().min(0.125).max(4).default(0.5),

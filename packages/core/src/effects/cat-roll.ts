@@ -82,6 +82,7 @@ export const catRoll = defineEffect({
   id: "cat-roll",
   name: "Cat roll",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     size: z.number().min(4).max(16).default(12),
     beatsPerRoll: z.number().int().min(1).max(16).default(4),

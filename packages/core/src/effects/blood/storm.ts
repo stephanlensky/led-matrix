@@ -24,6 +24,7 @@ export const bloodStorm = defineEffect({
   id: "blood-storm",
   name: "Blood storm",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     drops: z.number().int().min(0).max(200).default(70),

@@ -34,6 +34,7 @@ export const catPairSpawn = defineEffect({
   id: "cat-pair-spawn",
   name: "Cat pair spawn",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...coatParams,
     spread: z.number().min(0).max(24).default(10),

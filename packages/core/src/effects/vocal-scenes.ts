@@ -628,6 +628,7 @@ export const vocalScene = defineEffect({
   id: "vocal-scene",
   name: "Vocal scene",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...furParams,
     scene: z.enum(vocalScenes).default("planet"),

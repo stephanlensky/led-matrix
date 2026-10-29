@@ -81,6 +81,7 @@ export const frierenMimic = defineEffect({
   id: "frieren-mimic",
   name: "Frieren mimic",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     every: z.number().min(0.25).max(8).default(1),
     size: z.number().min(8).max(40).default(20),

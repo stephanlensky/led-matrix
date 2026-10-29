@@ -27,6 +27,7 @@ export const blur = defineEffect({
   id: "blur",
   name: "Blur",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     radius: z.number().int().min(0).max(16).default(2),
     passes: z.number().int().min(1).max(3).default(2),

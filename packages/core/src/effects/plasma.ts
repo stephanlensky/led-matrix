@@ -7,6 +7,7 @@ export const plasma = defineEffect({
   id: "plasma",
   name: "Plasma",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     cycles: z.number().int().min(1).max(32).default(1),
     scale: z.number().positive().max(4).default(1),

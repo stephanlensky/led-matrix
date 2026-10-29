@@ -93,6 +93,7 @@ export const bloodVeins = defineEffect({
   id: "blood-veins",
   name: "Veins",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#7a0614"),
     count: z.number().int().min(1).max(24).default(10),

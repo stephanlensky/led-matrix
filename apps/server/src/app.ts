@@ -21,6 +21,7 @@ import {
   clipIdSchema,
   clipImportOptionsSchema,
   clipInfoSchema,
+  createFrameCache,
   createRenderer,
   effects,
   getSectionedAnimation,
@@ -121,6 +122,7 @@ export function createApp({
   const database = openDatabase(databasePath);
   const store = createAnimationStore(database);
   const clips = createClipStore(database);
+  const frameCache = createFrameCache();
   const engines: Readonly<Record<Output, PlaybackEngine>> = {
     simulator: createEngine("simulator"),
     device: createEngine("device", () => device?.getLatency() ?? 0),
@@ -128,7 +130,12 @@ export function createApp({
 
   function createEngine(output: Output, getLatency?: () => number): PlaybackEngine {
     return createPlaybackEngine({
-      renderer: createRenderer({ fps, canvas: nodeCanvas, clips: clips.library }),
+      renderer: createRenderer({
+        fps,
+        canvas: nodeCanvas,
+        clips: clips.library,
+        cache: frameCache,
+      }),
       fps,
       bpm,
       getLatency,

@@ -3,8 +3,11 @@ import { Session } from "node:inspector/promises";
 import { cpus } from "node:os";
 import { parseArgs } from "node:util";
 import {
+  type Animation,
   animationSchema,
+  createFrameCache,
   createRenderer,
+  getAnimationLength,
   getParameterAnimation,
   getParameterSelection,
 } from "@led-matrix/core";
@@ -20,6 +23,8 @@ const { values: options } = parseArgs({
     bpm: { type: "string", default: "120" },
     top: { type: "string", default: "20" },
     profile: { type: "string" },
+    cache: { type: "boolean", default: false },
+    passes: { type: "string" },
   },
 });
 
@@ -28,6 +33,8 @@ const warmup = Number(options.warmup);
 const fps = Number(options.fps);
 const bpm = Number(options.bpm);
 const budget = 1000 / fps;
+const passes = options.passes === undefined ? undefined : Number(options.passes);
+const MIN_PASS_BEATS = 2;
 
 type Result = { name: string; median: number; p90: number; mean: number };
 
@@ -57,12 +64,29 @@ function isIncluded(name: string, id: string): boolean {
   return !options.filter || name === options.filter || id === options.filter;
 }
 
+function isPassSection(animation: Animation, section: number): boolean {
+  if (passes === undefined) {
+    return true;
+  }
+  const mode = animation.sections[section]?.mode;
+  return mode?.type === "loop" && "beats" in mode && mode.beats >= MIN_PASS_BEATS;
+}
+
+function getFrameCounts(animation: Animation, section: number): [warmup: number, frames: number] {
+  const mode = animation.sections[section]?.mode;
+  if (passes === undefined || !mode) {
+    return [warmup, frames];
+  }
+  const passFrames = Math.ceil(getAnimationLength(mode, bpm, fps) / budget);
+  return [passFrames, (passes - 1) * passFrames];
+}
+
 const sections = Object.entries(seedAnimations).flatMap(([id, input]) => {
   const document = animationSchema.parse(input);
   const animation = getParameterAnimation(document, getParameterSelection(document, {}));
   return animation.sections
     .map((_, section) => ({ name: `${id}#${section}`, id, animation, section }))
-    .filter(({ name }) => isIncluded(name, id));
+    .filter(({ name, section }) => isIncluded(name, id) && isPassSection(animation, section));
 });
 
 if (sections.length === 0) {
@@ -77,13 +101,21 @@ if (session) {
 }
 
 const results: Result[] = sections.map(({ name, animation, section }) => {
-  const renderer = createRenderer({ fps, canvas: nodeCanvas });
-  for (let frame = 0; frame < warmup; frame++) {
-    renderer.render(animation, frame * budget, bpm, section);
+  const cache = options.cache ? createFrameCache() : undefined;
+  const renderer = createRenderer({ fps, canvas: nodeCanvas, cache });
+  const mode = animation.sections[section]?.mode;
+  const length = mode ? getAnimationLength(mode, bpm, fps) : 1;
+  const [warmupFrames, measuredFrames] = getFrameCounts(animation, section);
+  const render = (frame: number) => {
+    const elapsed = frame * budget;
+    renderer.render(animation, elapsed, bpm, section, Math.floor(elapsed / length));
+  };
+  for (let frame = 0; frame < warmupFrames; frame++) {
+    render(frame);
   }
-  const durations = Array.from({ length: frames }, (_, index) => {
+  const durations = Array.from({ length: measuredFrames }, (_, index) => {
     const start = performance.now();
-    renderer.render(animation, (warmup + index) * budget, bpm, section);
+    render(warmupFrames + index);
     return performance.now() - start;
   });
   const sorted = durations.toSorted((a, b) => a - b);
@@ -107,7 +139,12 @@ const medians = results.map(({ median }) => median).toSorted((a, b) => a - b);
 const means = results.map(({ mean }) => mean).toSorted((a, b) => a - b);
 
 console.log(`CPU: ${cpus()[0]?.model ?? "unknown"}`);
-console.log(`${results.length} sections, ${frames} frames after ${warmup} warmup at ${fps} fps`);
+console.log(
+  passes === undefined
+    ? `${results.length} sections, ${frames} frames after ${warmup} warmup at ${fps} fps, ${bpm} BPM`
+    : `${results.length} loop sections of ${MIN_PASS_BEATS}+ beats, ${passes - 1} passes after 1 warmup pass at ${fps} fps, ${bpm} BPM`,
+);
+console.log(`Frame cache: ${options.cache ? "on" : "off"}`);
 console.log(
   `Section mean ms/frame: median ${getPercentile(means, 0.5).toFixed(2)}, p90 ${getPercentile(means, 0.9).toFixed(2)}`,
 );

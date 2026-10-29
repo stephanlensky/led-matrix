@@ -43,6 +43,7 @@ export const catExplode = defineEffect({
   id: "cat-explode",
   name: "Cat explode",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...coatParams,
     bloodColor: colorSchema.default(BLOOD_COLOR),
@@ -168,6 +169,7 @@ export const catBloodSpray = defineEffect({
   id: "cat-blood-spray",
   name: "Cat blood spray",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     perStep: z.number().int().min(0).max(64).default(14),

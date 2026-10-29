@@ -357,6 +357,7 @@ export const hunterDance = defineEffect({
   id: "hunter-dance",
   name: "Hunter dance",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     move: z.enum(hunterMoves).default("headbang"),
     speed: z.number().min(0.25).max(4).default(1),

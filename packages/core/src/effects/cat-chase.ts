@@ -80,6 +80,7 @@ export const catChase = defineEffect({
   id: "cat-chase",
   name: "Cat chase",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...furParams,
     heartColor: colorSchema.default("#ff2a6d"),

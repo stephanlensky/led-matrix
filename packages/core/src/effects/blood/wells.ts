@@ -53,6 +53,7 @@ export const bloodWells = defineEffect({
   id: "blood-wells",
   name: "Blood gravity wells",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     particles: z.number().int().min(1).max(600).default(260),

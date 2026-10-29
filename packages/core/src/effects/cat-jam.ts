@@ -165,6 +165,7 @@ export const catJam = defineEffect({
   id: "cat-jam",
   name: "Cat jam",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#f4e8e0"),
     pinkColor: colorSchema.default("#e07a80"),

@@ -13,6 +13,7 @@ export const bloodEqualizer = defineEffect({
   id: "blood-equalizer",
   name: "Blood equalizer",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     bars: z.number().int().min(4).max(16).default(8),

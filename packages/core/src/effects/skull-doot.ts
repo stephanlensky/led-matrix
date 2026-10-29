@@ -177,6 +177,7 @@ export const skullDoot = defineEffect({
   id: "skull-doot",
   name: "Skull doot",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     pattern: z.enum(dootPatterns).default("doot-doot"),
     count: z.number().int().min(1).max(3).default(1),

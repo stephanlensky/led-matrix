@@ -496,6 +496,7 @@ export const catLaptopPortal = defineEffect({
   id: "cat-laptop-portal",
   name: "Cat laptop portal",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object(cyberParams),
   render(image, { params, progress, beat }) {
     const length = progress > 0 ? beat / progress : STORY_BEATS;
@@ -523,6 +524,7 @@ export const catCyberspace = defineEffect({
   id: "cat-cyberspace",
   name: "Cat cyberspace",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object(cyberParams),
   render(image, { params, beat }) {
     drawCyberspace(image, params, beat, 1);

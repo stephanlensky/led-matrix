@@ -26,6 +26,8 @@ export const bloodFountain = defineEffect({
   id: "blood-fountain",
   name: "Blood fountain",
   kind: "pixel",
+  isBeatOnly: true,
+  isFirstCycleDistinct: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     emitters: z.number().int().min(1).max(4).default(1),

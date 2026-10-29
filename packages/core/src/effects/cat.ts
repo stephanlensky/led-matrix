@@ -93,6 +93,7 @@ export const cat = defineEffect({
   id: "cat",
   name: "Staring cat",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#4b1d7a"),
     eyeColor: colorSchema.default("#30e830"),

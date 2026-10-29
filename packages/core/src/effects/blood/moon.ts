@@ -28,6 +28,7 @@ export const bloodMoon = defineEffect({
   id: "blood-moon",
   name: "Blood moon",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     level: z.number().min(0).max(1).default(1),

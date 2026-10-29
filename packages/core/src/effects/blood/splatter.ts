@@ -98,6 +98,7 @@ export const bloodSplatter = defineEffect({
   id: "blood-splatter",
   name: "Blood splatter",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     every: z.number().min(0.25).max(16).default(1),

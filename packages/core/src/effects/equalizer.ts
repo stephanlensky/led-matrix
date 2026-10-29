@@ -182,6 +182,7 @@ export const equalizer = defineEffect({
   id: "equalizer",
   name: "Equalizer",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...paletteParams,
     colorCount: z.number().int().min(1).max(4).default(1),

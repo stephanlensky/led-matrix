@@ -20,6 +20,7 @@ export const loading = defineEffect({
   id: "loading",
   name: "Loading",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     bounce: z.number().int().min(1).max(16).default(5),
     period: z.number().int().min(1).max(8).default(2),

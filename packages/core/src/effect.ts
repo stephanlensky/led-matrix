@@ -25,6 +25,10 @@ type EffectBase<S extends EffectParamsSchema> = {
   id: string;
   name: string;
   params: S;
+  // Output depends only on params, beat, progress, source and isFirstCycleDistinct, so frames can be cached
+  isBeatOnly?: boolean;
+  // Reads cycle only as cycle === 0
+  isFirstCycleDistinct?: boolean;
 };
 
 export type PixelEffect<S extends EffectParamsSchema = EffectParamsSchema> = EffectBase<S> & {

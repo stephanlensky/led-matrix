@@ -34,6 +34,7 @@ export const bloodHeart = defineEffect({
   id: "blood-heart",
   name: "Pumping heart",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     size: z.number().min(10).max(30).default(21),

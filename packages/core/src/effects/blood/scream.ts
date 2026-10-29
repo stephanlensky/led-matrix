@@ -375,6 +375,7 @@ export const bloodScream = defineEffect({
   id: "blood-scream",
   name: "Screaming face",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     screamEvery: z.number().min(0.25).max(8).default(1),

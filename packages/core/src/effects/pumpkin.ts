@@ -38,6 +38,7 @@ export const pumpkin = defineEffect({
   id: "pumpkin",
   name: "Jack-o'-lantern",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     scale: z.number().int().min(1).max(2).default(1),
     cyclesX: z.number().int().min(0).max(32).default(3),

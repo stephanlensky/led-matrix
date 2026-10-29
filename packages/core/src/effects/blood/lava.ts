@@ -13,6 +13,7 @@ export const bloodLava = defineEffect({
   id: "blood-lava",
   name: "Blood lava lamp",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     blobs: z.number().int().min(1).max(12).default(7),

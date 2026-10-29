@@ -125,6 +125,7 @@ export const catBroom = defineEffect({
   id: "cat-broom",
   name: "Cat broom ride",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...coatParams,
     moonColor: colorSchema.default("#ffe2a0"),
@@ -217,6 +218,7 @@ export const catGhosts = defineEffect({
   id: "cat-ghosts",
   name: "Ghost cats",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     glowColor: colorSchema.default("#b8f0ff"),
     eyeColor: colorSchema.default("#05121c"),

@@ -23,6 +23,7 @@ export const bloodDrip = defineEffect({
   id: "blood-drip",
   name: "Blood drip",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     count: z.number().int().min(0).max(48).default(14),

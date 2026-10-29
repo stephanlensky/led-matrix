@@ -16,6 +16,7 @@ export const bloodExplosion = defineEffect({
   id: "blood-explosion",
   name: "Blood explosion",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     every: z.number().min(0.5).max(32).default(4),

@@ -271,6 +271,7 @@ export const catSpawn = defineEffect({
   id: "cat-spawn",
   name: "Cat spawn",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...coatParams,
     shake: z.number().min(0).max(4).default(1.6),
@@ -326,6 +327,7 @@ export const catBounce = defineEffect({
   id: "cat-bounce",
   name: "Cat bounce",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object(coatParams),
   render(image, { params, progress }) {
     const time = progress * loopTime;

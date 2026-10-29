@@ -43,6 +43,7 @@ export const colorFade = defineEffect({
   id: "color-fade",
   name: "Color fade",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...paletteParams,
     beatsPerColor: z.number().positive().max(64).default(4),

@@ -63,6 +63,7 @@ export const bloodArterial = defineEffect({
   id: "blood-arterial",
   name: "Arterial spray",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     sweepBeats: z.number().min(1).max(16).default(4),

@@ -42,6 +42,7 @@ export const heartZoom = defineEffect({
   id: "heart-zoom",
   name: "Heart zoom",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
     background: z.boolean().default(false),
@@ -113,6 +114,7 @@ export const heartGrid = defineEffect({
   id: "heart-grid",
   name: "Heart grid",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
     background: z.boolean().default(false),
@@ -178,6 +180,7 @@ export const heartEcg = defineEffect({
   id: "heart-ecg",
   name: "Heartbeat monitor",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
     background: z.boolean().default(false),
@@ -242,6 +245,7 @@ export const heartTunnel = defineEffect({
   id: "heart-tunnel",
   name: "Heart tunnel",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
     background: z.boolean().default(false),

@@ -7,6 +7,7 @@ export const chromatic = defineEffect({
   id: "chromatic",
   name: "Chromatic offset",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     offset: z.number().min(0).max(8).default(1.5),
     angle: z.number().min(0).max(360).default(0),

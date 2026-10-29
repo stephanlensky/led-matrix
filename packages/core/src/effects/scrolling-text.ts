@@ -8,6 +8,7 @@ export const scrollingText = defineEffect({
   id: "scrolling-text",
   name: "Scrolling text",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     text: z.string().max(256).default("HELLO"),
     font: z.enum(fontNames).default("spleen-8x16"),

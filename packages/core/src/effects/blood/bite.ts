@@ -28,6 +28,7 @@ export const bloodBite = defineEffect({
   id: "blood-bite",
   name: "Vampire bite",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     level: z.number().min(0).max(1).default(1),

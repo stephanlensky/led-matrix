@@ -216,6 +216,7 @@ export const scareMeter = defineEffect({
   id: "scare-meter",
   name: "Scare meter",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     label: z.string().max(16).default("SCARE METER"),
     level: z.number().min(0).max(1).default(0.5),

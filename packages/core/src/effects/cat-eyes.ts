@@ -87,6 +87,7 @@ export const catEyes = defineEffect({
   id: "cat-eyes",
   name: "Cat eyes",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color1: colorSchema.default("#30e830"),
     color2: colorSchema.default("#f0b020"),

@@ -96,6 +96,7 @@ export const bloodSplash = defineEffect({
   id: "blood-splash",
   name: "Blood rain splash",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     every: z.number().min(0.25).max(4).default(1),

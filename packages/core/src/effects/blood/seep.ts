@@ -23,6 +23,7 @@ export const bloodSeep = defineEffect({
   id: "blood-seep",
   name: "Seeping ceiling",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     level: z.number().min(0).max(1).default(1),

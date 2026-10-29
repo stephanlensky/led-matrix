@@ -28,6 +28,8 @@ export const bloodHeartbeat = defineEffect({
   id: "blood-heartbeat",
   name: "Heartbeat monitor",
   kind: "pixel",
+  isBeatOnly: true,
+  isFirstCycleDistinct: true,
   params: z.object({
     color: colorSchema.default(FRESH_BLOOD_COLOR),
     interval: z.number().min(0.25).max(8).default(1),

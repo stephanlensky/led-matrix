@@ -91,6 +91,7 @@ export const split = defineEffect({
   id: "split",
   name: "Split",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...transitionParams,
     shape: z.enum(splitShapes).default("left-right"),
@@ -113,6 +114,7 @@ export const wipe = defineEffect({
   id: "wipe",
   name: "Wipe",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...transitionParams,
     direction: z.enum(wipeDirections).default("right"),

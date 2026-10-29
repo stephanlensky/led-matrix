@@ -10,6 +10,7 @@ export const text = defineEffect({
   id: "text",
   name: "Text",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     text: z.string().max(256).meta({ multiline: true }).default("HELLO"),
     font: z.enum(fontNames).default("spleen-8x16"),

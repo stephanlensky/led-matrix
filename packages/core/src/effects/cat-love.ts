@@ -91,6 +91,7 @@ export const catHeartHands = defineEffect({
   id: "cat-heart-hands",
   name: "Cat heart hands",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({ ...loveParams, beatOffset: z.number().min(-64).max(64).default(0) }),
   render(image, { params, beat }) {
     const heart = parseColor(params.heartColor);
@@ -227,6 +228,7 @@ export const catKiss = defineEffect({
   id: "cat-kiss",
   name: "Cat kiss",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object(loveParams),
   render(image, { params, beat }) {
     const heart = parseColor(params.heartColor);

@@ -35,6 +35,7 @@ export const bigText = defineEffect({
   id: "big-text",
   name: "Big text",
   kind: "canvas",
+  isBeatOnly: true,
   params: z.object({
     text: z.string().max(64).default("DROP"),
     font: z.enum(canvasFontFamilies).default("Anton"),

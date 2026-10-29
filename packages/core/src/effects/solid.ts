@@ -7,6 +7,7 @@ export const solid = defineEffect({
   id: "solid",
   name: "Solid",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ffffff"),
   }),

@@ -109,6 +109,7 @@ export const bloodSlash = defineEffect({
   id: "blood-slash",
   name: "Knife slashes",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     every: z.number().min(0.25).max(8).default(1),

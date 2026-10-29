@@ -1296,6 +1296,7 @@ export const heartWipe = defineEffect({
   id: "heart-wipe",
   name: "Heart wipe",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ff3c78"),
     coverAt: z.number().min(0).max(64).default(0),
@@ -1322,6 +1323,7 @@ export const catPhone = defineEffect({
   id: "cat-phone",
   name: "Cat phone",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object(phoneParams),
   render(image, { params, beat, progress }) {
     const sender = getPhoneCharacter(params, params.sender);

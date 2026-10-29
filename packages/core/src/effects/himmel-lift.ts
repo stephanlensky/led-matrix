@@ -84,6 +84,7 @@ export const himmelBench = defineEffect({
   id: "himmel-bench",
   name: "Himmel bench press",
   kind: "pixel",
+  isBeatOnly: true,
   params: getLiftParams(80, 25),
   render(image, { params, beat }) {
     const rep = getRep(beat, params.every);
@@ -128,6 +129,7 @@ export const himmelSquat = defineEffect({
   id: "himmel-squat",
   name: "Himmel squat",
   kind: "pixel",
+  isBeatOnly: true,
   params: getLiftParams(30, 12),
   render(image, { params, beat }) {
     const rep = getRep(beat, params.every);

@@ -231,6 +231,7 @@ export const demonHunters = defineEffect({
   id: "demon-hunters",
   name: "Demon hunters",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     hud: z.boolean().default(true),
     players: z.enum(["hunters", "cats"]).default("hunters"),

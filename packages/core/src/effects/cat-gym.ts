@@ -89,6 +89,7 @@ export const catBench = defineEffect({
   id: "cat-bench",
   name: "Cat bench press",
   kind: "pixel",
+  isBeatOnly: true,
   params: getLiftParams(80, 25, 15, "black"),
   render(image, { params, beat }) {
     const rep = getRep(beat, params.every);
@@ -126,6 +127,7 @@ export const catSquat = defineEffect({
   id: "cat-squat",
   name: "Cat squat",
   kind: "pixel",
+  isBeatOnly: true,
   params: getLiftParams(12, 10, 13, "black"),
   render(image, { params, beat }) {
     const rep = getRep(beat, params.every);
@@ -162,6 +164,7 @@ export const catMimic = defineEffect({
   id: "cat-mimic",
   name: "Cat mimic",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...furParams,
     cat: z.enum(catIds).default("black"),

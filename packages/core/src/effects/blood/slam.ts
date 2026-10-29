@@ -24,6 +24,7 @@ export const bloodSlam = defineEffect({
   id: "blood-slam",
   name: "Wall slam",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     every: z.number().min(0.25).max(4).default(1),

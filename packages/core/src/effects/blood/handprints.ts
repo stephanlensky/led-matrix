@@ -173,6 +173,7 @@ export const bloodHandprints = defineEffect({
   id: "blood-handprints",
   name: "Bloody handprints",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     buildBeats: z.number().min(0).max(256).default(0),

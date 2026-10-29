@@ -114,6 +114,7 @@ export const bloodText = defineEffect({
   id: "blood-text",
   name: "Bleeding text",
   kind: "pixel",
+  isBeatOnly: true,
   params: bloodTextParams,
   render(image, { params, beat }) {
     drawBloodText(image, params, beat);

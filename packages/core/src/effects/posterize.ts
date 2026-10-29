@@ -6,6 +6,7 @@ export const posterize = defineEffect({
   id: "posterize",
   name: "Posterize",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     levels: z.number().int().min(2).max(16).default(4),
   }),

@@ -32,6 +32,7 @@ export const wordSlam = defineEffect({
   id: "word-slam",
   name: "Word slam",
   kind: "canvas",
+  isBeatOnly: true,
   params: z.object({
     words: z.string().max(128).default("FUCK|TAMO|GATCHIS|BITCH"),
     beats: z.string().max(64).default("1"),

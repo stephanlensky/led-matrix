@@ -246,6 +246,7 @@ export const tamagotchi = defineEffect({
   id: "tamagotchi",
   name: "Tamagotchi",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     shellColor: colorSchema.default("#ff4fa8"),
     buttonColor: colorSchema.default("#ffd23f"),
@@ -356,6 +357,7 @@ export const tamagotchiTwinkle = defineEffect({
   id: "tamagotchi-twinkle",
   name: "Tamagotchi twinkle",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color1: colorSchema.default("#ff9ec8"),
     color2: colorSchema.default("#8fd8ff"),
@@ -432,6 +434,7 @@ export const tamagotchiBurst = defineEffect({
   id: "tamagotchi-burst",
   name: "Tamagotchi rage burst",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color1: colorSchema.default("#ff1a10"),
     color2: colorSchema.default("#ffd23f"),

@@ -154,6 +154,7 @@ export const pumpkinDance = defineEffect({
   id: "pumpkin-dance",
   name: "Pumpkin dance",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     move: z.enum(pumpkinMoves).default("kick"),
     speed: z.number().min(0.25).max(4).default(1),

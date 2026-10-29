@@ -19,6 +19,7 @@ export const heartPulse = defineEffect({
   id: "heart-pulse",
   name: "Heart pulse",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
     background: z.boolean().default(false),
@@ -80,6 +81,7 @@ export const heartFloat = defineEffect({
   id: "heart-float",
   name: "Floating hearts",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
     every: z.number().min(0.25).max(4).default(1),

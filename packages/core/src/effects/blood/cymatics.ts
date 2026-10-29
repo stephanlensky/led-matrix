@@ -58,6 +58,7 @@ export const bloodCymatics = defineEffect({
   id: "blood-cymatics",
   name: "Blood cymatics",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     barBeats: z.number().min(1).max(16).default(4),

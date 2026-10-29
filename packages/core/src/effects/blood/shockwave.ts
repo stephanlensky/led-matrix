@@ -24,6 +24,7 @@ export const bloodShockwave = defineEffect({
   id: "blood-shockwave",
   name: "Blood shockwave",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     perBeat: z.number().int().min(1).max(4).default(1),

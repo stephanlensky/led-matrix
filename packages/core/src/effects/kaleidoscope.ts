@@ -7,6 +7,7 @@ export const kaleidoscope = defineEffect({
   id: "kaleidoscope",
   name: "Kaleidoscope",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     segments: z.number().int().min(2).max(16).default(6),
     rotations: z.number().int().min(-8).max(8).default(1),

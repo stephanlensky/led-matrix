@@ -72,6 +72,7 @@ export const catHype = defineEffect({
   id: "cat-hype",
   name: "Cat hype",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...coatParams,
     counterColor: colorSchema.default("#2a8c8c"),

@@ -137,6 +137,7 @@ export const heartEqualizer = defineEffect({
   id: "heart-equalizer",
   name: "Heart equalizer",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#ff2a6d"),
     every: z.number().min(0.25).max(4).default(1),

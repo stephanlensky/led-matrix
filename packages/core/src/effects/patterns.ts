@@ -34,6 +34,7 @@ export const checker = defineEffect({
   id: "checker",
   name: "Checker",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...paletteParams,
     size: z.number().int().min(1).max(32).default(8),
@@ -55,6 +56,7 @@ export const stripes = defineEffect({
   id: "stripes",
   name: "Stripes",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...paletteParams,
     width: z.number().int().min(1).max(32).default(6),
@@ -77,6 +79,7 @@ export const rings = defineEffect({
   id: "rings",
   name: "Rings",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...paletteParams,
     width: z.number().int().min(1).max(32).default(5),
@@ -99,6 +102,7 @@ export const twinkle = defineEffect({
   id: "twinkle",
   name: "Twinkle",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...paletteParams,
     perBeat: z.number().int().min(1).max(512).default(48),

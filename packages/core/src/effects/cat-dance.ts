@@ -304,6 +304,7 @@ export const catDance = defineEffect({
   id: "cat-dance",
   name: "Cat dance",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...coatParams,
     move: z.enum(danceMoves).default("headbang"),

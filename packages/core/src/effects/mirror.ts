@@ -13,6 +13,7 @@ export const mirror = defineEffect({
   id: "mirror",
   name: "Mirror",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     axis: z.enum(mirrorAxes).default("horizontal"),
     flip: z.boolean().default(false),

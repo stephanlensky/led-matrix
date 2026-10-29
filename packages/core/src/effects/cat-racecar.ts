@@ -213,6 +213,7 @@ export const catRacecar = defineEffect({
   id: "cat-racecar",
   name: "Cat racecar",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...coatParams,
     carColor: colorSchema.default("#e01c24"),

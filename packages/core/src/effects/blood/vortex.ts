@@ -27,6 +27,7 @@ export const bloodVortex = defineEffect({
   id: "blood-vortex",
   name: "Blood vortex",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     every: z.number().int().min(1).max(32).default(4),

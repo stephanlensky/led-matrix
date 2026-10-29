@@ -24,6 +24,7 @@ export const bloodCurtain = defineEffect({
   id: "blood-curtain",
   name: "Blood curtain",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     level: z.number().min(0).max(2).default(0.7),

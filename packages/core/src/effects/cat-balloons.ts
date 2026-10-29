@@ -41,6 +41,7 @@ export const catBalloons = defineEffect({
   id: "cat-balloons",
   name: "Cat heart balloons",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...furParams,
     cat: z.enum(catIds).default("black"),

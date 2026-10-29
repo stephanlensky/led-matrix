@@ -23,6 +23,8 @@ export const bloodTide = defineEffect({
   id: "blood-tide",
   name: "Rising tide",
   kind: "pixel",
+  isBeatOnly: true,
+  isFirstCycleDistinct: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     from: z.number().min(0).max(1).default(0.1),

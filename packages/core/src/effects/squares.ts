@@ -7,6 +7,7 @@ export const squares = defineEffect({
   id: "squares",
   name: "Spinning squares",
   kind: "canvas",
+  isBeatOnly: true,
   params: z.object({
     count: z.number().int().min(1).max(8).default(3),
     startColor: colorSchema.default("#ff0080"),

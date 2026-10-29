@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { animationSchema } from "./animation.ts";
-import { getPixel } from "./frame.ts";
+import { getEffect } from "./effects/index.ts";
+import { createFrame, getPixel } from "./frame.ts";
+import { createFrameCache } from "./frame-cache.ts";
 import { nodeCanvas } from "./node-canvas.ts";
-import { createRenderer } from "./renderer.ts";
+import { CACHE_SAMPLES_PER_BEAT, createRenderer } from "./renderer.ts";
 
 function render(input: unknown, elapsed = 0, bpm = 120) {
   const renderer = createRenderer({ fps: 30, canvas: nodeCanvas });
@@ -134,5 +136,114 @@ describe("antialias", () => {
     const sharp = render({ name: "Sharp", mode: loop, layers: [{ ...layer, antialias: false }] });
     expect(smooth.some(isPartial)).toBe(true);
     expect(sharp.some(isPartial)).toBe(false);
+  });
+});
+
+function getRenderSpy(id: string) {
+  const effect = getEffect(id);
+  if (!effect) {
+    throw new Error(`Missing effect ${id}`);
+  }
+  return vi.spyOn(effect, "render");
+}
+
+function parse(layers: unknown[], mode: unknown = loop) {
+  return animationSchema.parse({ name: "Cached", mode, layers });
+}
+
+describe("renderer frame cache", () => {
+  const BEAT_MS = 500;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const solid = { effect: "solid", params: { color: "#ff0000" } };
+
+  it("reuses frames for the same quantized beat across loop passes", () => {
+    const spy = getRenderSpy("solid");
+    const cache = createFrameCache();
+    const renderer = createRenderer({ fps: 30, canvas: nodeCanvas, cache });
+    const animation = parse([solid]);
+    const first = renderer.render(animation, 100, 120, 0, 0);
+    const second = renderer.render(animation, 4 * BEAT_MS + 101, 120, 0, 1);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+    expect(cache.getSize()).toBe(1);
+  });
+
+  it("renders at the quantized beat", () => {
+    const spy = getRenderSpy("solid");
+    const renderer = createRenderer({ fps: 30, canvas: nodeCanvas, cache: createFrameCache() });
+    renderer.render(parse([solid]), 0.51 * BEAT_MS, 120);
+    const [, input] = spy.mock.calls[0] ?? [];
+    expect(input?.beat).toBe(16 / CACHE_SAMPLES_PER_BEAT);
+    expect(input?.progress).toBe(0.5 / 4);
+    expect(input?.time).toBe(0.5 * BEAT_MS);
+  });
+
+  it("wraps the last sample of a loop to the start of the next cycle", () => {
+    const spy = getRenderSpy("solid");
+    const renderer = createRenderer({ fps: 30, canvas: nodeCanvas, cache: createFrameCache() });
+    renderer.render(parse([solid]), 4 * BEAT_MS - 1, 120, 0, 0);
+    const [, input] = spy.mock.calls[0] ?? [];
+    expect(input?.beat).toBe(0);
+    expect(input?.cycle).toBe(1);
+  });
+
+  it("invalidates frames for a new animation object", () => {
+    const spy = getRenderSpy("solid");
+    const renderer = createRenderer({ fps: 30, canvas: nodeCanvas, cache: createFrameCache() });
+    renderer.render(parse([solid]), 0, 120);
+    renderer.render(parse([solid]), 0, 120);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("separates the first cycle only for effects that read it", () => {
+    const spy = getRenderSpy("blood-heartbeat");
+    const renderer = createRenderer({ fps: 30, canvas: nodeCanvas, cache: createFrameCache() });
+    const animation = parse([{ effect: "blood-heartbeat" }]);
+    for (const cycle of [0, 1, 2, 3]) {
+      renderer.render(animation, 0, 120, 0, cycle);
+    }
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("bypasses the cache for sections with effects that are not beat only", () => {
+    const spy = getRenderSpy("solid");
+    const cache = createFrameCache();
+    const renderer = createRenderer({ fps: 30, canvas: nodeCanvas, cache });
+    const animation = parse([solid, { effect: "trails" }]);
+    renderer.render(animation, 0, 120);
+    renderer.render(animation, 0, 120);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(cache.getSize()).toBe(0);
+  });
+
+  it("bypasses the cache for sections that do not loop over beats", () => {
+    const spy = getRenderSpy("solid");
+    const cache = createFrameCache();
+    const renderer = createRenderer({ fps: 30, canvas: nodeCanvas, cache });
+    for (const mode of [
+      { type: "once", beats: 4 },
+      { type: "loop", ms: 1000 },
+    ]) {
+      const animation = parse([solid], mode);
+      renderer.render(animation, 0, 120);
+      renderer.render(animation, 0, 120);
+    }
+    expect(spy).toHaveBeenCalledTimes(4);
+    expect(cache.getSize()).toBe(0);
+  });
+
+  it("bounds the cache to its byte limit", () => {
+    const cache = createFrameCache({ maxBytes: createFrame().byteLength * 8 });
+    const renderer = createRenderer({ fps: 30, canvas: nodeCanvas, cache });
+    const animation = parse([solid]);
+    for (let sample = 0; sample < 4 * CACHE_SAMPLES_PER_BEAT; sample++) {
+      renderer.render(animation, (sample / CACHE_SAMPLES_PER_BEAT) * BEAT_MS, 120);
+    }
+    expect(cache.getSize()).toBe(8);
   });
 });

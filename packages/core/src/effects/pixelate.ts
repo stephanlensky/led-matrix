@@ -15,6 +15,7 @@ export const pixelate = defineEffect({
   id: "pixelate",
   name: "Pixelate",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     size: z.number().int().min(1).max(32).default(4),
   }),

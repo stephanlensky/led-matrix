@@ -135,6 +135,7 @@ export const heartBleed = defineEffect({
   id: "heart-bleed",
   name: "Bleeding heart",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...colorParams,
     every: z.number().min(0.25).max(4).default(1),
@@ -219,6 +220,7 @@ export const heartBreak = defineEffect({
   id: "heart-break",
   name: "Heartbreak",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...colorParams,
     beats: z.number().int().min(4).max(32).default(8),
@@ -314,6 +316,7 @@ export const heartMelt = defineEffect({
   id: "heart-melt",
   name: "Melting heart",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...colorParams,
     every: z.number().min(0.25).max(4).default(1),
@@ -391,6 +394,7 @@ export const heartFlatline = defineEffect({
   id: "heart-flatline",
   name: "Flatline",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...colorParams,
     traceColor: colorSchema.default("#ffb6d5"),
@@ -523,6 +527,7 @@ export const heartArrow = defineEffect({
   id: "heart-arrow",
   name: "Cupid's arrow",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...colorParams,
     arrowColor: colorSchema.default("#ffd27a"),
@@ -616,6 +621,7 @@ export const heartRain = defineEffect({
   id: "heart-rain",
   name: "Heart rain",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...colorParams,
     every: z.number().min(0.25).max(4).default(1),
@@ -684,6 +690,7 @@ export const heartBurst = defineEffect({
   id: "heart-burst",
   name: "Heart grid burst",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...colorParams,
     every: z.number().min(0.25).max(4).default(1),
@@ -776,6 +783,7 @@ export const bloodDrips = defineEffect({
   id: "blood-drips",
   name: "Blood drips",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#c00014"),
     count: z.number().int().min(0).max(48).default(10),
@@ -964,6 +972,7 @@ export const heartCorrupt = defineEffect({
   id: "heart-corrupt",
   name: "Corrupted heart",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default("#d0001c"),
     bloodColor: colorSchema.default("#8a0303"),

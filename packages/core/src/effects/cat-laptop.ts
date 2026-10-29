@@ -216,6 +216,7 @@ export const catLaptop = defineEffect({
   id: "cat-laptop",
   name: "Cat laptop jam",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...furParams,
     cat: z.enum(catIds).default("black"),

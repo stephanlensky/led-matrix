@@ -158,6 +158,7 @@ export const catSpace = defineEffect({
   id: "cat-space",
   name: "Cat astronauts",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...furParams,
     glassColor: colorSchema.default("#a0dcff"),

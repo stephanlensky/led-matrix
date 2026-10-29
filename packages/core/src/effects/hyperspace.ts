@@ -12,6 +12,7 @@ export const hyperspace = defineEffect({
   id: "hyperspace",
   name: "Hyperspace",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...paletteParams,
     color1: colorSchema.default("#ffffff"),

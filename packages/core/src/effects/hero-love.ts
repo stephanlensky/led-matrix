@@ -91,6 +91,7 @@ export const heroHeartHands = defineEffect({
   id: "hero-heart-hands",
   name: "Frieren and Himmel heart hands",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({ ...loveParams, beatOffset: z.number().min(-64).max(64).default(0) }),
   render(image, { params, beat }) {
     const heart = parseColor(params.heartColor);
@@ -207,6 +208,7 @@ export const heroKiss = defineEffect({
   id: "hero-kiss",
   name: "Frieren and Himmel kiss",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object(loveParams),
   render(image, { params, beat }) {
     const heart = parseColor(params.heartColor);

@@ -19,6 +19,7 @@ export const himmelSleep = defineEffect({
   id: "himmel-sleep",
   name: "Himmel sleeping",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     breath: z.number().min(1).max(16).default(4),
     size: z.number().min(8).max(32).default(15),

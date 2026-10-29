@@ -11,6 +11,7 @@ export const hunterHyperspace = defineEffect({
   id: "hunter-hyperspace",
   name: "Hunter hyperspace",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     size: z.number().min(4).max(16).default(10),
     radius: z.number().min(0).max(30).default(18),

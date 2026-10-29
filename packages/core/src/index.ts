@@ -12,6 +12,7 @@ export * from "./effects/index.ts";
 export * from "./folders.ts";
 export * from "./fonts/index.ts";
 export * from "./frame.ts";
+export * from "./frame-cache.ts";
 export * from "./keyframes.ts";
 export * from "./renderer.ts";
 export * from "./params.ts";

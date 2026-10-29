@@ -26,6 +26,7 @@ export const catHyperspace = defineEffect({
   id: "cat-hyperspace",
   name: "Cat hyperspace",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...furParams,
     orbits: z.number().int().min(1).max(8).default(2),

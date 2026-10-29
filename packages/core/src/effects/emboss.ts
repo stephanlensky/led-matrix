@@ -10,6 +10,7 @@ export const emboss = defineEffect({
   id: "emboss",
   name: "Emboss",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     angle: z.number().min(0).max(360).default(225),
     rotations: z.number().int().min(-8).max(8).default(0),

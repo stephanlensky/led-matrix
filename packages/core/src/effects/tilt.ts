@@ -28,6 +28,7 @@ export const tilt = defineEffect({
   id: "tilt",
   name: "3D tilt",
   kind: "filter",
+  isBeatOnly: true,
   params: z.object({
     rotateX: angleSchema.default(0),
     rotateY: angleSchema.default(0),

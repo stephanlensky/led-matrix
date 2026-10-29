@@ -179,6 +179,7 @@ export const heroLaptop = defineEffect({
   id: "hero-laptop",
   name: "Frieren and Himmel laptop jam",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     hero: z.enum(heroIds).default("frieren"),
     every: z.number().min(0.25).max(4).default(1),
@@ -278,6 +279,7 @@ export const heroSlowDance = defineEffect({
   id: "hero-slow-dance",
   name: "Frieren and Himmel slow dance",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     every: z.number().min(0.25).max(4).default(1),
     turn: z.number().min(2).max(32).default(8),
@@ -368,6 +370,7 @@ export const frierenHeartMagic = defineEffect({
   id: "frieren-heart-magic",
   name: "Frieren heart magic",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     every: z.number().min(0.25).max(4).default(1),
     eyes: z.enum(eyeStyles).default("happy"),

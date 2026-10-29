@@ -15,6 +15,7 @@ export const bloodPool = defineEffect({
   id: "blood-pool",
   name: "Blood pool",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     level: z.number().min(0).max(1).default(0.6),

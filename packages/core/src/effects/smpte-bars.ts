@@ -136,6 +136,7 @@ export const smpteBars = defineEffect({
   id: "smpte-bars",
   name: "SMPTE bars",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     melt: z.number().min(0).max(1).default(0),
     glitch: z.number().min(0).max(1).default(0.2),

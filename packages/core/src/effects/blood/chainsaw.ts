@@ -30,6 +30,7 @@ export const bloodChainsaw = defineEffect({
   id: "blood-chainsaw",
   name: "Chainsaw",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     color: colorSchema.default(BLOOD_COLOR),
     rate: z.number().int().min(1).max(8).default(2),

@@ -229,6 +229,7 @@ export const catWands = defineEffect({
   id: "cat-wands",
   name: "Cat wand duel",
   kind: "pixel",
+  isBeatOnly: true,
   params: z.object({
     ...furParams,
     tabbyMagicColor: colorSchema.default("#ff5a1e"),
