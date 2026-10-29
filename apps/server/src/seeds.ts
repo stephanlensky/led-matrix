@@ -2595,6 +2595,16 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       [liftTempoParameter],
     ),
     "himmel-sleep": getLoop("Himmel sleeping", 16, [{ effect: "himmel-sleep" }]),
+    "hero-desk": getLoop(
+      "Frieren and Himmel sad at desk",
+      8,
+      [{ effect: "hero-desk", params: getReferences(["hero", "every", "rain"]) }],
+      [
+        getValueParameter("Character", "hero", { Frieren: "frieren", Himmel: "himmel" }, "Frieren"),
+        getValueParameter("Pulse", "every", { "Half beat": 0.5, Beat: 1, "2 beats": 2 }, "Beat"),
+        getValueParameter("Rain", "rain", { Off: 0, Light: 3, Heavy: 8 }, "Light"),
+      ],
+    ),
     "frieren-himmel-dance": getLoop(
       "Frieren and Himmel dance",
       16,

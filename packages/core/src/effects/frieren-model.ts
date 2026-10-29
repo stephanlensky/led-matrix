@@ -20,7 +20,7 @@ import {
 import { WHITE, getNormalShader, setMixedColor, setScaledColor } from "./cat-model.ts";
 import { type ModelPlacement, getJointMatrices, getProjector } from "./hunter-model.ts";
 
-type HeroPart =
+export type HeroPart =
   | "skin"
   | "eye"
   | "hair"
@@ -50,7 +50,10 @@ export type PropPart =
   | "mouth"
   | "tooth"
   | "tongue"
-  | "silverHair";
+  | "silverHair"
+  | "sleeve"
+  | "cuff"
+  | "hand";
 
 type Outfit = (part: HeroPart, position: Vector) => Color;
 
@@ -352,6 +355,9 @@ export const PROP_COLORS: Readonly<Record<PropPart, Color>> = {
   tooth: parseColor("#f4ecd8"),
   tongue: parseColor("#c83c50"),
   silverHair: parseColor("#e4e0f4"),
+  sleeve: FRIEREN_WHITE,
+  cuff: GOLD,
+  hand: SKIN,
 };
 
 export const heroIds = ["frieren", "himmel"] as const;
@@ -362,6 +368,10 @@ const outfits: Readonly<Record<HeroId, Outfit>> = {
   frieren: FRIEREN_OUTFIT,
   himmel: HIMMEL_OUTFIT,
 };
+
+export function getOutfitColor(hero: HeroId, part: HeroPart, position: Vector): Color {
+  return outfits[hero](part, position);
+}
 
 const models = new Map<string, HeroModel>();
 
