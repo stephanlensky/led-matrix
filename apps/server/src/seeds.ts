@@ -509,6 +509,11 @@ export const replacedSeedIds = [
   "text-over-plasma",
   "plasma-kaleidoscope",
   "sunrise-fade",
+  "cat-headbang",
+  "cat-wiggle",
+  "cat-twerk",
+  "huntrix-headbang",
+  "frieren-himmel-headbang",
 ];
 
 function getRamp(from: number, to: number, easing?: string): { keyframes: unknown[] } {
@@ -2017,12 +2022,6 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
     },
-    "cat-headbang": getLoop(
-      "Cat headbang",
-      8,
-      [{ effect: "cat-dance", params: { move: "headbang", ...getReferences(["offbeat"]) } }],
-      [getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together")],
-    ),
     "cat-dance": getLoop(
       "Cat dance",
       16,
@@ -2033,28 +2032,18 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           "move",
           {
             Sway: "sway",
+            Headbang: "headbang",
             Hop: "hop",
             "Paws up": "paws-up",
             Twist: "twist",
             Conga: "conga",
+            Wiggle: "wiggle",
             Twerk: "twerk",
           },
           "Sway",
         ),
         getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together"),
       ],
-    ),
-    "cat-wiggle": getLoop(
-      "Cat wiggle",
-      8,
-      [{ effect: "cat-dance", params: { move: "wiggle", ...getReferences(["offbeat"]) } }],
-      [getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Alternating")],
-    ),
-    "cat-twerk": getLoop(
-      "Cat twerk",
-      8,
-      [{ effect: "cat-dance", params: { move: "twerk", ...getReferences(["offbeat"]) } }],
-      [getValueParameter("Sync", "offbeat", { Together: false, Alternating: true }, "Together")],
     ),
     "cat-hype": getLoop(
       "Cat hype",
@@ -2320,12 +2309,6 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         },
       ],
     },
-    "huntrix-headbang": getLoop(
-      "Huntrix headbang",
-      8,
-      [{ effect: "hunter-dance", params: { move: "headbang", ...getReferences(["sync"]) } }],
-      [hunterSyncParameter],
-    ),
     "huntrix-dance": getLoop(
       "Huntrix dance",
       16,
@@ -2336,6 +2319,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           "move",
           {
             Sway: "sway",
+            Headbang: "headbang",
             Jump: "jump",
             "Fist pump": "pump",
             Twist: "twist",
@@ -2376,12 +2360,6 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       [liftTempoParameter],
     ),
     "himmel-sleep": getLoop("Himmel sleeping", 16, [{ effect: "himmel-sleep" }]),
-    "frieren-himmel-headbang": getLoop(
-      "Frieren and Himmel headbang",
-      8,
-      [{ effect: "hero-dance", params: { move: "headbang", ...getReferences(["sync"]) } }],
-      [heroSyncParameter],
-    ),
     "frieren-himmel-dance": getLoop(
       "Frieren and Himmel dance",
       16,
@@ -2392,6 +2370,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
           "move",
           {
             Sway: "sway",
+            Headbang: "headbang",
             Jump: "jump",
             "Fist pump": "pump",
             Twist: "twist",

@@ -72,6 +72,7 @@ const migrations: readonly Migration[] = [
   removeReplacedSeeds,
   removeReplacedSeeds,
   removeReplacedSeeds,
+  removeReplacedSeeds,
 ];
 
 function getVersion(connection: DatabaseSync): number {
