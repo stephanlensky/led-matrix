@@ -8,9 +8,11 @@ import {
 } from "@led-matrix/core";
 import { Button } from "@led-matrix/ui/components/button";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
+import { Popover, PopoverContent, PopoverTrigger } from "@led-matrix/ui/components/popover";
+import { Slider } from "@led-matrix/ui/components/slider";
 import { useBrowserClips } from "@led-matrix/ui/lib/clips";
 import { useStream } from "@led-matrix/ui/lib/stream";
-import { PauseIcon, PlayIcon } from "lucide-react";
+import { PauseIcon, PlayIcon, Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAnimationLane, getLanePosition } from "../../shared/animation-lane.ts";
 import type { LivePosition } from "../../shared/api.ts";
@@ -21,6 +23,7 @@ import { getFraction } from "../../shared/track-scale.ts";
 import type { AnimationSource } from "./AnimationLane.tsx";
 import { type Player, type PlayerState, usePlayerState } from "./player.ts";
 import { type TrackDataCache, useLoad } from "./useLibrary.ts";
+import { useStoredState } from "./useStoredState.ts";
 
 const blankFrame = createFrame();
 const FRAME_CLASS = "h-full min-h-0";
@@ -61,6 +64,45 @@ export function PlayButton({ player, track }: { player: Player; track: Track }) 
     >
       {isTrackPlaying ? <PauseIcon /> : <PlayIcon />}
     </Button>
+  );
+}
+
+function getVolume(value: unknown): number | undefined {
+  return typeof value === "number" && value >= 0 && value <= 1 ? value : undefined;
+}
+
+function getVolumeIcon(volume: number) {
+  if (volume === 0) {
+    return <VolumeXIcon />;
+  }
+  return volume < 0.5 ? <Volume1Icon /> : <Volume2Icon />;
+}
+
+export function VolumeControl({ player }: { player: Player }) {
+  const [volume, setVolume] = useStoredState("editor.volume", 1, getVolume);
+
+  useEffect(() => player.setVolume(volume), [player, volume]);
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={<Button variant="ghost" size="icon-sm" aria-label="Playback volume" />}
+      >
+        {getVolumeIcon(volume)}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="flex w-48 items-center gap-3 p-3">
+        <Slider
+          aria-label="Playback volume"
+          min={0}
+          max={100}
+          value={Math.round(volume * 100)}
+          onValueChange={(value) => setVolume(Number(value) / 100)}
+        />
+        <span className="w-9 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+          {Math.round(volume * 100)}%
+        </span>
+      </PopoverContent>
+    </Popover>
   );
 }
 

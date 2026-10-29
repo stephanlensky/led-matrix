@@ -21,6 +21,7 @@ export type Player = {
   seek: (track: Track, time: number) => void;
   setLoop: (track: Track, loop: Loop, beats: BeatSelection) => void;
   clearLoop: () => boolean;
+  setVolume: (volume: number) => void;
   close: () => void;
 };
 
@@ -149,6 +150,9 @@ export function createPlayer(): Player {
       }
       setState({ loop: undefined });
       return true;
+    },
+    setVolume(volume) {
+      audio.volume = volume;
     },
     close() {
       listeners.clear();

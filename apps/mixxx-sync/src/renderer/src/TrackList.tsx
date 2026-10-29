@@ -36,7 +36,7 @@ import {
 import { type TrackRange, getFraction } from "../../shared/track-scale.ts";
 import { type AnimationSource, type LaneEditor, AnimationLane } from "./AnimationLane.tsx";
 import { getTrackProps } from "./cue-copy.ts";
-import { LivePlayhead, PlayButton, Playhead } from "./Playback.tsx";
+import { LivePlayhead, PlayButton, Playhead, VolumeControl } from "./Playback.tsx";
 import { TrackScrollbar } from "./TrackScrollbar.tsx";
 import { type Player, usePlayerState } from "./player.ts";
 import { type LoadState, type TrackDataCache, useTrackData } from "./useLibrary.ts";
@@ -550,6 +550,7 @@ export function TrackList({
             <RadioIcon />
             Live
           </Button>
+          <VolumeControl player={player} />
           <ShortcutsHint />
         </div>
         {mappingError && (

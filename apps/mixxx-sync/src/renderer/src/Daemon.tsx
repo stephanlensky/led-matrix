@@ -248,7 +248,7 @@ function DeviceCard({ source, isLocal }: { source: DeviceSource; isLocal: boolea
       <CardContent className="flex flex-col gap-3">
         {device.error && <p className="text-destructive">{device.error}</p>}
         {info && <DeviceRows info={info} fps={fps} />}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex max-w-sm items-center justify-between gap-4">
           <Label>Brightness</Label>
           <span className="text-muted-foreground tabular-nums">
             {Math.round((brightness / MAX_BRIGHTNESS) * 100)}%
@@ -256,6 +256,7 @@ function DeviceCard({ source, isLocal }: { source: DeviceSource; isLocal: boolea
         </div>
         <Slider
           aria-label="Brightness"
+          className="max-w-sm"
           min={0}
           max={MAX_BRIGHTNESS}
           value={brightness}
