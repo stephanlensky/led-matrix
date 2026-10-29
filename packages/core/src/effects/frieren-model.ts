@@ -47,6 +47,8 @@ export type PropPart =
 type Outfit = (part: HeroPart, position: Vector) => Color;
 
 export type HeroJoint =
+  | "hips"
+  | "skirt"
   | "torso"
   | "head"
   | "hair"
@@ -83,7 +85,9 @@ type HeroStyle = "frieren" | "himmel";
 export const HERO_CENTER: Vector = [0, 0.4, 0];
 
 const JOINT_PARENTS: readonly [joint: HeroJoint, parent?: HeroJoint][] = [
+  ["hips"],
   ["torso"],
+  ["skirt", "torso"],
   ["head", "torso"],
   ["hair", "head"],
   ["cape", "torso"],
@@ -168,11 +172,12 @@ function createHeroModel(style: HeroStyle, eyesClosed: boolean): HeroModel {
   addEllipsoid(torso, [0, 0.22, 0], [0.28, 0.18, 0.23], "top");
   addEllipsoid(torso, [0, 0.44, 0], [0.33, 0.2, 0.25], "top");
   addEllipsoid(torso, [0, 0.62, 0], [0.13, 0.07, 0.13], "capelet", 5, 8);
+  const skirt = createMesh<HeroPart>();
   if (isFrieren) {
-    addEllipsoid(torso, [0, 0.02, 0], [0.37, 0.3, 0.31], "skirt");
+    addEllipsoid(skirt, [0, 0.02, 0], [0.37, 0.3, 0.31], "skirt");
     addEllipsoid(torso, [0, 0.47, 0], [0.4, 0.17, 0.31], "capelet");
   } else {
-    addEllipsoid(torso, [0, 0.06, 0], [0.34, 0.24, 0.28], "skirt");
+    addEllipsoid(skirt, [0, 0.06, 0], [0.34, 0.24, 0.28], "skirt");
   }
   const head = createMesh<HeroPart>();
   addEllipsoid(head, [0, 1.05, 0.02], [0.5, 0.46, 0.46], "skin");
@@ -188,13 +193,16 @@ function createHeroModel(style: HeroStyle, eyesClosed: boolean): HeroModel {
     addEllipsoid(cape, [0, 0.12, -0.3], [0.44, 0.52, 0.09], "cape");
   }
   const groups: HeroGroup[] = [
-    { mesh: hips },
+    { joint: "hips", mesh: hips },
     { joint: "torso", mesh: torso },
+    { joint: "skirt", mesh: skirt },
     { joint: "head", mesh: head },
     { joint: "hair", mesh: hair },
     { joint: "cape", mesh: cape },
   ];
   const pivots: Record<HeroJoint, Vector> = {
+    hips: [0, 0, 0],
+    skirt: [0, 0, 0],
     torso: [0, 0.1, 0],
     head: [0, 0.6, 0],
     hair: isFrieren ? [0, 1.38, -0.14] : [0, 1.2, -0.38],

@@ -2,12 +2,31 @@ import { z } from "zod";
 import { defineEffect } from "../effect.ts";
 import { HEIGHT, WIDTH } from "../frame.ts";
 import { easings } from "../keyframes.ts";
-import { type Rotation, createRaster, getRotation, resolveRaster } from "../mesh.ts";
+import {
+  type Rotation,
+  type Vector,
+  compose,
+  createRaster,
+  getRotation,
+  normalize,
+  resolveRaster,
+  subtract,
+} from "../mesh.ts";
 import { TAU, toRadians } from "./cat-duo.ts";
 import { VIEW_PITCH, getCycle, getHeadbangAngle } from "./cat-dance.ts";
 import { type HunterPose, drawHunter, hunterIds } from "./hunter-model.ts";
 
-export const hunterMoves = ["headbang", "sway", "jump", "pump", "twist", "point"] as const;
+export const hunterMoves = [
+  "headbang",
+  "sway",
+  "jump",
+  "pump",
+  "twist",
+  "point",
+  "twerk",
+  "front-twerk",
+  "booty-shake",
+] as const;
 
 export const hunterSyncs = ["together", "alternate", "wave"] as const;
 
@@ -174,6 +193,145 @@ function getPoint(beat: number, dancer: Dancer, size: number): DancerFrame {
   };
 }
 
+const LEG_LENGTH = 0.52;
+
+type HipMotion = { offset: Vector; rotation: Rotation };
+
+function getHips({ offset: [offsetX, offsetY, offsetZ], rotation }: HipMotion): Rotation {
+  return (vector) => {
+    const [rotatedX, rotatedY, rotatedZ] = rotation(vector);
+    return [rotatedX + offsetX, rotatedY + offsetY, rotatedZ + offsetZ];
+  };
+}
+
+function getPlantedLeg(side: number, spread: number, lean: number, hips: Rotation): Rotation {
+  const pivot: Vector = [side * 0.15, -0.1, 0];
+  const [footX, footY, footZ] = getRotation(
+    -lean,
+    0,
+    0,
+  )([side * Math.sin(spread) * LEG_LENGTH, -Math.cos(spread) * LEG_LENGTH, 0]);
+  const hip = hips(pivot);
+  const [aimX, aimY, aimZ] = normalize(
+    subtract([pivot[0] + footX, pivot[1] + footY, pivot[2] + footZ], hip),
+  );
+  const aim = getRotation(Math.asin(-aimZ), 0, Math.atan2(aimX, -aimY));
+  const [shiftX, shiftY, shiftZ] = subtract(hip, pivot);
+  return (vector) => {
+    const [aimedX, aimedY, aimedZ] = aim(vector);
+    return [aimedX + shiftX, aimedY + shiftY, aimedZ + shiftZ];
+  };
+}
+
+function getShakingLegs(
+  motion: HipMotion,
+  lean: number,
+  spread: number,
+): Pick<HunterPose, "hips" | "leftLeg" | "rightLeg"> {
+  const hips = getHips(motion);
+  return {
+    hips,
+    leftLeg: getPlantedLeg(-1, toRadians(spread), lean, hips),
+    rightLeg: getPlantedLeg(1, toRadians(spread), lean, hips),
+  };
+}
+
+function getTwerkHips(phase: number): HipMotion {
+  const bounce = getHeadbangAngle(getCycle(phase * 2));
+  const jiggle = Math.sin(phase * Math.PI);
+  return {
+    offset: [0.04 * jiggle, 0.12 * bounce, -0.12 * bounce],
+    rotation: getRotation(toRadians(-10 + 55 * bounce), 0, toRadians(12 * jiggle)),
+  };
+}
+
+function getTwerkUpperBody(phase: number, reach: number): HunterPose {
+  const bounce = getHeadbangAngle(getCycle(phase * 2));
+  const trail = getHeadbangAngle(getCycle(phase * 2 - 0.15));
+  const jiggle = Math.sin(phase * Math.PI);
+  const shimmy = Math.sin((phase - 0.1) * Math.PI);
+  return {
+    torso: getRotation(toRadians(-10 * bounce), toRadians(8 * shimmy), toRadians(-8 * shimmy)),
+    hair: getRotation(toRadians(-20 - 25 * trail), 0, toRadians(20 * jiggle)),
+    leftArm: getArmRaise(-1, 10 + 6 * shimmy, reach + 12 * bounce),
+    rightArm: getArmRaise(1, 10 - 6 * shimmy, reach + 12 * bounce),
+  };
+}
+
+function getTwerk(beat: number, dancer: Dancer, size: number): DancerFrame {
+  const phase = beat + dancer.phase;
+  const lean = toRadians(55);
+  const trail = getHeadbangAngle(getCycle(phase * 2 - 0.15));
+  return {
+    x: dancer.x + dancer.side,
+    y: BASE_Y + 2.5 + 0.5 * trail,
+    size,
+    rotate: compose(
+      getRotation(VIEW_PITCH, Math.PI + dancer.side * 0.45, 0),
+      getRotation(lean, 0, 0),
+    ),
+    pose: {
+      ...getTwerkUpperBody(phase, 65),
+      head: getRotation(
+        -lean + toRadians(20 + 10 * trail),
+        dancer.side * toRadians(-70),
+        toRadians(8 * Math.sin(phase * Math.PI)),
+      ),
+      ...getShakingLegs(getTwerkHips(phase), lean, 18),
+    },
+  };
+}
+
+function getFrontTwerk(beat: number, dancer: Dancer, size: number): DancerFrame {
+  const phase = beat + dancer.phase;
+  const lean = toRadians(45);
+  const trail = getHeadbangAngle(getCycle(phase * 2 - 0.15));
+  return {
+    x: dancer.x - dancer.side * 3,
+    y: BASE_Y + 2.5 + 0.5 * trail,
+    size,
+    rotate: compose(getRotation(VIEW_PITCH, dancer.side * 0.9, 0), getRotation(lean, 0, 0)),
+    pose: {
+      ...getTwerkUpperBody(phase, 55),
+      head: getRotation(
+        -lean + toRadians(-5 + 10 * trail),
+        dancer.side * toRadians(-60),
+        toRadians(8 * Math.sin(phase * Math.PI)),
+      ),
+      ...getShakingLegs(getTwerkHips(phase), lean, 25),
+    },
+  };
+}
+
+function getBootyShake(beat: number, dancer: Dancer, size: number): DancerFrame {
+  const phase = beat + dancer.phase;
+  const hip = Math.cos(phase * TAU);
+  const lag = Math.cos((phase - 0.12) * TAU);
+  const bob = Math.abs(Math.sin(phase * TAU));
+  const lean = toRadians(10);
+  return {
+    x: dancer.x,
+    y: BASE_Y + 1 + bob * 0.6,
+    size,
+    rotate: compose(getRotation(VIEW_PITCH, dancer.side * 0.2, 0), getRotation(lean, 0, 0)),
+    pose: {
+      torso: getRotation(toRadians(4 * bob), toRadians(10 * lag), toRadians(-12 * lag)),
+      head: getRotation(-lean + toRadians(-4 * bob), toRadians(-6 * lag), toRadians(10 * lag)),
+      hair: getRoll(toRadians(-30 * lag)),
+      leftArm: getArmRaise(-1, 145 - 25 * lag, 10 * bob),
+      rightArm: getArmRaise(1, 145 + 25 * lag, 10 * bob),
+      ...getShakingLegs(
+        {
+          offset: [0.18 * hip, 0.03 * Math.abs(hip), 0],
+          rotation: getRoll(toRadians(22 * hip)),
+        },
+        lean,
+        15,
+      ),
+    },
+  };
+}
+
 export const hunterMoveFrames: Record<
   HunterMove,
   (beat: number, dancer: Dancer, size: number) => DancerFrame
@@ -184,6 +342,9 @@ export const hunterMoveFrames: Record<
   pump: getPump,
   twist: getTwist,
   point: getPoint,
+  twerk: getTwerk,
+  "front-twerk": getFrontTwerk,
+  "booty-shake": getBootyShake,
 };
 
 const syncPhases: Record<HunterSync, readonly number[]> = {

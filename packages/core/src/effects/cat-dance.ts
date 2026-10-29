@@ -3,7 +3,14 @@ import { colorSchema, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { HEIGHT, WIDTH } from "../frame.ts";
 import { easings } from "../keyframes.ts";
-import { type Rotation, compose, createRaster, getRotation, resolveRaster } from "../mesh.ts";
+import {
+  type Rotation,
+  type Vector,
+  compose,
+  createRaster,
+  getRotation,
+  resolveRaster,
+} from "../mesh.ts";
 import { TAU, coatParams, getCoats, toRadians } from "./cat-duo.ts";
 import { type CatFace, drawEyes, eyeStyles, getCatFace, getEyelessCoat } from "./cat-face.ts";
 import { type CatPose, drawCat } from "./cat-model.ts";
@@ -17,6 +24,8 @@ export const danceMoves = [
   "conga",
   "wiggle",
   "twerk",
+  "front-twerk",
+  "booty-shake",
 ] as const;
 
 type DanceMove = (typeof danceMoves)[number];
@@ -219,6 +228,60 @@ function getTwerk(beat: number, dancer: Dancer, size: number): DancerFrame {
   };
 }
 
+const BOW_PIVOT: Vector = [0, -0.4, 0.4];
+
+function getBowFrame(
+  dancer: Dancer,
+  size: number,
+  bow: number,
+  motion: Rotation,
+  pose: CatPose,
+): DancerFrame {
+  const view = compose(getRotation(VIEW_PITCH, dancer.side * 0.75, 0), getPitch(bow));
+  const rotate = compose(view, motion);
+  const [restX, restY] = view(BOW_PIVOT);
+  const [movedX, movedY] = rotate(BOW_PIVOT);
+  return {
+    x: dancer.x + size * (restX - movedX),
+    y: BASE_Y + 1 - size * (restY - movedY),
+    size,
+    rotate,
+    pose,
+  };
+}
+
+function getFrontTwerk(beat: number, dancer: Dancer, size: number): DancerFrame {
+  const phase = beat + dancer.phase;
+  const bounce = getHeadbangAngle(getCycle(phase * 2));
+  const shake = Math.sin(phase * Math.PI);
+  const bow = toRadians(25);
+  const lift = toRadians(35 * bounce);
+  const tilt = bow + lift;
+  return getBowFrame(dancer, size, bow, getRotation(lift, 0, toRadians(-8 * shake)), {
+    head: getRotation(-tilt + toRadians(-10), dancer.side * toRadians(-35), 0),
+    tail: getRotation(toRadians(40 - 50 * bounce), 0, toRadians(40 * shake)),
+    frontLeftLeg: getPitch(-tilt - toRadians(55)),
+    frontRightLeg: getPitch(-tilt - toRadians(55)),
+    backLeftLeg: getPitch(-tilt),
+    backRightLeg: getPitch(-tilt),
+  });
+}
+
+function getBootyShake(beat: number, dancer: Dancer, size: number): DancerFrame {
+  const phase = beat + dancer.phase;
+  const hip = Math.cos(phase * TAU);
+  const bow = toRadians(30);
+  const swing = toRadians(-30 * hip);
+  return getBowFrame(dancer, size, bow, getRotation(0, swing, toRadians(8 * hip)), {
+    head: getRotation(-bow + toRadians(-10), dancer.side * toRadians(-35) - swing, 0),
+    tail: getRotation(toRadians(30), 0, toRadians(70 * hip)),
+    frontLeftLeg: getPitch(-bow - toRadians(55)),
+    frontRightLeg: getPitch(-bow - toRadians(55)),
+    backLeftLeg: getPitch(-bow),
+    backRightLeg: getPitch(-bow),
+  });
+}
+
 const moveFrames: Record<
   DanceMove,
   (beat: number, dancer: Dancer, size: number, progress: number) => DancerFrame
@@ -231,6 +294,8 @@ const moveFrames: Record<
   conga: getConga,
   wiggle: getWiggle,
   twerk: getTwerk,
+  "front-twerk": getFrontTwerk,
+  "booty-shake": getBootyShake,
 };
 
 export const catDance = defineEffect({

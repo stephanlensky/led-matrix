@@ -35,7 +35,8 @@ export const heroDance = defineEffect({
       const frame = hunterMoveFrames[params.move](beat, dancer, params.size);
       drawHero(raster, hero, {
         ...frame,
-        pose: { ...frame.pose, cape: frame.pose.hair },
+        pose: { ...frame.pose, cape: frame.pose.hair, skirt: frame.pose.hips },
+        hidden: params.move === "twerk" ? ["cape"] : [],
       });
     }
     resolveRaster(raster, image);

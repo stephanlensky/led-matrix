@@ -19,6 +19,7 @@ type Outfit = (part: HunterPart, position: Vector) => Color;
 type HairStyle = "bob" | "braid" | "ponytail";
 
 export type HunterJoint =
+  | "hips"
   | "torso"
   | "head"
   | "hair"
@@ -49,6 +50,7 @@ const CAMERA_DISTANCE = 6;
 const MODEL_CENTER: Vector = [0, 0.4, 0];
 
 const JOINT_PARENTS: readonly [joint: HunterJoint, parent?: HunterJoint][] = [
+  ["hips"],
   ["torso"],
   ["head", "torso"],
   ["hair", "head"],
@@ -134,12 +136,13 @@ function createHunterModel(style: HairStyle, baggy: boolean, skirt: boolean): Hu
   const hair = createMesh<HunterPart>();
   addHair(head, hair, style);
   const groups: HunterGroup[] = [
-    { mesh: hips },
+    { joint: "hips", mesh: hips },
     { joint: "torso", mesh: torso },
     { joint: "head", mesh: head },
     { joint: "hair", mesh: hair },
   ];
   const pivots: Record<HunterJoint, Vector> = {
+    hips: [0, 0, 0],
     torso: [0, 0.1, 0],
     head: [0, 0.6, 0],
     hair: HAIR_PIVOTS[style],
