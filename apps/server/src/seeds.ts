@@ -89,67 +89,6 @@ const MULTI_PALETTES: Readonly<Record<string, Palette>> = {
 
 const PALETTES = { ...SINGLE_PALETTES, ...MULTI_PALETTES };
 
-const RED_SHADES: Readonly<Record<string, string>> = {
-  Red: RED,
-  "Fresh blood": FRESH_BLOOD_COLOR,
-  Blood: BLOOD_COLOR,
-  "Dried blood": DRIED_BLOOD_COLOR,
-};
-
-const STROBE_SHADES: Readonly<Record<string, string>> = {
-  Orange: ORANGE,
-  Purple: PURPLE,
-  Green: GREEN,
-  Cyan: CYAN,
-  "Hot pink": PINK,
-  Pink: HEART_PINK,
-  "Light pink": LIGHT_PINK,
-  "Pastel pink": PASTEL_PINK,
-};
-
-function getShadeStrobePalettes(
-  shades: Readonly<Record<string, string>>,
-): Readonly<Record<string, Palette>> {
-  return Object.fromEntries(
-    Object.entries(shades).flatMap(([name, color]) => [
-      [`${name}/white`, [color, WHITE]],
-      [`${name}/black`, [color, BLACK]],
-      [`${name}/white/black`, [color, WHITE, BLACK]],
-      [`${name}/black/white/black`, [color, BLACK, WHITE, BLACK]],
-    ]),
-  );
-}
-
-const MIXED_RED_STROBE_PALETTES: Readonly<Record<string, Palette>> = {
-  "Bloodbath/white": [DRIED_BLOOD_COLOR, BLOOD_COLOR, FRESH_BLOOD_COLOR, WHITE],
-  "Bloodbath/black": [FRESH_BLOOD_COLOR, BLOOD_COLOR, DRIED_BLOOD_COLOR, BLACK],
-  "Red/blood/white": [RED, BLOOD_COLOR, WHITE],
-  "Red/fresh blood/white/black": [RED, WHITE, FRESH_BLOOD_COLOR, BLACK],
-  "Fresh blood/dried blood/white/black": [FRESH_BLOOD_COLOR, WHITE, DRIED_BLOOD_COLOR, BLACK],
-  "Red/blood/black/white": [RED, BLACK, BLOOD_COLOR, WHITE],
-  "Blood/dried blood/black": [BLOOD_COLOR, DRIED_BLOOD_COLOR, BLACK],
-};
-
-const MIXED_PINK_STROBE_PALETTES: Readonly<Record<string, Palette>> = {
-  "Pinks/white": [PINK, HEART_PINK, LIGHT_PINK, WHITE],
-  "Pinks/black": [PINK, HEART_PINK, LIGHT_PINK, BLACK],
-  "Hot pink/light pink/white/black": [PINK, WHITE, LIGHT_PINK, BLACK],
-  "Pink/pastel pink/black/white": [HEART_PINK, BLACK, PASTEL_PINK, WHITE],
-  "Pink/cyan/white": [PINK, CYAN, WHITE],
-  "Pink/cyan/black": [PINK, CYAN, BLACK],
-  "Pink/white/cyan/black": [PINK, WHITE, CYAN, BLACK],
-  "Pink/black/cyan/white": [PINK, BLACK, CYAN, WHITE],
-};
-
-const STROBE_PALETTES: Readonly<Record<string, Palette>> = {
-  ...SINGLE_PALETTES,
-  ...MULTI_PALETTES,
-  ...getShadeStrobePalettes(RED_SHADES),
-  ...MIXED_RED_STROBE_PALETTES,
-  ...getShadeStrobePalettes(STROBE_SHADES),
-  ...MIXED_PINK_STROBE_PALETTES,
-};
-
 const PALETTE_KEYS = ["color1", "color2", "color3", "color4", "colorCount"] as const;
 
 function getReferences(keys: readonly string[]): Record<string, { param: string }> {
@@ -209,19 +148,6 @@ function getPaletteParameter(
   );
 }
 
-function getStrobeColorParameter(defaultOption: string): Parameter {
-  return getParameter(
-    "Color",
-    Object.fromEntries(
-      Object.entries(STROBE_PALETTES).map(([name, palette]) => [
-        name,
-        { ...getPaletteValues(palette), duty: palette.length === 1 ? 0.2 : 1 },
-      ]),
-    ),
-    defaultOption,
-  );
-}
-
 function getBackgroundColorParameter(defaultOption: string): Parameter {
   return getPaletteParameter(PALETTES, defaultOption, (palette) =>
     palette.length === 1 ? [...palette, BLACK] : palette,
@@ -268,6 +194,20 @@ function getDimColor(color: string, amount: number): string {
 const SINGLE_COLORS = Object.fromEntries(
   Object.entries(SINGLE_PALETTES).map(([name, [color]]) => [name, color]),
 );
+
+const FLASH_COLORS: Readonly<Record<string, string>> = { ...SINGLE_COLORS, Black: BLACK };
+
+const FLASH_COLOR_KEYS = ["A", "B", "C", "D"] as const;
+
+function getFlashColorParameters(defaultColor: string): Parameter[] {
+  return FLASH_COLOR_KEYS.map((key, index) =>
+    index === 0
+      ? getValueParameter(`Color ${key}`, `color${key}`, FLASH_COLORS, defaultColor)
+      : getValueParameter(`Color ${key}`, `color${key}`, { None: "none", ...FLASH_COLORS }, "None"),
+  );
+}
+
+const flashColorParams = getReferences(FLASH_COLOR_KEYS.map((key) => `color${key}`));
 
 const danceSpeedParameter = getValueParameter(
   "Speed",
@@ -2029,14 +1969,16 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         {
           effect: "color-flash",
           params: {
-            ...paletteParams,
-            ...getReferences(["flashesPerBeat", "duty"]),
+            ...flashColorParams,
+            flashesPerBeat: { param: "flashesPerBeat" },
+            duty: 1,
+            singleColorDuty: 0.2,
             fade: 0,
           },
         },
       ],
       [
-        getStrobeColorParameter("White"),
+        ...getFlashColorParameters("White"),
         getValueParameter(
           "Speed",
           "flashesPerBeat",
@@ -2052,13 +1994,13 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
         {
           effect: "color-flash",
           params: {
-            ...paletteParams,
+            ...flashColorParams,
             ...getReferences(["flashesPerBeat", "duty", "fade", "reverse"]),
           },
         },
       ],
       [
-        getLightColorParameter("Orange"),
+        ...getFlashColorParameters("Orange"),
         getValueParameter("Speed", "flashesPerBeat", flashSpeeds, "Beat"),
         getParameter(
           "Style",

@@ -6,34 +6,39 @@ import { easingNames, easings } from "../keyframes.ts";
 import { getVisibleFlash } from "./flash.ts";
 import { getPalette, getPaletteColor, mixColors, paletteParams } from "./palette.ts";
 
+const flashColorSchema = z
+  .string()
+  .regex(/^(none|#[0-9a-f]{6})$/i, "Expected a #rrggbb color or none");
+
 export const colorFlash = defineEffect({
   id: "color-flash",
   name: "Color flash",
   kind: "pixel",
   params: z.object({
-    ...paletteParams,
+    colorA: colorSchema.default("#ffffff"),
+    colorB: flashColorSchema.default("none"),
+    colorC: flashColorSchema.default("none"),
+    colorD: flashColorSchema.default("none"),
     flashesPerBeat: z.number().positive().max(16).default(1),
     duty: z.number().min(0).max(1).default(1),
+    singleColorDuty: z.number().min(0).max(1).optional(),
     fade: z.number().min(0).max(1).default(0),
     background: colorSchema.default("#000000"),
     reverse: z.boolean().default(false),
   }),
   render(image, { params, beat, bpm, fps }) {
-    const flash = getVisibleFlash(
-      beat,
-      params.flashesPerBeat,
-      params.duty,
-      bpm,
-      fps,
-      params.reverse,
-    );
+    const palette = [params.colorA, params.colorB, params.colorC, params.colorD]
+      .filter((color) => color !== "none")
+      .map(parseColor);
+    const duty = palette.length === 1 ? (params.singleColorDuty ?? params.duty) : params.duty;
+    const flash = getVisibleFlash(beat, params.flashesPerBeat, duty, bpm, fps, params.reverse);
     const background = parseColor(params.background);
     if (!flash) {
       fillRgbaImage(image, background);
       return;
     }
     const { index, progress } = flash;
-    const color = getPaletteColor(getPalette(params), index);
+    const color = getPaletteColor(palette, index);
     const intensity = 1 - params.fade * progress;
     fillRgbaImage(image, mixColors(background, color, intensity));
   },

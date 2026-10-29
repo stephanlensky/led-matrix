@@ -326,22 +326,22 @@ describe("playback", () => {
     const played = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/play",
-      body: { id: "strobe", params: { Color: "Orange" } },
+      body: { id: "strobe", params: { "Color A": "Orange" } },
     });
     expect(played.json()).toMatchObject({
       animationId: "strobe",
-      params: { Color: "Orange", Speed: "Double" },
+      params: { "Color A": "Orange", "Color B": "None", Speed: "Double" },
     });
     const defaulted = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/play",
       body: { id: "strobe" },
     });
-    expect(defaulted.json()).toMatchObject({ params: { Color: "White", Speed: "Double" } });
+    expect(defaulted.json()).toMatchObject({ params: { "Color A": "White", Speed: "Double" } });
     const missing = await app.inject({
       method: "POST",
       url: "/api/outputs/simulator/play",
-      body: { id: "strobe", params: { Color: "Missing" } },
+      body: { id: "strobe", params: { "Color A": "Missing" } },
     });
     expect(missing.statusCode).toBe(400);
     const changed = await app.inject({
@@ -351,7 +351,7 @@ describe("playback", () => {
     });
     expect(changed.json()).toMatchObject({
       animationId: "strobe",
-      params: { Color: "White", Speed: "Quad" },
+      params: { "Color A": "White", Speed: "Quad" },
     });
   });
 
@@ -488,7 +488,13 @@ describe("playback", () => {
         type: "state",
         state: {
           animationId: "strobe",
-          params: { Color: "White", Speed: "Double" },
+          params: {
+            "Color A": "White",
+            "Color B": "None",
+            "Color C": "None",
+            "Color D": "None",
+            Speed: "Double",
+          },
           bpm: 120,
           fps: 30,
           beat: expect.any(Number),
