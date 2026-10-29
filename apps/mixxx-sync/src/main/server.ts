@@ -1,9 +1,11 @@
 import {
+  type ClipInfo,
   type Output,
   type PlaybackState,
   type ParameterSelection,
   type StoredAnimation,
   type TimelineCue,
+  clipInfoSchema,
   playbackStateSchema,
   storedAnimationSchema,
 } from "@led-matrix/core";
@@ -63,37 +65,79 @@ export type ServerClient = {
   setClock(request: ClockRequest): Promise<PlaybackState>;
 };
 
-export function createServerClient(baseUrl: string, output: Output): ServerClient {
-  async function request<T>(schema: z.ZodType<T>, path: string, body?: unknown): Promise<T> {
-    const url = new URL(path, baseUrl);
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: body === undefined ? "GET" : "POST",
-        headers: body === undefined ? undefined : { "content-type": "application/json" },
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: AbortSignal.timeout(2000),
-      });
-    } catch (error) {
-      throw new Error(`${url.href}: ${getFetchErrorMessage(error)}`, { cause: error });
-    }
-    if (!response.ok) {
-      throw new ServerError(
-        response.status,
-        `${path}: ${response.status} ${await response.text()}`,
-      );
-    }
-    return schema.parse(await response.json());
-  }
+export type ContentSource = {
+  getAnimations(): Promise<StoredAnimation[]>;
+  getClips(): Promise<ClipInfo[]>;
+  getClipFrames(id: string): Promise<Uint8Array>;
+};
 
-  const outputPath = `/api/outputs/${output}`;
+const REQUEST_TIMEOUT = 2000;
+const CLIP_FRAMES_TIMEOUT = 30_000;
+
+async function send(
+  baseUrl: string,
+  path: string,
+  body?: unknown,
+  timeout = REQUEST_TIMEOUT,
+): Promise<Response> {
+  const url = new URL(path, baseUrl);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: body === undefined ? "GET" : "POST",
+      headers: body === undefined ? undefined : { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(timeout),
+    });
+  } catch (error) {
+    throw new Error(`${url.href}: ${getFetchErrorMessage(error)}`, { cause: error });
+  }
+  if (!response.ok) {
+    throw new ServerError(response.status, `${path}: ${response.status} ${await response.text()}`);
+  }
+  return response;
+}
+
+async function request<T>(
+  baseUrl: string,
+  schema: z.ZodType<T>,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  return schema.parse(await (await send(baseUrl, path, body)).json());
+}
+
+function getAnimations(baseUrl: string): Promise<StoredAnimation[]> {
+  return request(baseUrl, storedAnimationSchema.array(), "/api/animations");
+}
+
+export function createServerContent(baseUrl: string): ContentSource {
   return {
-    getState: () => request(playbackStateSchema, outputPath),
-    getAnimations: () => request(storedAnimationSchema.array(), "/api/animations"),
-    play: (body) => request(playbackStateSchema, `${outputPath}/play`, body),
-    stop: () => request(playbackStateSchema, `${outputPath}/stop`, {}),
-    pause: () => request(playbackStateSchema, `${outputPath}/pause`, {}),
-    setTimeline: (body) => request(playbackStateSchema, `${outputPath}/timeline`, body),
-    setClock: (body) => request(playbackStateSchema, `${outputPath}/clock`, body),
+    getAnimations: () => getAnimations(baseUrl),
+    getClips: () => request(baseUrl, clipInfoSchema.array(), "/api/clips"),
+    async getClipFrames(id) {
+      const response = await send(
+        baseUrl,
+        `/api/clips/${encodeURIComponent(id)}/frames`,
+        undefined,
+        CLIP_FRAMES_TIMEOUT,
+      );
+      return new Uint8Array(await response.arrayBuffer());
+    },
+  };
+}
+
+export function createServerClient(baseUrl: string, output: Output): ServerClient {
+  const outputPath = `/api/outputs/${output}`;
+  const requestState = (path: string, body?: unknown) =>
+    request(baseUrl, playbackStateSchema, path, body);
+  return {
+    getState: () => requestState(outputPath),
+    getAnimations: () => getAnimations(baseUrl),
+    play: (body) => requestState(`${outputPath}/play`, body),
+    stop: () => requestState(`${outputPath}/stop`, {}),
+    pause: () => requestState(`${outputPath}/pause`, {}),
+    setTimeline: (body) => requestState(`${outputPath}/timeline`, body),
+    setClock: (body) => requestState(`${outputPath}/clock`, body),
   };
 }

@@ -14,7 +14,7 @@ import {
 } from "./render-protocol.ts";
 import { createClipStore, createRenderService, getErrorMessage } from "./render-service.ts";
 
-const { fps, bpm, devicePath }: RenderOptions = renderOptionsSchema.parse(
+const { fps, bpm, devicePath, latencyOffset }: RenderOptions = renderOptionsSchema.parse(
   JSON.parse(process.argv[2] ?? "{}"),
 );
 
@@ -43,7 +43,12 @@ const transport = createSerialTransport({
   path: devicePath,
   onError: (error) => log(`Serial device error: ${getErrorMessage(error)}`),
 });
-const device = createDeviceLink({ engine, transport, onLog: (text) => log(`Device: ${text}`) });
+const device = createDeviceLink({
+  engine,
+  transport,
+  latencyOffset,
+  onLog: (text) => log(`Device: ${text}`),
+});
 device.subscribe((state) =>
   send({ type: "device", state: { ...state, path: transport.getPath() } }),
 );

@@ -6,6 +6,7 @@ export const renderOptionsSchema = z.object({
   fps: z.number().positive().default(30),
   bpm: z.number().positive().default(120),
   devicePath: z.string().optional(),
+  latencyOffset: z.number().default(0),
 });
 
 export type RenderOptions = z.infer<typeof renderOptionsSchema>;
