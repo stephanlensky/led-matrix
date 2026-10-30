@@ -2029,6 +2029,40 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
       loveColorParameter,
     ],
   ),
+  "cat-balloon-meet": {
+    name: "Cat heart balloons meet",
+    parameters: [
+      getValueParameter("Cat", "cat", { Black: "black", Tabby: "tabby" }, "Black"),
+      loveEyesParameter,
+      lovePulseParameter,
+      loveColorParameter,
+    ],
+    sections: [
+      {
+        name: "Meet",
+        mode: { type: "once", beats: 16 },
+        layers: [
+          {
+            effect: "cat-balloon-meet",
+            params: { ...getReferences(["cat", "every", "eyes", "heartColor"]), phase: "meet" },
+          },
+        ],
+      },
+      {
+        name: "Together",
+        mode: { type: "loop", beats: 16 },
+        layers: [
+          {
+            effect: "cat-balloon-meet",
+            params: {
+              ...getReferences(["cat", "every", "eyes", "heartColor"]),
+              phase: "together",
+            },
+          },
+        ],
+      },
+    ],
+  },
   "frieren-love-solo": getHeroSolo("Frieren love solo", "frieren"),
   "himmel-love-solo": getHeroSolo("Himmel love solo", "himmel"),
   "love-cat-solo": getLoop(

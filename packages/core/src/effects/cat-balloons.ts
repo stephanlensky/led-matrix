@@ -2,12 +2,19 @@ import { z } from "zod";
 import { colorSchema, getShiftedHue, parseColor } from "../color.ts";
 import { defineEffect } from "../effect.ts";
 import { type Color, HEIGHT, type RgbaImage, WIDTH } from "../frame.ts";
-import { compose, createRaster, getRotation, resolveRaster } from "../mesh.ts";
+import { type Vector, compose, createRaster, getRotation, resolveRaster } from "../mesh.ts";
 import { createRandom, getRandomBetween, hashSeed } from "../random.ts";
 import { TAU, catIds, furParams, getCoat, toRadians } from "./cat-duo.ts";
 import { VIEW_PITCH, getCycle } from "./cat-dance.ts";
-import { drawEyes, eyeStyles, getCatFace, getEyelessCoat } from "./cat-face.ts";
-import { type CatPlacement, drawCat, getCatPoint, getJointAim, mix } from "./cat-model.ts";
+import { type EyeStyle, drawEyes, eyeStyles, getCatFace, getEyelessCoat } from "./cat-face.ts";
+import {
+  type CatPlacement,
+  type Coat,
+  drawCat,
+  getCatPoint,
+  getJointAim,
+  mix,
+} from "./cat-model.ts";
 import { blendPixel, drawHeart } from "./heart.ts";
 import { getBeatKick } from "./heart-pulse.ts";
 import { drawLine } from "./vocal-shapes.ts";
@@ -24,7 +31,7 @@ const BALLOONS = [
   [12, -16, 9, 0.6],
 ] as const;
 
-function drawStreaks(image: RgbaImage, beat: number, color: Color): void {
+export function drawStreaks(image: RgbaImage, beat: number, color: Color): void {
   for (let index = 0; index < STREAK_COUNT; index++) {
     const random = createRandom(hashSeed(STREAK_SEED, index));
     const x = Math.round(getRandomBetween(random, 1, WIDTH - 1));
@@ -34,6 +41,114 @@ function drawStreaks(image: RgbaImage, beat: number, color: Color): void {
     for (let step = 0; step < 3; step++) {
       blendPixel(image, x, Math.round(y) - step, tint, 0.7 - 0.25 * step);
     }
+  }
+}
+
+export type BalloonCat = {
+  x: number;
+  y: number;
+  size: number;
+  beat: number;
+  drift: number;
+  kick: number;
+  turn?: number;
+  roll?: number;
+  tilt?: number;
+  reach?: Vector;
+  spread?: number;
+  balloonShift?: number;
+};
+
+export function getBalloonColors(heart: Color): Color[] {
+  return [heart, mix(heart, WHITE, 0.45), getShiftedHue(heart, 0.06)];
+}
+
+export function getBalloonCatPlacement(cat: BalloonCat): CatPlacement {
+  const { beat, drift, kick, turn = 0, roll = 0, tilt = 0 } = cat;
+  const bob = Math.sin((beat / 2) * TAU);
+  const kickLeg = Math.sin(beat * Math.PI);
+  const rotate = compose(
+    getRotation(VIEW_PITCH, toRadians(18 * drift) + turn, toRadians(-6 * drift) + roll),
+    getRotation(STAND, 0, 0),
+  );
+  return {
+    x: cat.x,
+    y: cat.y + 1.5 * bob,
+    size: cat.size,
+    rotate,
+    pose: {
+      head: getRotation(-STAND + toRadians(-14 - 6 * kick), 0, toRadians(8 * bob) + tilt),
+      tail: getRotation(toRadians(40), 0, toRadians(40 * Math.sin(beat * Math.PI * 0.5))),
+      frontLeftLeg: getJointAim(rotate, cat.reach ?? [-0.6, -0.5 + 0.4 * bob, 0.5]),
+      frontRightLeg: getJointAim(rotate, [0.75, 0.75, 0.3]),
+      backLeftLeg: getJointAim(rotate, [-0.15 + 0.25 * kickLeg, -1, 0.3 * kickLeg]),
+      backRightLeg: getJointAim(rotate, [0.15 + 0.25 * kickLeg, -1, -0.3 * kickLeg]),
+    },
+  };
+}
+
+export function drawBalloonCat(
+  raster: ReturnType<typeof createRaster>,
+  placement: CatPlacement,
+  coat: Coat,
+  eyes: EyeStyle,
+): void {
+  drawCat(raster, placement, eyes === "open" ? coat : getEyelessCoat(coat));
+}
+
+export function drawBalloons(
+  image: RgbaImage,
+  placement: CatPlacement,
+  { beat, drift, kick, spread = 0, balloonShift = 0 }: BalloonCat,
+  colors: readonly Color[],
+): void {
+  const [pawX, pawY] = getCatPoint(
+    placement,
+    [PAW_TIP[0], PAW_TIP[1], PAW_TIP[2]],
+    "frontRightLeg",
+  );
+  for (const [index, [dx, dy, size, lag]] of BALLOONS.entries()) {
+    const sway = Math.sin(((beat - lag) / 2) * TAU) * 1.5 - 2 * drift;
+    const x = pawX + dx + sway + spread * (1 - index * 0.2) + balloonShift;
+    const y = pawY + dy + Math.sin(((beat - lag) / 2) * TAU + 1) * 0.8;
+    const swell = 1 + 0.12 * kick;
+    drawLine(image, [pawX, pawY], [x, y + size * 0.45], 1, STRING, 0.8);
+    const color = colors[index] ?? WHITE;
+    drawHeart(image, {
+      x,
+      y,
+      size: size * swell,
+      color,
+      outline: mix(color, WHITE, 0.5),
+      angle: sway * 0.05,
+    });
+    drawHeart(image, {
+      x: x - size * 0.22,
+      y: y - size * 0.18,
+      size: size * 0.18,
+      color: mix(color, WHITE, 0.75),
+    });
+  }
+}
+
+export function drawBalloonCatEyes(
+  image: RgbaImage,
+  placement: CatPlacement,
+  eyes: EyeStyle,
+  eyeColor: Color,
+  heart: Color,
+  kick: number,
+): void {
+  if (eyes !== "open") {
+    drawEyes(
+      image,
+      getCatFace(placement),
+      eyes,
+      eyeColor,
+      heart,
+      1 + 0.3 * kick,
+      placement.size * 0.32,
+    );
   }
 }
 
@@ -52,71 +167,29 @@ export const catBalloons = defineEffect({
   }),
   render(image, { params, beat }) {
     const heart = parseColor(params.heartColor);
-    const colors: Color[] = [heart, mix(heart, WHITE, 0.45), getShiftedHue(heart, 0.06)];
     const { kick } = getBeatKick(beat, params.every);
     const drift = Math.sin((beat / 8) * TAU);
-    const bob = Math.sin((beat / 2) * TAU);
-    const kickLeg = Math.sin(beat * Math.PI);
     drawStreaks(image, beat, mix(heart, WHITE, 0.3));
-    const raster = createRaster();
-    const rotate = compose(
-      getRotation(VIEW_PITCH, toRadians(18 * drift), toRadians(-6 * drift)),
-      getRotation(STAND, 0, 0),
-    );
-    const placement: CatPlacement = {
+    const cat: BalloonCat = {
       x: WIDTH / 2 - 6 + 4 * drift,
-      y: 47 + 1.5 * bob,
+      y: 47,
       size: params.size,
-      rotate,
-      pose: {
-        head: getRotation(-STAND + toRadians(-14 - 6 * kick), 0, toRadians(8 * bob)),
-        tail: getRotation(toRadians(40), 0, toRadians(40 * Math.sin(beat * Math.PI * 0.5))),
-        frontLeftLeg: getJointAim(rotate, [-0.6, -0.5 + 0.4 * bob, 0.5]),
-        frontRightLeg: getJointAim(rotate, [0.75, 0.75, 0.3]),
-        backLeftLeg: getJointAim(rotate, [-0.15 + 0.25 * kickLeg, -1, 0.3 * kickLeg]),
-        backRightLeg: getJointAim(rotate, [0.15 + 0.25 * kickLeg, -1, -0.3 * kickLeg]),
-      },
+      beat,
+      drift,
+      kick,
     };
-    const coat = getCoat(params);
-    drawCat(raster, placement, params.eyes === "open" ? coat : getEyelessCoat(coat));
-    const [pawX, pawY] = getCatPoint(
-      placement,
-      [PAW_TIP[0], PAW_TIP[1], PAW_TIP[2]],
-      "frontRightLeg",
-    );
+    const placement = getBalloonCatPlacement(cat);
+    const raster = createRaster();
+    drawBalloonCat(raster, placement, getCoat(params), params.eyes);
     resolveRaster(raster, image);
-    for (const [index, [dx, dy, size, lag]] of BALLOONS.entries()) {
-      const sway = Math.sin(((beat - lag) / 2) * TAU) * 1.5 - 2 * drift;
-      const x = pawX + dx + sway;
-      const y = pawY + dy + Math.sin(((beat - lag) / 2) * TAU + 1) * 0.8;
-      const swell = 1 + 0.12 * kick;
-      drawLine(image, [pawX, pawY], [x, y + size * 0.45], 1, STRING, 0.8);
-      const color = colors[index] ?? heart;
-      drawHeart(image, {
-        x,
-        y,
-        size: size * swell,
-        color,
-        outline: mix(color, WHITE, 0.5),
-        angle: sway * 0.05,
-      });
-      drawHeart(image, {
-        x: x - size * 0.22,
-        y: y - size * 0.18,
-        size: size * 0.18,
-        color: mix(color, WHITE, 0.75),
-      });
-    }
-    if (params.eyes !== "open") {
-      drawEyes(
-        image,
-        getCatFace(placement),
-        params.eyes,
-        parseColor(params.cat === "tabby" ? params.tabbyEyeColor : params.eyeColor),
-        heart,
-        1 + 0.3 * kick,
-        params.size * 0.32,
-      );
-    }
+    drawBalloons(image, placement, cat, getBalloonColors(heart));
+    drawBalloonCatEyes(
+      image,
+      placement,
+      params.eyes,
+      parseColor(params.cat === "tabby" ? params.tabbyEyeColor : params.eyeColor),
+      heart,
+      kick,
+    );
   },
 });
