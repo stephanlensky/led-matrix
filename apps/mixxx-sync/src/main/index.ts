@@ -22,6 +22,8 @@ import { createLocalClient } from "./local-client.ts";
 import { createMappingFile } from "./mapping-file.ts";
 import { createMixxxLibrary } from "./mixxx-library.ts";
 import { createOutput, getOutputKey } from "./output.ts";
+import { createRecordingLibrary } from "./recording-library.ts";
+import { createRecordingPlayer } from "./recording-player.ts";
 import { createServerContent } from "./server.ts";
 import { getDefaultSettings, getStoredSettings, setStoredSettings } from "./settings.ts";
 import { createTrackAudioHandler } from "./track-audio.ts";
@@ -141,6 +143,11 @@ const daemon = createDaemon({
   onPosition: (position) => send(channels.position, position),
 });
 const editorOutput = createEditorOutput(() => output.getClient(), log);
+const recordingLibrary = createRecordingLibrary();
+const recordingPlayer = createRecordingPlayer({
+  onState: (state) => send(channels.recordingPlayer, state),
+  onFrame: (frame, positionMs) => send(channels.recordingFrame, { frame, positionMs }),
+});
 
 ipcMain.handle(channels.getSettings, () => settings);
 const fileFilters: Record<FileSetting, Electron.FileFilter[]> = {
@@ -198,6 +205,29 @@ ipcMain.handle(channels.setLocalRecording, async (_event, isRecording: boolean) 
   await output.getLocal()?.setRecording(isRecording ? settings.recordingDirectory : null);
   return getLocalDevice();
 });
+ipcMain.handle(channels.getRecordingFiles, () =>
+  recordingLibrary.getFiles(settings.recordingDirectory),
+);
+ipcMain.handle(channels.showRecordingDialog, async (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  const options = {
+    defaultPath: settings.recordingDirectory,
+    filters: [{ name: "Recording", extensions: ["mkv"] }],
+    properties: ["openFile" as const],
+  };
+  const result = window
+    ? await dialog.showOpenDialog(window, options)
+    : await dialog.showOpenDialog(options);
+  return result.filePaths[0];
+});
+ipcMain.handle(channels.openRecording, (_event, path: string) => recordingPlayer.open(path));
+ipcMain.handle(channels.getRecordingPlayer, () => recordingPlayer.getState());
+ipcMain.on(channels.playRecording, () => recordingPlayer.play());
+ipcMain.on(channels.pauseRecording, () => recordingPlayer.pause());
+ipcMain.on(channels.seekRecording, (_event, positionMs: number) =>
+  recordingPlayer.seek(positionMs),
+);
+ipcMain.on(channels.closeRecording, () => recordingPlayer.close());
 ipcMain.on(channels.setLocalFrameStream, (event, isEnabled: boolean) =>
   setFrameSubscriber(event.sender, isEnabled),
 );
@@ -285,6 +315,7 @@ app.on("activate", () => {
 
 app.on("window-all-closed", () => {
   daemon.stop();
+  recordingPlayer.close();
   library.close();
   mappingFile.close();
   uiState.flush();

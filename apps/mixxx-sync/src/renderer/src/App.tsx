@@ -1,19 +1,21 @@
 import { Navigation, type NavigationItem } from "@led-matrix/ui/components/navigation";
 import { TooltipProvider } from "@led-matrix/ui/components/tooltip";
-import { CpuIcon, PencilRulerIcon, RadioTowerIcon, SettingsIcon } from "lucide-react";
+import { CpuIcon, FilmIcon, PencilRulerIcon, RadioTowerIcon, SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import { Daemon } from "./Daemon.tsx";
 import { Device } from "./Device.tsx";
 import { Editor } from "./Editor.tsx";
+import { Recordings } from "./Recordings.tsx";
 import { Settings } from "./Settings.tsx";
 import { useStoredState } from "./useStoredState.ts";
 
-type View = "daemon" | "device" | "editor" | "settings";
+type View = "daemon" | "device" | "editor" | "recordings" | "settings";
 
 const views: readonly NavigationItem<View>[] = [
   { id: "daemon", label: "Daemon", icon: RadioTowerIcon },
   { id: "device", label: "Device", icon: CpuIcon },
   { id: "editor", label: "Editor", icon: PencilRulerIcon },
+  { id: "recordings", label: "Recordings", icon: FilmIcon },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -42,6 +44,7 @@ export function App() {
               <Editor />
             </div>
           )}
+          {view === "recordings" && <Recordings />}
           <div className={view === "settings" ? "contents" : "hidden"}>
             <Settings />
           </div>

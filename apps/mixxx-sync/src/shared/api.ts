@@ -101,6 +101,41 @@ export const idleRecordingState: RecordingState = {
   error: null,
 };
 
+export type RecordingInfo = {
+  path: string;
+  fps: number;
+  frameCount: number;
+  durationMs: number;
+};
+
+export type RecordingPlayerState = {
+  info: RecordingInfo | null;
+  positionMs: number;
+  isPlaying: boolean;
+  error: string | null;
+};
+
+export const idleRecordingPlayerState: RecordingPlayerState = {
+  info: null,
+  positionMs: 0,
+  isPlaying: false,
+  error: null,
+};
+
+export type RecordingPlayerFrame = {
+  frame: Uint8Array;
+  positionMs: number;
+};
+
+export type RecordingFile = {
+  path: string;
+  name: string;
+  recordedAt: number;
+  bytes: number;
+  durationMs: number | null;
+  thumbnail: Uint8Array | null;
+};
+
 export type LocalDevice = {
   device: LocalDeviceState;
   content: ContentState;
@@ -126,6 +161,17 @@ export type Api = {
   getLocalDevice(): Promise<LocalDevice | undefined>;
   setLocalBrightness(brightness: number): Promise<LocalDevice | undefined>;
   setLocalRecording(isRecording: boolean): Promise<LocalDevice | undefined>;
+  getRecordingFiles(): Promise<RecordingFile[]>;
+  showRecordingDialog(): Promise<string | undefined>;
+  getPathForFile(file: File): string;
+  openRecording(path: string): Promise<RecordingPlayerState>;
+  getRecordingPlayer(): Promise<RecordingPlayerState>;
+  playRecording(): void;
+  pauseRecording(): void;
+  seekRecording(positionMs: number): void;
+  closeRecording(): void;
+  onRecordingPlayer(listener: (state: RecordingPlayerState) => void): () => void;
+  onRecordingFrame(listener: (frame: RecordingPlayerFrame) => void): () => void;
   getStatus(): Promise<DaemonStatus>;
   getLog(): Promise<LogEntry[]>;
   start(): Promise<void>;
@@ -157,6 +203,16 @@ export const channels = {
   getLocalDevice: "local:get-device",
   setLocalBrightness: "local:set-brightness",
   setLocalRecording: "local:set-recording",
+  getRecordingFiles: "recordings:get-files",
+  showRecordingDialog: "recordings:show-dialog",
+  openRecording: "recording-player:open",
+  getRecordingPlayer: "recording-player:get",
+  playRecording: "recording-player:play",
+  pauseRecording: "recording-player:pause",
+  seekRecording: "recording-player:seek",
+  closeRecording: "recording-player:close",
+  recordingPlayer: "recording-player:changed",
+  recordingFrame: "recording-player:frame",
   setLocalFrameStream: "local:set-frame-stream",
   localFrame: "local:frame",
   getStatus: "daemon:get-status",

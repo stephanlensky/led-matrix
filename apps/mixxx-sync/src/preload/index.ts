@@ -1,10 +1,12 @@
 import type { Frame } from "@led-matrix/core";
-import { type IpcRendererEvent, contextBridge, ipcRenderer } from "electron";
+import { type IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from "electron";
 import {
   type Api,
   type DaemonStatus,
   type LivePosition,
   type LogEntry,
+  type RecordingPlayerFrame,
+  type RecordingPlayerState,
   type Settings,
   type UiState,
   channels,
@@ -18,6 +20,8 @@ type Events = {
   [channels.position]: LivePosition | undefined;
   [channels.mapping]: MappingState;
   [channels.localFrame]: Frame;
+  [channels.recordingPlayer]: RecordingPlayerState;
+  [channels.recordingFrame]: RecordingPlayerFrame;
 };
 
 function subscribe<C extends keyof Events>(
@@ -39,6 +43,15 @@ const api: Api = {
   getLocalDevice: () => ipcRenderer.invoke(channels.getLocalDevice),
   setLocalBrightness: (brightness) => ipcRenderer.invoke(channels.setLocalBrightness, brightness),
   setLocalRecording: (isRecording) => ipcRenderer.invoke(channels.setLocalRecording, isRecording),
+  getRecordingFiles: () => ipcRenderer.invoke(channels.getRecordingFiles),
+  showRecordingDialog: () => ipcRenderer.invoke(channels.showRecordingDialog),
+  getPathForFile: (file) => webUtils.getPathForFile(file),
+  openRecording: (path) => ipcRenderer.invoke(channels.openRecording, path),
+  getRecordingPlayer: () => ipcRenderer.invoke(channels.getRecordingPlayer),
+  playRecording: () => ipcRenderer.send(channels.playRecording),
+  pauseRecording: () => ipcRenderer.send(channels.pauseRecording),
+  seekRecording: (positionMs) => ipcRenderer.send(channels.seekRecording, positionMs),
+  closeRecording: () => ipcRenderer.send(channels.closeRecording),
   getStatus: () => ipcRenderer.invoke(channels.getStatus),
   getLog: () => ipcRenderer.invoke(channels.getLog),
   start: () => ipcRenderer.invoke(channels.start),
@@ -61,6 +74,8 @@ const api: Api = {
   onLog: (listener) => subscribe(channels.log, listener),
   onPosition: (listener) => subscribe(channels.position, listener),
   onMapping: (listener) => subscribe(channels.mapping, listener),
+  onRecordingPlayer: (listener) => subscribe(channels.recordingPlayer, listener),
+  onRecordingFrame: (listener) => subscribe(channels.recordingFrame, listener),
   onLocalFrame(listener) {
     const unsubscribe = subscribe(channels.localFrame, listener);
     ipcRenderer.send(channels.setLocalFrameStream, true);
