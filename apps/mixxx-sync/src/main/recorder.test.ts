@@ -1,3 +1,4 @@
+import { execFileSync, spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -170,4 +171,44 @@ describe("recorder", () => {
     await Promise.all([recorder.start(directory), recorder.start(directory)]);
     expect(encoders).toHaveLength(1);
   });
+
+  it.skipIf(spawnSync("ffmpeg", ["-version"]).error !== undefined)(
+    "decodes to exactly the recorded frames with ffmpeg",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "recorder-"));
+      directories.push(root);
+      const clock = { time: 0 };
+      const states: RecordingState[] = [];
+      const recorder = createRecorder({
+        fps: FPS,
+        getTime: () => clock.time,
+        onState: (state) => states.push(state),
+      });
+      const frames = [1, 2, 3].map((seed) =>
+        createFrame().map((_value, index) => (index * 37 * seed) % 256),
+      );
+      await recorder.start(root);
+      for (const [index, frame] of frames.entries()) {
+        clock.time = index * FRAME_MS;
+        recorder.setFrame(frame);
+      }
+      recorder.stop();
+      await vi.waitFor(() => expect(states.at(-1)?.bytes).toBeGreaterThan(0), { timeout: 5000 });
+      const path = states.at(-1)?.path ?? "";
+      const decoded = execFileSync("ffmpeg", [
+        "-v",
+        "error",
+        "-i",
+        path,
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "-",
+      ]);
+      expect(
+        Buffer.compare(decoded, Buffer.concat(frames.map((frame) => Buffer.from(frame)))),
+      ).toBe(0);
+    },
+  );
 });

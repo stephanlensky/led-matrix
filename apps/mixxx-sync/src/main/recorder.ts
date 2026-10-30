@@ -45,7 +45,7 @@ export function getRecordingName(date: Date): string {
 export function getEncoderArgs(fps: number, path: string, date: Date): string[] {
   return [
     ["-hide_banner", "-loglevel", "error", "-n"],
-    ["-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${WIDTH}x${HEIGHT}`, "-r", String(fps)],
+    ["-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${WIDTH}x${HEIGHT}`, "-r", String(fps)],
     ["-i", "-"],
     ["-c:v", "libx264rgb", "-qp", "0", "-preset", "veryslow"],
     ["-metadata", `creation_time=${date.toISOString()}`, path],
