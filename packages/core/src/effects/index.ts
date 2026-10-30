@@ -95,6 +95,7 @@ import { catBench, catMimic, catSquat } from "./cat-gym.ts";
 import { catJam } from "./cat-jam.ts";
 import { vocalScene } from "./vocal-scenes.ts";
 import { demonHunters } from "./demon-hunters/index.ts";
+import { nyanEffects } from "./nyan/index.ts";
 import { hunterDance } from "./hunter-dance.ts";
 import { hunterHyperspace } from "./hunter-hyperspace.ts";
 import { heroDance } from "./frieren-dance.ts";
@@ -271,6 +272,7 @@ export const effects: readonly Effect[] = [
   summerSky,
   snowBurst,
   getYourWish,
+  ...nyanEffects,
   heroBand,
   characterSelect,
   clubCrowd,

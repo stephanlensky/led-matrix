@@ -2086,6 +2086,193 @@ const loveAnimations: Readonly<Record<string, AnimationInput>> = {
   ),
 };
 
+const nyanCatParameter = getValueParameter(
+  "Cat",
+  "cat",
+  { Original: "original", Black: "black", Tabby: "tabby" },
+  "Original",
+);
+
+const nyanSpeedParameter = getValueParameter(
+  "Speed",
+  "speed",
+  { "Half time": 0.5, Normal: 1, "Double time": 2 },
+  "Normal",
+);
+
+const nyanBackgroundParameter = getValueParameter(
+  "Background",
+  "background",
+  { Black: BLACK, "Classic navy": "#003366" },
+  "Black",
+);
+
+const nyanRiderParameter = getValueParameter(
+  "Rider",
+  "rider",
+  { Frieren: "frieren", Himmel: "himmel", Both: "both" },
+  "Frieren",
+);
+
+const nyanPulseParameter = getValueParameter(
+  "Pulse",
+  "every",
+  { "Half beat": 0.5, Beat: 1, "2 beats": 2 },
+  "Beat",
+);
+
+function getNyanLoop(
+  name: string,
+  effect: string,
+  keys: readonly string[],
+  parameters: Parameter[],
+  params: Record<string, unknown> = {},
+  beats = 16,
+): AnimationInput {
+  return getLoop(
+    name,
+    beats,
+    [{ effect, params: { ...getReferences(["cat", ...keys]), ...params } }],
+    [nyanCatParameter, ...parameters],
+  );
+}
+
+const nyanAnimations: Readonly<Record<string, AnimationInput>> = {
+  "nyan-cat": getNyanLoop(
+    "Nyan cat",
+    "nyan-cat",
+    ["size", "background", "speed"],
+    [
+      getValueParameter("Size", "size", { Classic: 1, Big: 2 }, "Classic"),
+      nyanBackgroundParameter,
+      nyanSpeedParameter,
+    ],
+  ),
+  "nyan-cyberspace": getNyanLoop(
+    "Nyan cyberspace",
+    "nyan-cyberspace",
+    ["sky", "every", "glitch"],
+    [
+      getValueParameter("Background", "sky", { Sky: true, Black: false }, "Sky"),
+      nyanPulseParameter,
+      getValueParameter("Glitch", "glitch", { On: true, Off: false }, "On"),
+    ],
+  ),
+  "nyan-squad": getNyanLoop(
+    "Nyan squad",
+    "nyan-squad",
+    ["wingmen"],
+    [getValueParameter("Wingmen", "wingmen", { Full: "full", Mini: "mini" }, "Full")],
+  ),
+  "nyan-pixel-riders": getNyanLoop(
+    "Nyan riders (pixel)",
+    "nyan-pixel-riders",
+    ["rider", "pose"],
+    [
+      nyanRiderParameter,
+      getValueParameter("Pose", "pose", { Pump: "pump", Sit: "sit", Cheer: "cheer" }, "Pump"),
+    ],
+  ),
+  "nyan-mesh-riders": getNyanLoop(
+    "Nyan riders (3D)",
+    "nyan-mesh-riders",
+    ["rider", "pose"],
+    [
+      nyanRiderParameter,
+      getValueParameter("Pose", "pose", { Sit: "sit", Cheer: "cheer", Surf: "surf" }, "Sit"),
+    ],
+  ),
+  "nyan-head-riders": getNyanLoop(
+    "Nyan riders (big heads)",
+    "nyan-head-riders",
+    ["rider", "pose"],
+    [
+      nyanRiderParameter,
+      getValueParameter("Pose", "pose", { Pump: "pump", Hold: "hold", Cheer: "cheer" }, "Pump"),
+    ],
+  ),
+  "nyan-nostalgia": getNyanLoop(
+    "Nyan nostalgia",
+    "nyan-nostalgia",
+    ["scene"],
+    [
+      getValueParameter(
+        "Scene",
+        "scene",
+        {
+          Tour: "tour",
+          Minecraft: "minecraft",
+          "Flappy Bird": "flappy",
+          Emoticons: "emoji",
+          Doge: "doge",
+          "Angry Birds": "angry",
+        },
+        "Tour",
+      ),
+    ],
+    {},
+    80,
+  ),
+  "nyan-hardstyle": {
+    name: "Nyan hardstyle drop",
+    parameters: [
+      nyanCatParameter,
+      getValueParameter("Strobe", "strobe", { On: 0.85, Soft: 0.4, Off: 0 }, "On"),
+      getValueParameter("Kick", "every", { Beat: 1, "Half beat": 0.5 }, "Beat"),
+    ],
+    sections: [
+      {
+        name: "Build",
+        mode: { type: "once", beats: 16 },
+        layers: [
+          {
+            effect: "nyan-hardstyle",
+            params: { ...getReferences(["cat", "strobe", "every"]), phase: "build" },
+          },
+        ],
+      },
+      {
+        name: "Drop",
+        mode: { type: "loop", beats: 4 },
+        layers: [
+          {
+            effect: "nyan-hardstyle",
+            params: { ...getReferences(["cat", "strobe", "every"]), phase: "drop" },
+          },
+        ],
+      },
+    ],
+  },
+  "nyan-stampede": getNyanLoop(
+    "Nyan stampede",
+    "nyan-stampede",
+    ["mix", "count", "flash"],
+    [
+      getValueParameter("Mix", "mix", { "All cats": true, "Selected cat": false }, "All cats"),
+      getValueParameter("Count", "count", { Swarm: 14, Mega: 28, Few: 7 }, "Swarm"),
+      getValueParameter("Flash", "flash", { "Every bar": 0.8, Off: 0 }, "Every bar"),
+    ],
+  ),
+  "nyan-bounce": getNyanLoop("Nyan DVD bounce", "nyan-bounce", [], []),
+  "nyan-wave": getNyanLoop("Nyan rainbow wave", "nyan-wave", ["every"], [nyanPulseParameter]),
+  "nyan-vortex": getNyanLoop(
+    "Nyan vortex",
+    "nyan-vortex",
+    ["spin", "shape", "every"],
+    [
+      getValueParameter("Spin", "spin", { "Every beat": 1, Flip: 2, Off: 0 }, "Every beat"),
+      getValueParameter("Shape", "shape", { Square: "square", Circle: "circle" }, "Square"),
+      nyanPulseParameter,
+    ],
+  ),
+  "nyan-glitch": getNyanLoop(
+    "Nyan glitch",
+    "nyan-glitch",
+    ["intensity"],
+    [getValueParameter("Intensity", "intensity", { Low: 0.35, Medium: 0.7, High: 1 }, "Medium")],
+  ),
+};
+
 export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("Basics", {
     plasma: getLoop(
@@ -2664,6 +2851,7 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
       { effect: "demon-hunters", params: { players: "cats" } },
     ]),
   }),
+  ...getFolder("Nyan cat", nyanAnimations),
   ...getFolder("Cats/Halloween", {
     "witch-cats": getLoop("Witch cats", 16, [{ effect: "cat-broom" }]),
     "ghost-cats": getLoop("Ghost cats", 16, [

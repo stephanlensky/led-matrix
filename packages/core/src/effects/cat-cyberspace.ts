@@ -55,11 +55,13 @@ const WHITE: Color = [255, 255, 255];
 const SKY: Color = [44, 0, 70];
 const FLOOR: Color = [14, 0, 26];
 const CODE_BACKGROUND: Color = [6, 16, 40];
-const CUBES = [
+export type Cube = { x: number; y: number; size: number; spin: number; bob: number };
+
+const CUBES: readonly Cube[] = [
   { x: 9, y: 11, size: 5, spin: 1, bob: 0 },
   { x: 55, y: 15, size: 6, spin: -1, bob: 0.5 },
   { x: 50, y: 4, size: 4, spin: 2, bob: 0.25 },
-] as const;
+];
 const CUBE_EDGES = [
   [0, 1],
   [1, 3],
@@ -86,9 +88,9 @@ const cyberParams = {
 
 type CyberParams = z.infer<z.ZodObject<typeof cyberParams>>;
 
-type Pulse = { index: number; phase: number; since: number; kick: number };
+export type Pulse = { index: number; phase: number; since: number; kick: number };
 
-function getPulse(beat: number, every: number): Pulse {
+export function getPulse(beat: number, every: number): Pulse {
   const pulse = beat / every;
   const phase = getCycle(pulse);
   const since = phase * every;
@@ -131,7 +133,7 @@ function addLine(image: RgbaImage, [ax, ay]: Vector, [bx, by]: Vector, color: Co
   }
 }
 
-function drawSky(image: RgbaImage, gridColor: Color, kick: number): void {
+export function drawSky(image: RgbaImage, gridColor: Color, kick: number): void {
   for (let y = 0; y < HORIZON; y++) {
     const glow = Math.exp((y - HORIZON) / (3 + 2 * kick));
     const color = mix(scale(SKY, (y / HORIZON) ** 2), gridColor, glow * (0.5 + 0.4 * kick));
@@ -141,7 +143,13 @@ function drawSky(image: RgbaImage, gridColor: Color, kick: number): void {
   }
 }
 
-function drawGrid(image: RgbaImage, beat: number, gridColor: Color, kick: number): void {
+export function drawGrid(
+  image: RgbaImage,
+  beat: number,
+  gridColor: Color,
+  kick: number,
+  floor: Color = FLOOR,
+): void {
   const scroll = getCycle(beat);
   const lineColor = mix(gridColor, WHITE, 0.35 * kick);
   for (let y = HORIZON; y < HEIGHT; y++) {
@@ -157,12 +165,12 @@ function drawGrid(image: RgbaImage, beat: number, gridColor: Color, kick: number
         clamp(1.1 - rowDistance),
         clamp(1.1 - Math.abs(x + 0.5 - columnX)) * 0.8,
       );
-      setPixel(image, x, y, mix(FLOOR, lineColor, line * fade));
+      setPixel(image, x, y, mix(floor, lineColor, line * fade));
     }
   }
 }
 
-function drawRain(image: RgbaImage, beat: number, codeColor: Color, kick: number): void {
+export function drawRain(image: RgbaImage, beat: number, codeColor: Color, kick: number): void {
   for (let column = 0; column < RAIN_COLUMNS; column++) {
     const random = createRandom(hashSeed(RAIN_SEED, column));
     const x = Math.floor((column + getRandomBetween(random, 0.1, 0.9)) * (WIDTH / RAIN_COLUMNS));
@@ -185,8 +193,14 @@ function drawRain(image: RgbaImage, beat: number, codeColor: Color, kick: number
   }
 }
 
-function drawCubes(image: RgbaImage, beat: number, color: Color, kick: number): void {
-  for (const cube of CUBES) {
+export function drawCubes(
+  image: RgbaImage,
+  beat: number,
+  color: Color,
+  kick: number,
+  cubes: readonly Cube[] = CUBES,
+): void {
+  for (const cube of cubes) {
     const angle = (beat / 8) * TAU * cube.spin;
     const rotate = getRotation(angle + 0.6, angle, 0.3);
     const bob = Math.sin((beat / 4 + cube.bob) * TAU) * 1.5;
@@ -233,12 +247,12 @@ function getFloatPose(beat: number, kick: number): CatPose {
   };
 }
 
-function getGlitch(pulse: Pulse): number {
+export function getGlitch(pulse: Pulse): number {
   const isBig = ((pulse.index % 4) + 4) % 4 === 3;
   return Math.exp(-pulse.since * (isBig ? 5 : 12)) * (isBig ? 1 : 0.45);
 }
 
-function drawGlitchedCat(
+export function drawGlitchedCat(
   image: RgbaImage,
   cat: RgbaImage,
   neon: Color,
