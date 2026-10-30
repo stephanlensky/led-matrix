@@ -35,6 +35,7 @@ export type RenderServiceOptions = {
   engine: PlaybackEngine;
   clips: ClipStore;
   setBrightness: (brightness: number) => void;
+  setRecording?: (directory: string | null) => void;
   getLatency?: () => number;
   send: (event: RenderEvent) => void;
 };
@@ -60,6 +61,7 @@ export function createRenderService({
   engine,
   clips,
   setBrightness,
+  setRecording,
   getLatency = () => 0,
   send,
 }: RenderServiceOptions) {
@@ -199,6 +201,9 @@ export function createRenderService({
           break;
         case "setFrameStream":
           setFrameStream(message.isEnabled);
+          break;
+        case "setRecording":
+          setRecording?.(message.directory);
           break;
       }
     },

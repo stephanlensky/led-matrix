@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Settings } from "../shared/api.ts";
+import { type Settings, idleRecordingState } from "../shared/api.ts";
 import type { LocalClient } from "./local-client.ts";
 import { createOutput, getOutputKey } from "./output.ts";
 import { disabledRenderDeviceState } from "./render-protocol.ts";
@@ -16,6 +16,7 @@ const settings: Settings = {
   bindHost: "0.0.0.0",
   mappingFile: "/app/mapping.json",
   mixxxDatabasePath: "/home/user/.mixxx/mixxxdb.sqlite",
+  recordingDirectory: "/home/user/Videos/mixxx-sync",
   startDaemonOnLaunch: true,
 };
 
@@ -39,7 +40,9 @@ function createFakeLocal(serialPort: string | null, load: LocalClient["load"]) {
     setClock: getUnused,
     setBrightness: () => undefined,
     setFrameStream: () => undefined,
+    setRecording: () => Promise.resolve(idleRecordingState),
     getDeviceState: () => disabledRenderDeviceState,
+    getRecordingState: () => idleRecordingState,
     close,
   };
   return { client, serialPort, load: loadContent, close };

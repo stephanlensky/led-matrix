@@ -1,11 +1,13 @@
 import { DeviceMode } from "@led-matrix/core";
 import { Badge } from "@led-matrix/ui/components/badge";
+import { Button } from "@led-matrix/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@led-matrix/ui/components/card";
 import { Label } from "@led-matrix/ui/components/label";
 import { Slider } from "@led-matrix/ui/components/slider";
 import { createApiClient } from "@led-matrix/ui/lib/api";
+import { CircleIcon, SquareIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { ContentState, LogEntry, Settings } from "../../shared/api.ts";
+import type { ContentState, LogEntry, RecordingState, Settings } from "../../shared/api.ts";
 import { LogLines } from "./LogLines.tsx";
 import { LiveFrame, getLiveSource } from "./Playback.tsx";
 import { StatusRow } from "./StatusRow.tsx";
@@ -97,6 +99,62 @@ function DeviceRows({ info, fps }: { info: DeviceInfo; fps: number | undefined }
   );
 }
 
+function getMegabytes(bytes: number): string {
+  return `${(bytes / 1e6).toFixed(1)} MB`;
+}
+
+function getFileName(path: string): string {
+  return path.split("/").at(-1) ?? path;
+}
+
+function RecordingStatus({ recording }: { recording: RecordingState }) {
+  const { isRecording, path, durationMs, bytes, error } = recording;
+  if (error) {
+    return <p className="text-destructive">{error}</p>;
+  }
+  if (!path) {
+    return null;
+  }
+  const summary = isRecording
+    ? `${getDuration(durationMs)}, ${getMegabytes(bytes)}`
+    : `Saved ${getFileName(path)} (${getMegabytes(bytes)})`;
+  return (
+    <p className="truncate text-muted-foreground tabular-nums" title={path}>
+      {summary}
+    </p>
+  );
+}
+
+function RecordingControls({ device, isLocal }: { device: DeviceValue; isLocal: boolean }) {
+  const [isPending, setIsPending] = useState(false);
+  const recording = device.info?.recording ?? null;
+  const isRecording = recording?.isRecording ?? false;
+
+  function toggle() {
+    setIsPending(true);
+    void device.setRecording(!isRecording).finally(() => setIsPending(false));
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Button
+        variant={isRecording ? "destructive" : "outline"}
+        className="self-start"
+        disabled={!isLocal || !device.info || isPending}
+        onClick={toggle}
+      >
+        {isRecording ? <SquareIcon /> : <CircleIcon className="fill-red-500 text-red-500" />}
+        {isRecording ? "Stop recording" : "Record"}
+      </Button>
+      {isLocal ? (
+        recording && <RecordingStatus recording={recording} />
+      ) : (
+        <p className="text-muted-foreground">Recording needs the Local (USB) output.</p>
+      )}
+    </div>
+  );
+}
+
 function BoardLog({ entries }: { entries: readonly LogEntry[] }) {
   return (
     <div className="flex flex-col gap-2">
@@ -156,6 +214,7 @@ function DeviceCard({ device, isLocal }: { device: DeviceValue; isLocal: boolean
           onValueChange={(value) => setDraftBrightness(Number(value))}
           onValueCommitted={(value) => commitBrightness(Number(value))}
         />
+        <RecordingControls device={device} isLocal={isLocal} />
         {info?.log && <BoardLog entries={info.log} />}
       </CardContent>
     </Card>
@@ -174,6 +233,7 @@ function DeviceContent({ settings }: { settings: Settings }) {
   );
   const device = useDevice(source);
   const isBoardOffline = device.info !== undefined && !device.info.state.connected;
+  const isRecording = device.info?.recording?.isRecording ?? false;
 
   return (
     <div className="flex h-full gap-4 p-4">
@@ -181,7 +241,14 @@ function DeviceContent({ settings }: { settings: Settings }) {
       <LiveFrame
         source={getLiveSource(settings)}
         className="h-full min-h-0 flex-1"
-        overlay={isBoardOffline && <Badge variant="destructive">Board offline</Badge>}
+        overlay={
+          (isBoardOffline || isRecording) && (
+            <div className="flex gap-2">
+              {isRecording && <Badge variant="destructive">REC</Badge>}
+              {isBoardOffline && <Badge variant="destructive">Board offline</Badge>}
+            </div>
+          )
+        }
       />
     </div>
   );

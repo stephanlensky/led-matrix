@@ -15,6 +15,7 @@ export type Settings = {
   bindHost: string;
   mappingFile: string;
   mixxxDatabasePath: string;
+  recordingDirectory: string;
   startDaemonOnLaunch: boolean;
 };
 
@@ -29,7 +30,7 @@ export const daemonSettingKeys = [
 
 export type UiState = Record<string, unknown>;
 
-export type FileSetting = "mappingFile" | "mixxxDatabasePath";
+export type FileSetting = "mappingFile" | "mixxxDatabasePath" | "recordingDirectory";
 
 export type CueStatus =
   | { beat: number; animationId: string; section: number }
@@ -84,9 +85,26 @@ export type LocalDeviceState = DeviceState & {
   droppedFrames: number;
 };
 
+export type RecordingState = {
+  isRecording: boolean;
+  path: string | null;
+  durationMs: number;
+  bytes: number;
+  error: string | null;
+};
+
+export const idleRecordingState: RecordingState = {
+  isRecording: false,
+  path: null,
+  durationMs: 0,
+  bytes: 0,
+  error: null,
+};
+
 export type LocalDevice = {
   device: LocalDeviceState;
   content: ContentState;
+  recording: RecordingState;
   log: LogEntry[];
 };
 
@@ -107,6 +125,7 @@ export type Api = {
   getSerialPorts(): Promise<string[]>;
   getLocalDevice(): Promise<LocalDevice | undefined>;
   setLocalBrightness(brightness: number): Promise<LocalDevice | undefined>;
+  setLocalRecording(isRecording: boolean): Promise<LocalDevice | undefined>;
   getStatus(): Promise<DaemonStatus>;
   getLog(): Promise<LogEntry[]>;
   start(): Promise<void>;
@@ -137,6 +156,7 @@ export const channels = {
   getSerialPorts: "local:get-serial-ports",
   getLocalDevice: "local:get-device",
   setLocalBrightness: "local:set-brightness",
+  setLocalRecording: "local:set-recording",
   setLocalFrameStream: "local:set-frame-stream",
   localFrame: "local:frame",
   getStatus: "daemon:get-status",

@@ -1,4 +1,5 @@
 import type { ClipInfo, Frame, PlaybackState, StoredAnimation } from "@led-matrix/core";
+import type { RecordingState } from "../shared/api.ts";
 import type { RenderClip, RenderDeviceState } from "./render-protocol.ts";
 import {
   type RenderProcess,
@@ -24,7 +25,9 @@ export type LocalRenderProcess = Pick<
   | "removeClip"
   | "setBrightness"
   | "setFrameStream"
+  | "setRecording"
   | "getDeviceState"
+  | "getRecordingState"
   | "close"
 >;
 
@@ -45,7 +48,9 @@ export type LocalClient = ServerClient & {
   load(): Promise<StoredAnimation[]>;
   setBrightness(brightness: number): void;
   setFrameStream(isEnabled: boolean): void;
+  setRecording(directory: string | null): Promise<RecordingState>;
   getDeviceState(): RenderDeviceState;
+  getRecordingState(): RecordingState;
   close(): void;
 };
 
@@ -91,6 +96,7 @@ export function createLocalClient({
   let animations: StoredAnimation[] | undefined;
   let brightness: number | undefined;
   let isFrameStreamEnabled = false;
+  let recordingDirectory: string | null = null;
   let loading: Promise<StoredAnimation[]> | undefined;
   let render: LocalRenderProcess;
   let startedAt = 0;
@@ -104,11 +110,12 @@ export function createLocalClient({
     }
     const delay = getTime() - startedAt >= STABLE_UPTIME ? MIN_RESTART_DELAY : restartDelay;
     log(`Render process exited with ${code}, restarting in ${delay / 1000} s`);
-    restartTimer = setTimeout(start, delay);
+    const isRecording = recordingDirectory !== null && render.getRecordingState().error === null;
+    restartTimer = setTimeout(() => start(isRecording), delay);
     restartDelay = Math.min(delay * 2, MAX_RESTART_DELAY);
   }
 
-  function start(): void {
+  function start(isRecording = false): void {
     startedAt = getTime();
     render = createProcess({
       devicePath,
@@ -131,6 +138,9 @@ export function createLocalClient({
     }
     if (isFrameStreamEnabled) {
       render.setFrameStream(true);
+    }
+    if (isRecording && recordingDirectory !== null) {
+      void render.setRecording(recordingDirectory);
     }
   }
 
@@ -203,7 +213,12 @@ export function createLocalClient({
       isFrameStreamEnabled = isEnabled;
       render.setFrameStream(isEnabled);
     },
+    setRecording(directory) {
+      recordingDirectory = directory;
+      return render.setRecording(directory);
+    },
     getDeviceState: () => render.getDeviceState(),
+    getRecordingState: () => render.getRecordingState(),
     close(): void {
       isClosed = true;
       clearTimeout(restartTimer);

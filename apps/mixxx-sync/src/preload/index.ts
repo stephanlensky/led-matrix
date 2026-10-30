@@ -38,6 +38,7 @@ const api: Api = {
   getSerialPorts: () => ipcRenderer.invoke(channels.getSerialPorts),
   getLocalDevice: () => ipcRenderer.invoke(channels.getLocalDevice),
   setLocalBrightness: (brightness) => ipcRenderer.invoke(channels.setLocalBrightness, brightness),
+  setLocalRecording: (isRecording) => ipcRenderer.invoke(channels.setLocalRecording, isRecording),
   getStatus: () => ipcRenderer.invoke(channels.getStatus),
   getLog: () => ipcRenderer.invoke(channels.getLog),
   start: () => ipcRenderer.invoke(channels.start),

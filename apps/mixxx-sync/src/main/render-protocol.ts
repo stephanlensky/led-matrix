@@ -1,6 +1,6 @@
 import { type PlaybackState, type StoredAnimation, disabledDeviceState } from "@led-matrix/core";
 import { z } from "zod";
-import type { LocalDeviceState } from "../shared/api.ts";
+import type { LocalDeviceState, RecordingState } from "../shared/api.ts";
 import type { ClockRequest, PlayRequest, TimelineRequest } from "./server.ts";
 
 export const renderOptionsSchema = z.object({
@@ -32,7 +32,8 @@ export type RenderMessage =
   | { type: "setClip"; id: string; durations: readonly number[]; frames: string }
   | { type: "removeClip"; id: string }
   | { type: "setBrightness"; brightness: number }
-  | { type: "setFrameStream"; isEnabled: boolean };
+  | { type: "setFrameStream"; isEnabled: boolean }
+  | { type: "setRecording"; directory: string | null };
 
 export type RenderDeviceState = LocalDeviceState;
 
@@ -50,4 +51,5 @@ export type RenderEvent =
   | { type: "device"; state: RenderDeviceState }
   | { type: "log"; message: string }
   | { type: "deviceLog"; text: string }
+  | { type: "recording"; state: RecordingState }
   | { type: "frame"; frame: string };

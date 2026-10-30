@@ -1,6 +1,7 @@
 import { fork } from "node:child_process";
 import { join } from "node:path";
 import type { Frame, PlaybackState, StoredAnimation } from "@led-matrix/core";
+import { type RecordingState, idleRecordingState } from "../shared/api.ts";
 import {
   type RenderClip,
   type RenderDeviceState,
@@ -52,6 +53,8 @@ export function createRenderProcess({
   let nextId = 0;
   let exitCode: number | string | undefined;
   let deviceState: RenderDeviceState = disabledRenderDeviceState;
+  let recordingState: RecordingState = idleRecordingState;
+  const recordingListeners = new Set<(state: RecordingState) => void>();
 
   function post(message: RenderMessage): void {
     if (child.connected) {
@@ -88,6 +91,14 @@ export function createRenderProcess({
     }
   }
 
+  function setRecordingState(state: RecordingState): void {
+    recordingState = state;
+    for (const listener of recordingListeners) {
+      listener(state);
+    }
+    recordingListeners.clear();
+  }
+
   child.on("message", (event: RenderEvent) => {
     switch (event.type) {
       case "response":
@@ -105,6 +116,9 @@ export function createRenderProcess({
         break;
       case "deviceLog":
         onDeviceLog?.(event.text);
+        break;
+      case "recording":
+        setRecordingState(event.state);
         break;
       case "frame":
         onFrame?.(new Uint8ClampedArray(Buffer.from(event.frame, "base64")));
@@ -164,7 +178,25 @@ export function createRenderProcess({
     setFrameStream(isEnabled: boolean): void {
       post({ type: "setFrameStream", isEnabled });
     },
+    setRecording(directory: string | null): Promise<RecordingState> {
+      if (exitCode !== undefined) {
+        return Promise.resolve(recordingState);
+      }
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          recordingListeners.delete(listener);
+          resolve(recordingState);
+        }, REQUEST_TIMEOUT);
+        const listener = (state: RecordingState) => {
+          clearTimeout(timer);
+          resolve(state);
+        };
+        recordingListeners.add(listener);
+        post({ type: "setRecording", directory });
+      });
+    },
     getDeviceState: () => deviceState,
+    getRecordingState: () => recordingState,
     getPid: () => child.pid,
     isRunning: () => exitCode === undefined,
     close(): void {

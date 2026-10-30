@@ -16,6 +16,7 @@ const defaults: Settings = {
   bindHost: "0.0.0.0",
   mappingFile: "/app/mapping.json",
   mixxxDatabasePath: "/home/user/.mixxx/mixxxdb.sqlite",
+  recordingDirectory: "/home/user/Videos/mixxx-sync",
   startDaemonOnLaunch: true,
 };
 

@@ -42,7 +42,7 @@ if (userDataPath) {
 const settingsPath = join(app.getPath("userData"), "settings.json");
 let settings: Settings = await getStoredSettings(
   settingsPath,
-  getDefaultSettings(app.getAppPath()),
+  getDefaultSettings(app.getAppPath(), app.getPath("videos")),
 );
 const uiState = await createUiStateFile(join(app.getPath("userData"), "ui-state.json"));
 const logEntries: LogEntry[] = [];
@@ -120,7 +120,12 @@ function setFrameSubscriber(webContents: WebContents, isEnabled: boolean): void 
 function getLocalDevice(): LocalDevice | undefined {
   const local = output.getLocal();
   return (
-    local && { device: local.getDeviceState(), content: content.getState(), log: boardLogEntries }
+    local && {
+      device: local.getDeviceState(),
+      content: content.getState(),
+      recording: local.getRecordingState(),
+      log: boardLogEntries,
+    }
   );
 }
 
@@ -141,6 +146,7 @@ ipcMain.handle(channels.getSettings, () => settings);
 const fileFilters: Record<FileSetting, Electron.FileFilter[]> = {
   mappingFile: [{ name: "Mapping", extensions: ["json"] }],
   mixxxDatabasePath: [{ name: "Mixxx database", extensions: ["sqlite"] }],
+  recordingDirectory: [],
 };
 
 ipcMain.handle(channels.setSettings, async (_event, value: Settings) => {
@@ -170,7 +176,10 @@ ipcMain.handle(channels.showFileDialog, async (event, setting: FileSetting) => {
   const options = {
     defaultPath: settings[setting],
     filters: fileFilters[setting],
-    properties: ["openFile" as const],
+    properties:
+      setting === "recordingDirectory"
+        ? ["openDirectory" as const, "createDirectory" as const]
+        : ["openFile" as const],
   };
   const result = window
     ? await dialog.showOpenDialog(window, options)
@@ -184,6 +193,10 @@ ipcMain.handle(channels.setLocalBrightness, (_event, brightness: number) => {
   local?.setBrightness(brightness);
   const device = getLocalDevice();
   return device && { ...device, device: { ...device.device, brightness } };
+});
+ipcMain.handle(channels.setLocalRecording, async (_event, isRecording: boolean) => {
+  await output.getLocal()?.setRecording(isRecording ? settings.recordingDirectory : null);
+  return getLocalDevice();
 });
 ipcMain.on(channels.setLocalFrameStream, (event, isEnabled: boolean) =>
   setFrameSubscriber(event.sender, isEnabled),

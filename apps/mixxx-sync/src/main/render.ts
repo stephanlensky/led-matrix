@@ -12,6 +12,7 @@ import {
   type RenderOptions,
   renderOptionsSchema,
 } from "./render-protocol.ts";
+import { createRecorder } from "./recorder.ts";
 import { createClipStore, createRenderService, getErrorMessage } from "./render-service.ts";
 
 const EXIT_DELAY = 100;
@@ -65,14 +66,27 @@ device.subscribe((state) =>
     },
   }),
 );
+const recorder = createRecorder({
+  fps,
+  onState: (state) => send({ type: "recording", state }),
+});
+engine.subscribe({ setFrame: (frame) => recorder.setFrame(frame) });
 const service = createRenderService({
   engine,
   clips,
   setBrightness: (brightness) => device.setBrightness(brightness),
+  setRecording(directory) {
+    if (directory === null) {
+      recorder.stop();
+    } else {
+      void recorder.start(directory);
+    }
+  },
   getLatency: () => device.getLatency(),
   send,
 });
 function exit(): void {
+  recorder.stop();
   engine.stop();
   engine.tick();
   setTimeout(() => process.exit(), EXIT_DELAY);

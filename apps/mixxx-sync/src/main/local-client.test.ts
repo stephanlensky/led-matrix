@@ -10,6 +10,7 @@ import {
   storedAnimationSchema,
 } from "@led-matrix/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { type RecordingState, idleRecordingState } from "../shared/api.ts";
 import type { ResolvedCue } from "../shared/mapping.ts";
 import { type LocalRenderProcess, createLocalClient, getUsedClips } from "./local-client.ts";
 import type { RenderProcessOptions } from "./render-process.ts";
@@ -70,6 +71,8 @@ function createFakeProcess(options: RenderProcessOptions) {
   const clips = createClipStore();
   const brightness: number[] = [];
   const frameStreams: boolean[] = [];
+  const recordings: (string | null)[] = [];
+  let recordingState: RecordingState = idleRecordingState;
   let response: RenderEvent | undefined;
   let isRunning = true;
   const service = createRenderService({
@@ -119,7 +122,17 @@ function createFakeProcess(options: RenderProcessOptions) {
     ),
     setBrightness: (value) => service.handle({ type: "setBrightness", brightness: value }),
     setFrameStream: (isEnabled) => frameStreams.push(isEnabled),
+    setRecording(directory) {
+      recordings.push(directory);
+      recordingState = {
+        ...recordingState,
+        isRecording: directory !== null,
+        path: directory && `${directory}/recording.mkv`,
+      };
+      return Promise.resolve(recordingState);
+    },
     getDeviceState: () => disabledRenderDeviceState,
+    getRecordingState: () => recordingState,
     close: vi.fn<LocalRenderProcess["close"]>(() => exit("SIGTERM")),
   };
 
@@ -128,7 +141,7 @@ function createFakeProcess(options: RenderProcessOptions) {
     options.onExit?.(code);
   }
 
-  return { render, options, clips, brightness, frameStreams, exit };
+  return { render, options, clips, brightness, frameStreams, recordings, exit };
 }
 
 function setup(animations: StoredAnimation[], clips: ClipInfo[] = []) {
@@ -270,6 +283,27 @@ describe("createLocalClient", () => {
     await expect(
       client.play({ id: "clip-animation", section: 0, beat: 0, bpm: 120 }),
     ).resolves.toMatchObject({ animationId: "clip-animation" });
+  });
+
+  it("resumes recording into a new file after a restart", async () => {
+    vi.useFakeTimers();
+    const { client, processes, clock } = setup([]);
+    await client.setRecording("/videos");
+    processes[0]?.exit(1);
+    clock.time += 1000;
+    vi.advanceTimersByTime(1000);
+    expect(processes[1]?.recordings).toEqual(["/videos"]);
+  });
+
+  it("does not resume a stopped recording after a restart", async () => {
+    vi.useFakeTimers();
+    const { client, processes, clock } = setup([]);
+    await client.setRecording("/videos");
+    await client.setRecording(null);
+    processes[0]?.exit(1);
+    clock.time += 1000;
+    vi.advanceTimersByTime(1000);
+    expect(processes[1]?.recordings).toEqual([]);
   });
 
   it("backs off when the render process keeps exiting", () => {

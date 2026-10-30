@@ -27,12 +27,13 @@ export const settingsSchema = z.object({
   bindHost: z.string().min(1),
   mappingFile: z.string().min(1),
   mixxxDatabasePath: z.string().min(1),
+  recordingDirectory: z.string().min(1),
   startDaemonOnLaunch: z.boolean(),
 });
 
 const storedSettingsSchema = z.record(z.string(), z.unknown());
 
-export function getDefaultSettings(appPath: string): Settings {
+export function getDefaultSettings(appPath: string, videosPath: string): Settings {
   return {
     serverUrl: process.env["LED_MATRIX_URL"] ?? "https://led-matrix.cardinal.slensky.com",
     outputMode: "server",
@@ -46,6 +47,7 @@ export function getDefaultSettings(appPath: string): Settings {
     bindHost: process.env["MIXXX_BIND_HOST"] || "0.0.0.0",
     mappingFile: join(appPath, "mapping.json"),
     mixxxDatabasePath: process.env["MIXXX_DATABASE"] ?? join(homedir(), ".mixxx", "mixxxdb.sqlite"),
+    recordingDirectory: join(videosPath, "mixxx-sync"),
     startDaemonOnLaunch: true,
   };
 }

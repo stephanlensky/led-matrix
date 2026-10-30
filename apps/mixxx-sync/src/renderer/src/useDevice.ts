@@ -1,7 +1,7 @@
 import type { DeviceState, DeviceStatus } from "@led-matrix/core";
 import type { ApiClient } from "@led-matrix/ui/lib/api";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ContentState, LocalDevice, LogEntry } from "../../shared/api.ts";
+import type { ContentState, LocalDevice, LogEntry, RecordingState } from "../../shared/api.ts";
 import { getErrorMessage } from "./errors.ts";
 
 const UPDATE_INTERVAL = 1000;
@@ -16,12 +16,14 @@ export type DeviceInfo = {
   state: DeviceState;
   usb: UsbState | null;
   content: ContentState | null;
+  recording: RecordingState | null;
   log: LogEntry[] | null;
 };
 
 export type DeviceSource = {
   getDevice(): Promise<DeviceInfo>;
   setBrightness(brightness: number): Promise<DeviceInfo>;
+  setRecording?(isRecording: boolean): Promise<DeviceInfo>;
 };
 
 export type Device = {
@@ -29,12 +31,13 @@ export type Device = {
   fps: number | undefined;
   error: string | undefined;
   setBrightness: (brightness: number) => Promise<void>;
+  setRecording: (isRecording: boolean) => Promise<void>;
 };
 
 type FpsSample = { status: DeviceStatus | null; fps: number | undefined };
 
 function getServerInfo(state: DeviceState): DeviceInfo {
-  return { state, usb: null, content: null, log: null };
+  return { state, usb: null, content: null, recording: null, log: null };
 }
 
 export function getServerDeviceSource(api: ApiClient): DeviceSource {
@@ -53,6 +56,7 @@ function getLocalInfo(local: LocalDevice | undefined): DeviceInfo {
     state,
     usb: { path, bytesPerSecond, droppedFrames },
     content: local.content,
+    recording: local.recording,
     log: local.log,
   };
 }
@@ -60,6 +64,7 @@ function getLocalInfo(local: LocalDevice | undefined): DeviceInfo {
 export const localDeviceSource: DeviceSource = {
   getDevice: () => window.api.getLocalDevice().then(getLocalInfo),
   setBrightness: (brightness) => window.api.setLocalBrightness(brightness).then(getLocalInfo),
+  setRecording: (isRecording) => window.api.setLocalRecording(isRecording).then(getLocalInfo),
 };
 
 function getFps(previous: DeviceStatus | null, current: DeviceStatus | null): number | undefined {
@@ -113,17 +118,31 @@ export function useDevice(source: DeviceSource): Device {
     };
   }, [source, setDevice]);
 
-  const setBrightness = useCallback(
-    (brightness: number) =>
-      source.setBrightness(brightness).then(
+  const setResult = useCallback(
+    (result: Promise<DeviceInfo>) =>
+      result.then(
         (device) => {
           setDevice(device);
           setError(undefined);
         },
         (cause: unknown) => setError(getErrorMessage(cause)),
       ),
-    [source, setDevice],
+    [setDevice],
   );
 
-  return { info, fps, error, setBrightness };
+  const setBrightness = useCallback(
+    (brightness: number) => setResult(source.setBrightness(brightness)),
+    [source, setResult],
+  );
+
+  const setRecording = useCallback(
+    async (isRecording: boolean) => {
+      if (source.setRecording) {
+        await setResult(source.setRecording(isRecording));
+      }
+    },
+    [source, setResult],
+  );
+
+  return { info, fps, error, setBrightness, setRecording };
 }

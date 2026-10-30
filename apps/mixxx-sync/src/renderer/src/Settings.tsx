@@ -245,6 +245,15 @@ function SettingsForm({
                   ))}
                 </SelectContent>
               </Select>
+              <Label htmlFor={`${id}-recording-directory`}>Recordings</Label>
+              <FileInput
+                id={`${id}-recording-directory`}
+                label="Recordings folder"
+                value={settings.recordingDirectory}
+                isDisabled={false}
+                onChange={(recordingDirectory) => update({ recordingDirectory })}
+                onShowDialog={() => void showFileDialog("recordingDirectory")}
+              />
             </>
           ) : (
             <>
