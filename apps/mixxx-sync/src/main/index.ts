@@ -227,6 +227,7 @@ ipcMain.on(channels.pauseRecording, () => recordingPlayer.pause());
 ipcMain.on(channels.seekRecording, (_event, positionMs: number) =>
   recordingPlayer.seek(positionMs),
 );
+ipcMain.on(channels.setRecordingSpeed, (_event, speed: number) => recordingPlayer.setSpeed(speed));
 ipcMain.on(channels.closeRecording, () => recordingPlayer.close());
 ipcMain.on(channels.setLocalFrameStream, (event, isEnabled: boolean) =>
   setFrameSubscriber(event.sender, isEnabled),

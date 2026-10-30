@@ -182,7 +182,8 @@ export function createRecordingPlayer({
     if (!session) {
       return;
     }
-    const target = clock.frame + Math.floor((getTime() - clock.time) / getFrameMs());
+    const target =
+      clock.frame + Math.floor(((getTime() - clock.time) * state.speed) / getFrameMs());
     let frame: Buffer | undefined;
     let index = shownFrame;
     while (index < target && session.queue.length > 0) {
@@ -243,7 +244,11 @@ export function createRecordingPlayer({
         }
       } catch (error) {
         if (id === openId) {
-          setState({ ...idleRecordingPlayerState, error: getErrorMessage(error) });
+          setState({
+            ...idleRecordingPlayerState,
+            speed: state.speed,
+            error: getErrorMessage(error),
+          });
         }
       }
       return state;
@@ -266,12 +271,19 @@ export function createRecordingPlayer({
     seek(positionMs: number): void {
       seek(Math.round(positionMs / getFrameMs()));
     },
+    setSpeed(speed: number): void {
+      if (!(speed > 0) || speed === state.speed) {
+        return;
+      }
+      clock = { time: getTime(), frame: shownFrame };
+      setState({ speed });
+    },
     getState: () => state,
     close(): void {
       openId++;
       clearInterval(timer);
       stopDecoder();
-      setState(idleRecordingPlayerState);
+      setState({ ...idleRecordingPlayerState, speed: state.speed });
     },
   };
 }

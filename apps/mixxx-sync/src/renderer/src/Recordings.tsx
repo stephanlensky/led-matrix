@@ -2,6 +2,13 @@ import { type Frame, createFrame } from "@led-matrix/core";
 import { Button } from "@led-matrix/ui/components/button";
 import { MatrixFrame } from "@led-matrix/ui/components/matrix-frame";
 import { Panel } from "@led-matrix/ui/components/panel";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@led-matrix/ui/components/select";
 import { Slider } from "@led-matrix/ui/components/slider";
 import {
   ArrowLeftIcon,
@@ -16,6 +23,7 @@ import {
   type RecordingFile,
   type RecordingPlayerState,
   idleRecordingPlayerState,
+  recordingSpeeds,
 } from "../../shared/api.ts";
 import { getErrorMessage } from "./errors.ts";
 import { useSettings } from "./useSettings.ts";
@@ -42,6 +50,10 @@ function getTimeLabel(ms: number): string {
   return hours > 0
     ? `${hours}:${String(minutes).padStart(2, "0")}:${seconds}`
     : `${minutes}:${seconds}`;
+}
+
+function getSpeedLabel(value: string): string {
+  return `${value}×`;
 }
 
 function getSizeLabel(bytes: number): string {
@@ -140,7 +152,7 @@ function RecordingCard({ file, onOpen }: { file: RecordingFile; onOpen: () => vo
   return (
     <button
       type="button"
-      className="flex flex-col gap-2 rounded-xl border bg-card p-3 text-left transition-colors hover:bg-accent"
+      className="flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-3 text-left transition-colors hover:bg-accent"
       onClick={onOpen}
     >
       <div className="self-center rounded-md bg-neutral-900 p-2">
@@ -213,7 +225,7 @@ function RecordingPlayer({ state }: { state: RecordingPlayerState }) {
   const [frame, setFrame] = useState<Frame>(blankFrame);
   const [positionMs, setPositionMs] = useState(state.positionMs);
   const [draftMs, setDraftMs] = useState<number>();
-  const { info, isPlaying, error } = state;
+  const { info, isPlaying, speed, error } = state;
   const durationMs = info?.durationMs ?? 0;
   const shownMs = draftMs ?? positionMs;
 
@@ -274,6 +286,25 @@ function RecordingPlayer({ state }: { state: RecordingPlayerState }) {
             <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
               {getTimeLabel(durationMs)}
             </span>
+            <Select
+              value={String(speed)}
+              onValueChange={(value: string | null) => {
+                if (value) {
+                  window.api.setRecordingSpeed(Number(value));
+                }
+              }}
+            >
+              <SelectTrigger size="sm" aria-label="Playback speed" className="w-20 shrink-0">
+                <SelectValue>{getSpeedLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {recordingSpeeds.map((value) => (
+                  <SelectItem key={value} value={String(value)}>
+                    {getSpeedLabel(String(value))}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         }
       />

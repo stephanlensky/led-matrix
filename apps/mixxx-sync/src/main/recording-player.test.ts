@@ -131,6 +131,28 @@ describe("createRecordingPlayer", () => {
     expect(frames.at(-1)?.positionMs).toBeCloseTo(FRAME_MS * 2);
   });
 
+  it("plays faster and slower at the chosen speed", async () => {
+    vi.useFakeTimers();
+    const { player, decoders, frames, advance } = setup();
+    await player.open("/a.mkv");
+    decoders[0]?.write(getFrames([1, 2, 3, 4, 5, 6, 7, 8]));
+    player.setSpeed(2);
+    player.play();
+    advance(FRAME_MS + 1);
+    expect(frames.at(-1)?.value).toBe(3);
+    player.setSpeed(0.5);
+    advance(FRAME_MS * 2 + 1);
+    expect(frames.at(-1)?.value).toBe(4);
+  });
+
+  it("keeps the speed when another recording is opened", async () => {
+    const { player } = setup();
+    player.setSpeed(2);
+    expect(await player.open("/a.mkv")).toMatchObject({ speed: 2 });
+    player.close();
+    expect(player.getState().speed).toBe(2);
+  });
+
   it("skips frames to catch up after a stall", async () => {
     vi.useFakeTimers();
     const { player, decoders, frames, clock } = setup();

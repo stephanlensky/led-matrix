@@ -112,13 +112,17 @@ export type RecordingPlayerState = {
   info: RecordingInfo | null;
   positionMs: number;
   isPlaying: boolean;
+  speed: number;
   error: string | null;
 };
+
+export const recordingSpeeds = [0.25, 0.5, 1, 1.5, 2, 4] as const;
 
 export const idleRecordingPlayerState: RecordingPlayerState = {
   info: null,
   positionMs: 0,
   isPlaying: false,
+  speed: 1,
   error: null,
 };
 
@@ -169,6 +173,7 @@ export type Api = {
   playRecording(): void;
   pauseRecording(): void;
   seekRecording(positionMs: number): void;
+  setRecordingSpeed(speed: number): void;
   closeRecording(): void;
   onRecordingPlayer(listener: (state: RecordingPlayerState) => void): () => void;
   onRecordingFrame(listener: (frame: RecordingPlayerFrame) => void): () => void;
@@ -210,6 +215,7 @@ export const channels = {
   playRecording: "recording-player:play",
   pauseRecording: "recording-player:pause",
   seekRecording: "recording-player:seek",
+  setRecordingSpeed: "recording-player:set-speed",
   closeRecording: "recording-player:close",
   recordingPlayer: "recording-player:changed",
   recordingFrame: "recording-player:frame",

@@ -51,6 +51,7 @@ const api: Api = {
   playRecording: () => ipcRenderer.send(channels.playRecording),
   pauseRecording: () => ipcRenderer.send(channels.pauseRecording),
   seekRecording: (positionMs) => ipcRenderer.send(channels.seekRecording, positionMs),
+  setRecordingSpeed: (speed) => ipcRenderer.send(channels.setRecordingSpeed, speed),
   closeRecording: () => ipcRenderer.send(channels.closeRecording),
   getStatus: () => ipcRenderer.invoke(channels.getStatus),
   getLog: () => ipcRenderer.invoke(channels.getLog),
