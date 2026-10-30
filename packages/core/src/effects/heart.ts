@@ -9,6 +9,8 @@ const HEART_HALF_WIDTH = 1.14;
 const HEART_MIDDLE = (HEART_TOP + HEART_BOTTOM) / 2;
 const ANGLE_STEPS = 360;
 
+export const HEART_ASPECT = (HEART_TOP - HEART_BOTTOM) / (HEART_HALF_WIDTH * 2);
+
 export function isInsideHeart(x: number, y: number): boolean {
   const radius = x * x + y * y - 1;
   return radius * radius * radius - x * x * y * y * y <= 0;

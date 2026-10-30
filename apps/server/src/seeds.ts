@@ -2273,6 +2273,301 @@ const nyanAnimations: Readonly<Record<string, AnimationInput>> = {
   ),
 };
 
+const heartCycleParameter = (defaultOption: string): Parameter =>
+  getValueParameter(
+    "Cycle",
+    "beats",
+    { "4 beats": 4, "8 beats": 8, "16 beats": 16 },
+    defaultOption,
+  );
+
+const heartKickParameter = getValueParameter(
+  "Kick",
+  "pulse",
+  { Off: 0, Soft: 0.35, Hard: 1 },
+  "Soft",
+);
+
+const heartPairParameter = getParameter(
+  "Hearts",
+  {
+    "Pink/cyan": { heartColor: HEART_PINK, partnerColor: AQUA },
+    "Pink/purple": { heartColor: HEART_PINK, partnerColor: ORCHID },
+    "Pink/blue": { heartColor: HEART_PINK, partnerColor: BLUE },
+    "Pink/gold": { heartColor: HEART_PINK, partnerColor: GOLD },
+    "Red/pink": { heartColor: "#ff1030", partnerColor: LIGHT_PINK },
+    "Pink/white": { heartColor: HEART_PINK, partnerColor: "#f0f0ff" },
+  },
+  "Pink/cyan",
+);
+
+const heartSpeedParameter = (key: string, defaultOption: string, isRate = false): Parameter =>
+  getValueParameter(
+    "Speed",
+    key,
+    isRate
+      ? { Beat: 1, "Half beat": 2, "Quarter beat": 4 }
+      : { Beat: 1, "Half beat": 0.5, "Quarter beat": 0.25 },
+    defaultOption,
+  );
+
+function getHeartLoop(
+  name: string,
+  beats: number,
+  effect: string,
+  references: readonly string[],
+  parameters: Parameter[],
+): AnimationInput {
+  return getLoop(
+    name,
+    beats,
+    [{ effect, params: { ...getReferences(references), color: { param: "heartColor" } } }],
+    [...parameters, loveColorParameter],
+  );
+}
+
+const heartLongCycleParameter = getValueParameter(
+  "Cycle",
+  "beats",
+  { "8 beats": 8, "16 beats": 16 },
+  "16 beats",
+);
+
+function getHeartPairLoop(
+  name: string,
+  beats: number,
+  effect: string,
+  pairKey: string,
+  references: readonly string[],
+  parameters: Parameter[],
+): AnimationInput {
+  return getLoop(
+    name,
+    beats,
+    [
+      {
+        effect,
+        params: {
+          ...getReferences(references),
+          color: { param: "heartColor" },
+          [pairKey]: { param: "partnerColor" },
+        },
+      },
+    ],
+    [...parameters, heartPairParameter],
+  );
+}
+
+const loveAbstractAnimations: Readonly<Record<string, AnimationInput>> = {
+  "love-heart-trace": getHeartLoop(
+    "Heart trace",
+    16,
+    "heart-trace",
+    ["beats"],
+    [heartCycleParameter("8 beats")],
+  ),
+  "love-heart-constellation": getHeartLoop(
+    "Heart constellation",
+    16,
+    "heart-constellation",
+    ["beats"],
+    [heartCycleParameter("16 beats")],
+  ),
+  "love-heart-dust": getHeartLoop(
+    "Heart dust",
+    16,
+    "heart-dust",
+    ["beats", "every"],
+    [heartCycleParameter("8 beats"), lovePulseParameter],
+  ),
+  "love-heart-orbit": getLoop(
+    "Heart orbit",
+    16,
+    [
+      {
+        effect: "heart-orbit",
+        params: { ...getReferences(["every", "partnerColor"]), color: { param: "heartColor" } },
+      },
+    ],
+    [lovePulseParameter, heartPairParameter],
+  ),
+  "love-heart-halo": getHeartLoop(
+    "Heart halo",
+    8,
+    "heart-halo",
+    ["every", "pulse"],
+    [lovePulseParameter, heartKickParameter],
+  ),
+  "love-heart-stamps": getHeartLoop(
+    "Heart stamps",
+    8,
+    "heart-stamp",
+    ["rate", "outline"],
+    [
+      heartSpeedParameter("rate", "Half beat", true),
+      getValueParameter("Style", "outline", { Mixed: 0.5, Outline: 1, Filled: 0 }, "Mixed"),
+    ],
+  ),
+  "love-heart-clap": getHeartLoop("Heart clap", 8, "heart-clap", ["every"], [lovePulseParameter]),
+  "love-heart-slice": getHeartLoop(
+    "Heart slice",
+    8,
+    "heart-slice",
+    ["every"],
+    [heartSpeedParameter("every", "Half beat")],
+  ),
+  "love-heart-fireworks": getHeartLoop(
+    "Heart fireworks",
+    8,
+    "heart-fireworks",
+    ["every"],
+    [lovePulseParameter],
+  ),
+  "love-heart-explode": getHeartLoop(
+    "Heart explode",
+    8,
+    "heart-explode",
+    ["every"],
+    [lovePulseParameter],
+  ),
+  "love-heart-thread": getHeartLoop(
+    "Heart thread",
+    16,
+    "heart-thread",
+    ["beats"],
+    [heartCycleParameter("8 beats")],
+  ),
+  "love-heart-snow": getHeartLoop(
+    "Heart snow",
+    16,
+    "heart-snow",
+    ["speed", "every"],
+    [getValueParameter("Speed", "speed", { Slow: 1, Fast: 2 }, "Slow"), lovePulseParameter],
+  ),
+  "love-heart-eclipse": getHeartLoop(
+    "Heart eclipse",
+    16,
+    "heart-eclipse",
+    ["beats"],
+    [heartLongCycleParameter],
+  ),
+  "love-heart-mandala": getHeartLoop(
+    "Heart mandala",
+    16,
+    "heart-mandala",
+    ["beats"],
+    [heartLongCycleParameter],
+  ),
+  "love-neon-heart": getHeartPairLoop(
+    "Neon heart",
+    8,
+    "heart-neon",
+    "innerColor",
+    ["every", "flicker"],
+    [
+      lovePulseParameter,
+      getValueParameter("Flicker", "flicker", { Off: 0, Some: 0.5, Lots: 1 }, "Some"),
+    ],
+  ),
+  "love-heart-marquee": getHeartLoop(
+    "Heart marquee",
+    8,
+    "heart-marquee",
+    ["every"],
+    [lovePulseParameter],
+  ),
+  "love-heart-lasers": getHeartLoop(
+    "Heart lasers",
+    16,
+    "heart-lasers",
+    ["every"],
+    [heartSpeedParameter("every", "Half beat")],
+  ),
+  "love-heart-wave": getHeartLoop(
+    "Heart wave",
+    8,
+    "heart-wave",
+    ["every"],
+    [
+      getValueParameter(
+        "Speed",
+        "every",
+        { "Half beat": 0.5, "Quarter beat": 0.25, "Eighth beat": 0.125 },
+        "Quarter beat",
+      ),
+    ],
+  ),
+  "love-heart-flip": getHeartPairLoop(
+    "Heart flip",
+    8,
+    "heart-flip",
+    "backColor",
+    ["every"],
+    [lovePulseParameter],
+  ),
+  "love-heart-warp": getHeartLoop(
+    "Heart warp",
+    8,
+    "heart-warp",
+    ["every", "surge"],
+    [lovePulseParameter, getValueParameter("Surge", "surge", { Off: 0, On: 1, Big: 2 }, "On")],
+  ),
+};
+
+const loveFaceAnimations: Readonly<Record<string, AnimationInput>> = {
+  "love-heart-face": getHeartLoop(
+    "Heart face",
+    16,
+    "heart-face",
+    ["beats", "every"],
+    [
+      getValueParameter("Face change", "beats", { Beat: 1, Bar: 4, "2 bars": 8 }, "Bar"),
+      lovePulseParameter,
+    ],
+  ),
+  "love-kaomoji-pop": getHeartLoop(
+    "Kaomoji pop",
+    8,
+    "kaomoji-pop",
+    ["rate"],
+    [heartSpeedParameter("rate", "Beat", true)],
+  ),
+  "love-kaomoji-kiss": getHeartLoop("Kaomoji kiss", 8, "kaomoji-kiss", [], []),
+  "love-heart-stream": getHeartLoop(
+    "<3 stream",
+    8,
+    "heart-stream",
+    ["count", "speed", "colors", "sizes", "direction"],
+    [
+      getValueParameter(
+        "Count",
+        "count",
+        { Few: 1, Some: 2, Lots: 4, Swarm: 8, Chaos: 16 },
+        "Lots",
+      ),
+      getValueParameter(
+        "Speed",
+        "speed",
+        { Slow: 0.5, Normal: 1, Fast: 2, "Very fast": 3 },
+        "Normal",
+      ),
+      getValueParameter(
+        "Colors",
+        "colors",
+        { Mixed: "mixed", Solid: "solid", Rainbow: "rainbow" },
+        "Mixed",
+      ),
+      getValueParameter("Sizes", "sizes", { Mixed: "mixed", Small: "small", Big: "big" }, "Mixed"),
+      getValueParameter(
+        "Direction",
+        "direction",
+        { Left: "left", Right: "right", Both: "both" },
+        "Left",
+      ),
+    ],
+  ),
+};
+
 export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
   ...getFolder("Basics", {
     plasma: getLoop(
@@ -2861,6 +3156,8 @@ export const seedAnimations: Readonly<Record<string, AnimationInput>> = {
     "cat-eyes": getLoop("Eyes in the dark", 32, [{ effect: "cat-eyes" }]),
   }),
   ...getFolder("Love", loveAnimations),
+  ...getFolder("Love/Abstract", loveAbstractAnimations),
+  ...getFolder("Love/ASCII", loveFaceAnimations),
   ...getFolder("Love/Bleeding", {
     ...Object.fromEntries(
       Object.entries({
