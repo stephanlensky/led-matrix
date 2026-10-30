@@ -248,6 +248,7 @@ function RecordingPlayer({ state }: { state: RecordingPlayerState }) {
         footer={
           <div className="flex h-9 items-center gap-3">
             <Button
+              variant="ghost"
               size="icon-sm"
               aria-label={isPlaying ? "Pause" : "Play"}
               onClick={() => (isPlaying ? window.api.pauseRecording() : window.api.playRecording())}
