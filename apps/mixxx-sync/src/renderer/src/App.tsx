@@ -1,16 +1,18 @@
 import { Navigation, type NavigationItem } from "@led-matrix/ui/components/navigation";
 import { TooltipProvider } from "@led-matrix/ui/components/tooltip";
-import { PencilRulerIcon, RadioTowerIcon, SettingsIcon } from "lucide-react";
+import { CpuIcon, PencilRulerIcon, RadioTowerIcon, SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import { Daemon } from "./Daemon.tsx";
+import { Device } from "./Device.tsx";
 import { Editor } from "./Editor.tsx";
 import { Settings } from "./Settings.tsx";
 import { useStoredState } from "./useStoredState.ts";
 
-type View = "daemon" | "editor" | "settings";
+type View = "daemon" | "device" | "editor" | "settings";
 
 const views: readonly NavigationItem<View>[] = [
   { id: "daemon", label: "Daemon", icon: RadioTowerIcon },
+  { id: "device", label: "Device", icon: CpuIcon },
   { id: "editor", label: "Editor", icon: PencilRulerIcon },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -34,6 +36,7 @@ export function App() {
           <div className={view === "daemon" ? "contents" : "hidden"}>
             <Daemon />
           </div>
+          {view === "device" && <Device />}
           {hasOpenedEditor && (
             <div className={view === "editor" ? "contents" : "hidden"}>
               <Editor />

@@ -13,9 +13,9 @@ import { Slider } from "@led-matrix/ui/components/slider";
 import { useBrowserClips } from "@led-matrix/ui/lib/clips";
 import { useStream } from "@led-matrix/ui/lib/stream";
 import { PauseIcon, PlayIcon, Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAnimationLane, getLanePosition } from "../../shared/animation-lane.ts";
-import type { LivePosition } from "../../shared/api.ts";
+import type { LivePosition, Settings } from "../../shared/api.ts";
 import { type Beats, getBeat, getPosition } from "../../shared/beats.ts";
 import type { Track } from "../../shared/library.ts";
 import type { Cue, MappingFile } from "../../shared/mapping.ts";
@@ -288,15 +288,40 @@ function PreviewSimulator({
   return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
 }
 
-function LiveSimulator({ streamUrl }: { streamUrl: string }) {
-  const { frame } = useStream(streamUrl);
-  return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
+function getStreamUrl({ serverUrl, output }: Settings): string {
+  const url = new URL(`/api/stream/${output}`, serverUrl);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.href;
 }
 
-function LocalLiveSimulator() {
+export function getLiveSource(settings: Settings): LiveSource {
+  return settings.outputMode === "local"
+    ? { type: "local" }
+    : { type: "server", url: getStreamUrl(settings) };
+}
+
+type LiveFrameProps = {
+  overlay?: ReactNode;
+  className?: string;
+};
+
+function ServerLiveFrame({ url, ...props }: LiveFrameProps & { url: string }) {
+  const { frame } = useStream(url);
+  return <MatrixFrame frame={frame} showGrid {...props} />;
+}
+
+function LocalLiveFrame(props: LiveFrameProps) {
   const [frame, setFrame] = useState<Frame>(blankFrame);
   useEffect(() => window.api.onLocalFrame(setFrame), []);
-  return <MatrixFrame frame={frame} showGrid className={FRAME_CLASS} />;
+  return <MatrixFrame frame={frame} showGrid {...props} />;
+}
+
+export function LiveFrame({ source, ...props }: LiveFrameProps & { source: LiveSource }) {
+  return source.type === "local" ? (
+    <LocalLiveFrame {...props} />
+  ) : (
+    <ServerLiveFrame url={source.url} {...props} />
+  );
 }
 
 export function PlaybackSimulator({
@@ -341,11 +366,8 @@ export function PlaybackSimulator({
     }
   }, [isPlaying, onLiveViewEnd]);
 
-  if (live?.type === "local") {
-    return <LocalLiveSimulator />;
-  }
-  if (live?.type === "server") {
-    return <LiveSimulator streamUrl={live.url} />;
+  if (live) {
+    return <LiveFrame source={live} className={FRAME_CLASS} />;
   }
   if (preview && previewAnimation && !isActive) {
     return (
